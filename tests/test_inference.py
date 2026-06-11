@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 from src.inference.pipeline import ClarificationPipeline
+
 
 @patch("src.inference.pipeline.AutoModelForCausalLM.from_pretrained")
 @patch("src.inference.pipeline.AutoTokenizer.from_pretrained")
