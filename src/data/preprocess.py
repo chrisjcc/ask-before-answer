@@ -1,0 +1,128 @@
+import json
+import ast
+import pandas as pd
+import logging
+from typing import List, Dict, Any
+from datasets import load_dataset
+
+logger = logging.getLogger(__name__)
+
+def clean_facets(facets: Any) -> List[str]:
+    """Clean and parse facet lists."""
+    if isinstance(facets, list):
+        return facets
+    if isinstance(facets, str):
+        try:
+            val = ast.literal_eval(facets)
+            return val if isinstance(val, list) else []
+        except Exception:
+            return []
+    return []
+
+def clean_response(resp: Any) -> str:
+    """Clean model responses."""
+    if resp is None:
+        return ""
+    if isinstance(resp, list):
+        return str(resp[0]) if resp else ""
+    if isinstance(resp, str) and resp.startswith("[") and resp.endswith("]"):
+        try:
+            lst = ast.literal_eval(resp)
+            return str(lst[0]) if lst else ""
+        except Exception:
+            pass
+    return str(resp).strip()
+
+def extract_qa_data(dataset_name: str, split: str = "train", max_samples: int = None) -> pd.DataFrame:
+    """Load AmbigQA dataset and extract question and annotation details."""
+    logger.info(f"Loading dataset {dataset_name} ({split})...")
+    ds = load_dataset(dataset_name, split=split)
+    if max_samples:
+        ds = ds.select(range(min(len(ds), max_samples)))
+        
+    rows = []
+    for entry in ds:
+        ann = entry["annotations"]
+        ann_type = ann["type"][0] if isinstance(ann["type"], list) else ann["type"]
+        qa_pairs = ann.get("qaPairs", [])
+        if len(qa_pairs) == 1 and isinstance(qa_pairs[0], list):
+            qa_pairs = qa_pairs[0]
+            
+        single_ans_list = ann.get("answer", [])
+        single_ans_flat = []
+        if isinstance(single_ans_list, list):
+            for ans in single_ans_list:
+                if isinstance(ans, list):
+                    single_ans_flat.extend(ans)
+                elif isinstance(ans, str):
+                    single_ans_flat.append(ans)
+                    
+        is_ambiguous = (ann_type == "multipleQAs")
+        
+        rows.append({
+            "question": entry["question"],
+            "is_ambiguous": is_ambiguous,
+            "action": "Clarify" if is_ambiguous else "Answer",
+            # We would normally generate facets and reasoning via an LLM or use ground truth.
+            # For this pipeline template, we will use mock/extracted values.
+            "facets": ["Entity Reference"] if is_ambiguous else [],
+            "reasoning": "The question is missing specific details." if is_ambiguous else "The question is clear.",
+            "positive_response": qa_pairs[0].get("question", "Could you clarify?") if is_ambiguous and qa_pairs else "Direct answer."
+        })
+        
+    df = pd.DataFrame(rows)
+    return df
+
+def prepare_sft_dataset(df: pd.DataFrame, output_path: str):
+    """Format DataFrame into SFT JSONL format."""
+    logger.info(f"Preparing SFT dataset to {output_path}...")
+    records = []
+    
+    system_instruction = (
+        "Decide whether the user's question is ambiguous. "
+        "If ambiguous, explain the ambiguity, list facets, and ask a clarifying question. "
+        "If not ambiguous, explain why and answer directly."
+    )
+    
+    for _, row in df.iterrows():
+        is_amb = row["is_ambiguous"]
+        facets = clean_facets(row["facets"])
+        
+        records.append({
+            "instruction": system_instruction,
+            "input": row["question"],
+            "output": {
+                "action": row["action"],
+                "reasoning": row["reasoning"],
+                "facets": facets if is_amb else [],
+                "response": clean_response(row["positive_response"])
+            }
+        })
+        
+    with open(output_path, "w") as f:
+        for r in records:
+            f.write(json.dumps(r) + "\\n")
+            
+    logger.info(f"Saved {len(records)} records for SFT.")
+
+def prepare_dpo_dataset(df: pd.DataFrame, output_path: str):
+    """Format DataFrame into DPO JSONL format."""
+    logger.info(f"Preparing DPO dataset to {output_path}...")
+    records = []
+    
+    for _, row in df.iterrows():
+        # DPO requires chosen vs rejected
+        chosen_resp = clean_response(row["positive_response"])
+        rejected_resp = "I don't know." # A placeholder bad response
+        
+        records.append({
+            "prompt": f"User: {row['question']}\\nAssistant: ",
+            "chosen": chosen_resp,
+            "rejected": rejected_resp,
+        })
+        
+    with open(output_path, "w") as f:
+        for r in records:
+            f.write(json.dumps(r) + "\\n")
+            
+    logger.info(f"Saved {len(records)} records for DPO.")
