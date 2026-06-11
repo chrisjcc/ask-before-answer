@@ -1,0 +1,6 @@
+name: "sewon/ambig_qa"
+split: "train"
+preprocessing_type: "light"
+output_sft_file: "${data_dir}/sft_data.jsonl"
+output_dpo_file: "${data_dir}/dpo_data.jsonl"
+max_samples: null
