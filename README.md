@@ -124,7 +124,6 @@ ask-before-answer/
 ├── app/                  # Streamlit Hugging Face Space UI
 ├── configs/              # Hydra YAML configurations (model, data, training)
 ├── data/                 # Processed dataset files (ignored in git)
-├── legacy/               # Original CS546 notebooks and report
 ├── models/               # Model checkpoints (ignored in git)
 ├── scripts/              # Executable CLI entry points
 ├── src/                  # Core Python modules
