@@ -1,27 +1,27 @@
-import torch
 import logging
-from typing import Optional, Dict, Any
+
+import torch
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
-from peft import LoraConfig, get_peft_model
-from trl import SFTTrainer, DPOTrainer
 from omegaconf import DictConfig
+from peft import LoraConfig, get_peft_model
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from trl import DPOTrainer, SFTTrainer
 
 logger = logging.getLogger(__name__)
+
 
 def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     """Load tokenizer and model with given configuration."""
     logger.info(f"Loading model {model_cfg.name}...")
-    
+
     tokenizer = AutoTokenizer.from_pretrained(
-        model_cfg.name,
-        trust_remote_code=model_cfg.trust_remote_code
+        model_cfg.name, trust_remote_code=model_cfg.trust_remote_code
     )
-    
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
-    
+
     model = AutoModelForCausalLM.from_pretrained(
         model_cfg.name,
         torch_dtype=getattr(torch, model_cfg.torch_dtype),
@@ -30,11 +30,11 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
         load_in_8bit=model_cfg.get("load_in_8bit", False),
         load_in_4bit=model_cfg.get("load_in_4bit", False),
     )
-    
+
     if is_train:
         model.config.use_cache = False
         model.gradient_checkpointing_enable()
-        
+
         # Apply LoRA
         if "lora" in model_cfg:
             lora_cfg = model_cfg.lora
@@ -44,39 +44,45 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
                 lora_dropout=lora_cfg.lora_dropout,
                 bias=lora_cfg.bias,
                 task_type=lora_cfg.task_type,
-                target_modules=list(lora_cfg.target_modules)
+                target_modules=list(lora_cfg.target_modules),
             )
             model = get_peft_model(model, config)
             logger.info("Applied LoRA configuration.")
-            
+
     return model, tokenizer
+
 
 def run_sft_training(cfg: DictConfig):
     """Run Supervised Fine-Tuning."""
     logger.info("Initializing SFT Training...")
-    
+
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
-    
+
     logger.info(f"Loading SFT dataset from {cfg.data.output_sft_file}...")
     dataset = load_dataset("json", data_files=cfg.data.output_sft_file)["train"]
-    
+
     # Format text for training
     def format_chat(example):
         messages = [
             {"role": "system", "content": example["instruction"]},
             {"role": "user", "content": example["input"]},
-            {"role": "assistant", "content": (
-                f"Action: {example['output']['action']}\\n"
-                f"Reasoning: {example['output']['reasoning']}\\n"
-                f"Facets: {example['output']['facets']}\\n"
-                f"Response: {example['output']['response']}"
-            )}
+            {
+                "role": "assistant",
+                "content": (
+                    f"Action: {example['output']['action']}\\n"
+                    f"Reasoning: {example['output']['reasoning']}\\n"
+                    f"Facets: {example['output']['facets']}\\n"
+                    f"Response: {example['output']['response']}"
+                ),
+            },
         ]
-        formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=False
+        )
         return {"text": formatted}
-        
+
     formatted_dataset = dataset.map(format_chat, remove_columns=dataset.column_names)
-    
+
     training_args = TrainingArguments(
         output_dir=cfg.training.output_dir,
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
@@ -91,7 +97,7 @@ def run_sft_training(cfg: DictConfig):
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
     )
-    
+
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -101,25 +107,28 @@ def run_sft_training(cfg: DictConfig):
         packing=cfg.training.packing,
         args=training_args,
     )
-    
+
     logger.info("Starting SFT Training...")
     trainer.train()
-    
+
     trainer.save_model(f"{cfg.training.output_dir}/final")
     tokenizer.save_pretrained(f"{cfg.training.output_dir}/final")
     logger.info("SFT Training complete and model saved.")
 
+
 def run_dpo_training(cfg: DictConfig):
     """Run Direct Preference Optimization."""
     logger.info("Initializing DPO Training...")
-    
+
     # Load model and reference model
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
-    ref_model, _ = load_model_and_tokenizer(cfg.model, is_train=False) # Ref model without LoRA adapters trainable
-    
+    ref_model, _ = load_model_and_tokenizer(
+        cfg.model, is_train=False
+    )  # Ref model without LoRA adapters trainable
+
     logger.info(f"Loading DPO dataset from {cfg.data.output_dpo_file}...")
     dataset = load_dataset("json", data_files=cfg.data.output_dpo_file)["train"]
-    
+
     training_args = TrainingArguments(
         output_dir=cfg.training.output_dir,
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
@@ -134,7 +143,7 @@ def run_dpo_training(cfg: DictConfig):
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
     )
-    
+
     trainer = DPOTrainer(
         model=model,
         ref_model=ref_model,
@@ -145,10 +154,10 @@ def run_dpo_training(cfg: DictConfig):
         max_prompt_length=cfg.training.max_prompt_length,
         max_length=cfg.training.max_length,
     )
-    
+
     logger.info("Starting DPO Training...")
     trainer.train()
-    
+
     trainer.save_model(f"{cfg.training.output_dir}/final")
     tokenizer.save_pretrained(f"{cfg.training.output_dir}/final")
     logger.info("DPO Training complete and model saved.")
