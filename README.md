@@ -33,8 +33,8 @@ This repository has been restructured into a modular, highly maintainable Python
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/chrisjcc/AskBeforeAnswer.git
-   cd AskBeforeAnswer
+   git clone https://github.com/chrisjcc/ask-before-answer.git
+   cd ask-before-answer
    ```
 
 2. **Setup virtual environment & install dependencies:**
@@ -120,7 +120,7 @@ docker run -p 8501:8501 askbeforeanswer-app
 ## 🏗️ Repository Structure
 
 ```
-AskBeforeAnswer/
+ask-before-answer/
 ├── app/                  # Streamlit Hugging Face Space UI
 ├── configs/              # Hydra YAML configurations (model, data, training)
 ├── data/                 # Processed dataset files (ignored in git)
