@@ -40,6 +40,7 @@ This repository has been restructured into a modular, highly maintainable Python
 2. **Setup virtual environment & install dependencies:**
    ```bash
    make install
+   make install-dvc  # Recommended: Installs DVC globally via uv or pipx
    ```
 
 3. **Configure Environment Variables:**
@@ -61,10 +62,11 @@ Prepares the AmbigNQ dataset for SFT and DPO stages.
 python scripts/preprocess_data.py
 ```
 
-### 2. Full Ablation Pipeline
-Run the complete automated pipeline (Data -> SFT -> DPO -> Evaluation):
+### 2. Full Pipeline (via DVC)
+Run the complete automated pipeline (Data -> SFT -> SFT Eval -> DPO -> SFT+DPO Eval) using Data Version Control (DVC):
 ```bash
-make run-ablation
+make run-pipeline
+# Alternatively, use: dvc repro
 ```
 
 ### Running Individual Stages
@@ -117,6 +119,22 @@ docker run -p 8501:8501 askbeforeanswer-app
 
 ---
 
+## 🗂️ Data Version Control (DVC) Integration
+
+This project uses **DVC (Data Version Control)** to manage large datasets, model checkpoints, and orchestrated training pipelines alongside Git. 
+
+### Key Features Used:
+1. **Tracking Large Datasets & Artifacts:**
+   Large files in `data/` and `models/` are tracked via DVC. This prevents your Git repository from becoming bloated while still allowing you to version the `.dvc` tracking files.
+2. **Managing Model Checkpoints:**
+   LoRA weights generated in `models/sft_output` and `models/dpo_output` are managed by DVC. You can use `dvc checkout` to revert to previous model weights perfectly synced with your Git commits.
+3. **Pipeline Reproducibility (`dvc.yaml`):**
+   The entire training pipeline (data preprocessing, SFT, DPO, and evaluation) is defined declaratively in `dvc.yaml` as a Directed Acyclic Graph (DAG). DVC automatically detects dependency changes (e.g., if you edit `configs/training/sft.yaml`) and intelligently re-runs only the required stages, skipping unchanged ones.
+4. **Metrics Tracking:**
+   Evaluation results generated in `results/` are configured as DVC metrics. You can compare how changes affect your model's F1 scores across branches using `dvc metrics diff`.
+
+---
+
 ## 🏗️ Repository Structure
 
 ```
@@ -134,6 +152,7 @@ ask-before-answer/
 ├── tests/                # Pytest unit tests
 ├── .env.example          # Environment secrets template
 ├── Dockerfile            # Container deployment definition
+├── dvc.yaml              # DVC pipeline definition
 ├── Makefile              # Reproducible command aliases
 ├── pyproject.toml        # Project metadata and linting config
 └── requirements.txt      # Python dependencies
