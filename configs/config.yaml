@@ -1,0 +1,13 @@
+defaults:
+  - model: qwen2_5_7b
+  - data: ambignq
+  - training: sft
+  - _self_
+
+seed: 42
+output_dir: "outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+
+# Global paths
+project_dir: ${hydra:runtime.cwd}
+data_dir: "${project_dir}/data"
+models_dir: "${project_dir}/models"
