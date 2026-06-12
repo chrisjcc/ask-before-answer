@@ -26,7 +26,7 @@ def load_model():
 st.title("AskBeforeAnswer 🤖")
 st.markdown(
     "This application demonstrates **clarification-seeking behavior** in Large "
-    "Language Models. \\n"
+    "Language Models. \n"
     "When given an ambiguous question, instead of hallucinating or assuming an "
     "intent, the model detects the ambiguity, explains the reasoning, identifies "
     "missing facets, and asks a targeted clarification question."
