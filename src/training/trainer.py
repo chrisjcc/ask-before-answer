@@ -4,8 +4,13 @@ import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
-from trl import DPOTrainer, SFTTrainer
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    TrainingArguments,
+)
+from trl import DPOTrainer, SFTTrainer, SFTConfig, DPOConfig
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +27,35 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_cfg.name,
-        torch_dtype=getattr(torch, model_cfg.torch_dtype),
-        device_map=model_cfg.device_map,
-        trust_remote_code=model_cfg.trust_remote_code,
-        load_in_8bit=model_cfg.get("load_in_8bit", False),
-        load_in_4bit=model_cfg.get("load_in_4bit", False),
-    )
+    kwargs = {
+        "torch_dtype": getattr(torch, model_cfg.torch_dtype),
+        "trust_remote_code": model_cfg.trust_remote_code,
+    }
+
+    load_in_8bit = model_cfg.get("load_in_8bit", False)
+    load_in_4bit = model_cfg.get("load_in_4bit", False)
+
+    if torch.cuda.is_available():
+        kwargs["device_map"] = model_cfg.device_map
+        if load_in_8bit or load_in_4bit:
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_8bit=load_in_8bit,
+                load_in_4bit=load_in_4bit,
+            )
+    else:
+        # Prevent meta device offloading on Mac/CPU which crashes PEFT backward pass
+        if torch.backends.mps.is_available():
+            kwargs["device_map"] = {"": "mps"}
+        else:
+            kwargs["device_map"] = {"": "cpu"}
+            
+        if load_in_8bit or load_in_4bit:
+            logger.warning(
+                "CUDA is not available. Disabling 8-bit/4-bit quantization as "
+                "bitsandbytes requires CUDA."
+            )
+
+    model = AutoModelForCausalLM.from_pretrained(model_cfg.name, **kwargs)
 
     if is_train:
         model.config.use_cache = False
@@ -83,7 +109,7 @@ def run_sft_training(cfg: DictConfig):
 
     formatted_dataset = dataset.map(format_chat, remove_columns=dataset.column_names)
 
-    training_args = TrainingArguments(
+    training_args = SFTConfig(
         output_dir=cfg.training.output_dir,
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
         gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
@@ -96,15 +122,15 @@ def run_sft_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
+        dataset_text_field="text",
+        max_length=cfg.training.max_seq_length,
+        packing=cfg.training.packing,
     )
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=formatted_dataset,
-        dataset_text_field="text",
-        max_seq_length=cfg.training.max_seq_length,
-        packing=cfg.training.packing,
         args=training_args,
     )
 
@@ -129,7 +155,7 @@ def run_dpo_training(cfg: DictConfig):
     logger.info(f"Loading DPO dataset from {cfg.data.output_dpo_file}...")
     dataset = load_dataset("json", data_files=cfg.data.output_dpo_file)["train"]
 
-    training_args = TrainingArguments(
+    training_args = DPOConfig(
         output_dir=cfg.training.output_dir,
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
         gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
@@ -142,17 +168,17 @@ def run_dpo_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
+        beta=cfg.training.beta,
+        max_prompt_length=cfg.training.max_prompt_length,
+        max_length=cfg.training.max_length,
     )
 
     trainer = DPOTrainer(
         model=model,
         ref_model=ref_model,
         args=training_args,
-        beta=cfg.training.beta,
         train_dataset=dataset,
-        tokenizer=tokenizer,
-        max_prompt_length=cfg.training.max_prompt_length,
-        max_length=cfg.training.max_length,
+        processing_class=tokenizer,
     )
 
     logger.info("Starting DPO Training...")
