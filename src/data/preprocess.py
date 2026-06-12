@@ -122,7 +122,7 @@ def prepare_sft_dataset(df: pd.DataFrame, output_path: str):
 
     with open(output_path, "w") as f:
         for r in records:
-            f.write(json.dumps(r) + "\\n")
+            f.write(json.dumps(r) + "\n")
 
     logger.info(f"Saved {len(records)} records for SFT.")
 
@@ -147,6 +147,6 @@ def prepare_dpo_dataset(df: pd.DataFrame, output_path: str):
 
     with open(output_path, "w") as f:
         for r in records:
-            f.write(json.dumps(r) + "\\n")
+            f.write(json.dumps(r) + "\n")
 
     logger.info(f"Saved {len(records)} records for DPO.")
