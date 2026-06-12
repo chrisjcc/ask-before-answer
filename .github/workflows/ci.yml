@@ -35,3 +35,41 @@ jobs:
     - name: Run tests
       run: |
         pytest tests/
+
+  deploy-to-hf:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Hugging Face Spaces
+      env:
+        HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      run: |
+        # Setup Git
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions"
+        
+        # Clone the HF Space repository
+        git clone https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo hf_space
+        cd hf_space
+        
+        # Clean existing files (except .git) to allow for deletions
+        find . -maxdepth 1 ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
+        
+        # Copy essential runtime files from the GitHub repo
+        cp ../Dockerfile .
+        cp ../requirements.txt .
+        cp ../pyproject.toml .
+        cp -r ../app .
+        cp -r ../src .
+        
+        # Copy the specific Hugging Face README as the root README.md
+        cp ../.github/hf_space_readme.md README.md
+        
+        # Commit and Push
+        git add .
+        git commit -m "Automated deployment from GitHub Actions: ${GITHUB_SHA}" || echo "No changes to commit"
+        git push origin main
+
