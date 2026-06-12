@@ -20,7 +20,8 @@ RUN pip install -e .
 
 EXPOSE 8501
 
-ENV MODEL_PATH="Qwen/Qwen2.5-7B-Instruct"
+# Ideal model "Qwen/Qwen2.5-7B-Instruct"
+ENV MODEL_PATH="Qwen/Qwen2.5-3B-Instruct"
 ENV IS_PEFT="false"
 
 CMD ["streamlit", "run", "app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
