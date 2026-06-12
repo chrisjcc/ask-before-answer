@@ -1,5 +1,7 @@
 # AskBeforeAnswer 🤖
 
+[![AskBeforeAnswer CI](https://github.com/chrisjcc/ask-before-answer/actions/workflows/ci.yml/badge.svg)](https://github.com/chrisjcc/ask-before-answer/actions/workflows/ci.yml)
+
 > A production-grade, clarification-seeking language model based on Qwen 2.5 7B.
 
 When a question is ambiguous ("How do I make pasta?"), multiple valid interpretations exist. This project trains an LLM to surface *which* interpretation a user intends by generating **facets** — structured disambiguation options — and asking targeted clarification questions before answering.
