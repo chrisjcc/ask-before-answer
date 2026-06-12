@@ -8,9 +8,8 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
-    TrainingArguments,
 )
-from trl import DPOTrainer, SFTTrainer, SFTConfig, DPOConfig
+from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
             kwargs["device_map"] = {"": "mps"}
         else:
             kwargs["device_map"] = {"": "cpu"}
-            
+
         if load_in_8bit or load_in_4bit:
             logger.warning(
                 "CUDA is not available. Disabling 8-bit/4-bit quantization as "
