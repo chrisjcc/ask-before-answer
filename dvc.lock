@@ -1,0 +1,22 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python scripts/preprocess_data.py
+    deps:
+    - path: configs/data/ambignq.yaml
+      hash: md5
+      md5: b5786e4d886f8b8e176925ab796aaac4
+      size: 176
+    - path: src/data/preprocess.py
+      hash: md5
+      md5: b9c2cda6ab61bd7fd3ee57e21cfba8ba
+      size: 4904
+    outs:
+    - path: data/dpo_data.jsonl
+      hash: md5
+      md5: fb4d17cef59bf995f39fab5a6ed88c7b
+      size: 1637824
+    - path: data/sft_data.jsonl
+      hash: md5
+      md5: 47ab148625c934a719cebe4a3c928bf3
+      size: 4186706
