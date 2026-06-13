@@ -1,3 +1,4 @@
 .dvc/config.local
 .env
 *.secret
+/data
