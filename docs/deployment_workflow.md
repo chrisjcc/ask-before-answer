@@ -22,18 +22,28 @@ By triggering a **Git Release Tag**, the CI/CD pipeline automatically authentica
 
 Follow these instructions to execute the end-to-end pipeline from local development to public Hugging Face deployment.
 
-### 1. One-Time Setup: Configure DVC Remote
-You must configure DVC to know where your internal "Messy Kitchen" storage bucket is located. In this project, we use a Hugging Face Dataset repository acting as a WebDAV storage bucket.
+### 1. One-Time Setup: Configure DVC Remote (Google Drive API)
+You must configure DVC to know where your internal "Messy Kitchen" storage bucket is located. In this project, we use a Google Drive folder as the DVC remote, authenticated via a Service Account. The preprocessed data is stored in the user's Google Drive and when a github release is created, a version of the preprocessed dataset is uploaded to the Hugging Face dataset hub.
 
+**Creating the Google Drive Service Account:**
+To call this API from your own applications, you may need to create credentials. What data will you be accessing? Select "Application data" this will create a service account.
+
+1. Go to Google Cloud Console → **IAM & Admin** → **Service Accounts**.
+2. Click **Create Service Account**.
+3. Give it a name like `dvc-gdrive`.
+4. Give the service account a description (e.g., *GDRIVE CREDENTIALS DATA*).
+5. Permissions (optional), e.g., role set to **Editor**. Skip role assignment (Drive access is via sharing, not IAM roles).
+6. Principals with access (optional), skip.
+7. Create and download a new JSON key by clicking on **Keys**, then **Add Key**, then select **JSON** (recommended).
+8. Share your target Google Drive folder with the new `dvc-gdrive@...iam.gserviceaccount.com` email address.
+9. Update your `GDRIVE_CREDENTIALS_DATA` GitHub repository secret with the contents of the new JSON file.
+
+**Configure DVC Locally:**
 ```bash
-# Add your HF bucket as the default DVC remote using WebDAV
-dvc remote add -d origin webdavs://huggingface.co/datasets/chrisjcc/ask-before-answer-dataset/tree/main
-
-# Authenticate DVC with your HF Token (Requires Write Access)
-dvc remote modify --local origin user chrisjcc
-dvc remote modify --local origin password YOUR_HF_TOKEN_HERE
+# Add your Google Drive folder as the default DVC remote
+# Replace <YOUR_FOLDER_ID> with the long ID string from your Google Drive folder's URL
+dvc remote add -d origin gdrive://<YOUR_FOLDER_ID>
 ```
-*(Note: The `--local` flag ensures your password is saved to `.dvc/config.local` and is never committed to Git).*
 
 ### 2. The Development Phase (Locally)
 When you want to process data or train the model, do not run the Python scripts directly. Let DVC orchestrate the pipeline so it can automatically track the outputs.
