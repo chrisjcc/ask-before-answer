@@ -2,3 +2,4 @@
     remote = origin
 ['remote "origin"']
     url = gdrive://1CsUIyRz0SZX0fdOVeWxZQzAJxYlTHeaO
+    gdrive_acknowledge_abuse = true
