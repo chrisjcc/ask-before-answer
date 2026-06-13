@@ -31,7 +31,8 @@ jobs:
           dvc remote modify --local origin gdrive_service_account_json_file_path /tmp/sa.json
 
       - name: Pull data via DVC
-        run: dvc pull
+        #run: dvc pull
+        run: dvc pull data.dvc
 
       - name: Publish to Hugging Face Hub
         env:
