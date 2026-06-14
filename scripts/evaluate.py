@@ -3,10 +3,14 @@ import logging
 import os
 
 import hydra
+import wandb
+from dotenv import load_dotenv
 from omegaconf import DictConfig
 
 from src.evaluation.judge import run_evaluation_suite
 from src.inference.pipeline import ClarificationPipeline
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,6 +20,11 @@ logger = logging.getLogger(__name__)
 def main(cfg: DictConfig):
     model_name = cfg.get("model_name", "sft")
     logger.info(f"Starting evaluation pipeline for {model_name}...")
+
+    wandb.init(
+        project=os.environ.get("WANDB_PROJECT", "ask-before-answer"),
+        name=f"eval_{model_name}",
+    )
 
     # Determine model path
     if model_name == "base":
@@ -53,6 +62,7 @@ def main(cfg: DictConfig):
         logger.info("Running Gemini evaluation suite...")
         metrics = run_evaluation_suite(outputs)
         logger.info(f"Evaluation Metrics: {json.dumps(metrics, indent=2)}")
+        wandb.log(metrics)
 
         # Save metrics
         os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
@@ -64,6 +74,7 @@ def main(cfg: DictConfig):
         logger.warning("GEMINI_API_KEY not found. Skipping Gemini evaluation.")
 
     logger.info("Evaluation complete.")
+    wandb.finish()
 
 
 if __name__ == "__main__":

@@ -2,9 +2,12 @@ import logging
 import os
 
 import hydra
+from dotenv import load_dotenv
 from omegaconf import DictConfig
 
 from src.training.trainer import run_dpo_training
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
