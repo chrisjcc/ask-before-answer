@@ -4,6 +4,7 @@ import os
 
 import hydra
 import wandb
+from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
@@ -42,17 +43,19 @@ def main(cfg: DictConfig):
 
     pipeline = ClarificationPipeline(model_path, is_peft=is_peft)
 
-    # Run evaluation on a small test set (e.g. 10 examples)
-    # Ideally load this from cfg.data.test_file
-    test_questions = [
-        "When did The Simpsons first air?",
-        "Who won the US Open?",
-        "How do I make pasta?",
-        "What is the capital of France?",
-    ]
+    # Run evaluation on the test set
+    dataset_name = cfg.evaluation.dataset_name
+    split_name = cfg.evaluation.split
+    logger.info(f"Loading evaluation dataset: {dataset_name} ({split_name} split)")
+    dataset = load_dataset(dataset_name, split=split_name)
+
+    # Slice to max_samples
+    max_samples = cfg.evaluation.get("max_samples", 20)
+    dataset = dataset.select(range(min(max_samples, len(dataset))))
 
     outputs = []
-    for q in test_questions:
+    for example in dataset:
+        q = example["question"]
         resp = pipeline.generate(q)
         logger.info(f"Q: {q}\\nA: {resp}\\n---")
         outputs.append({"question": q, "response": resp})

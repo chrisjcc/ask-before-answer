@@ -1,0 +1,3 @@
+dataset_name: "sewon/ambig_qa"
+split: "validation"
+max_samples: 20

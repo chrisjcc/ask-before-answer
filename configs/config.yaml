@@ -2,6 +2,7 @@ defaults:
   - model: qwen2_5_7b
   - data: ambignq
   - training: sft
+  - evaluation: default
   - _self_
 
 seed: 42
