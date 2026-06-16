@@ -1,4 +1,4 @@
-.PHONY: help install install-dvc run-pipeline train evaluate infer format lint test docker-build run-app clean
+.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only ablation-suite evaluate infer format lint test docker-build run-app clean
 
 # -------------------------
 # Help
@@ -8,13 +8,20 @@ help:
 	@echo "DVC-driven ML pipeline"
 	@echo ""
 	@echo "Core commands:"
-	@echo "  make install        Install dependencies"
-	@echo "  make run-pipeline   Run full DVC pipeline"
-	@echo "  make train          Alias for run-pipeline"
+	@echo "  make install            Install dependencies"
+	@echo "  make run-pipeline       Run full DVC pipeline"
+	@echo "  make train              Alias for run-pipeline"
+	@echo ""
+	@echo "Training variants (DVC stages):"
+	@echo "  make train-sft          Run SFT stage"
+	@echo "  make train-dpo          Run DPO stage (requires SFT)"
+	@echo "  make train-sft-only     Run SFT-only baseline"
+	@echo "  make train-dpo-only     Run DPO-only baseline"
+	@echo "  make ablation-suite     Run all experimental variants"
 	@echo ""
 	@echo "Utils:"
-	@echo "  make evaluate       Run evaluation scripts"
-	@echo "  make infer          Run inference"
+	@echo "  make evaluate           Run evaluation scripts"
+	@echo "  make infer              Run inference"
 	@echo ""
 
 # -------------------------
@@ -42,6 +49,24 @@ run-pipeline:
 	dvc repro
 
 train: run-pipeline
+
+# -------------------------
+# DVC training targets
+# -------------------------
+train-sft:
+	dvc repro train_sft
+
+train-dpo:
+	dvc repro train_dpo
+
+train-sft-only:
+	dvc repro train_sft_only
+
+train-dpo-only:
+	dvc repro train_dpo_only
+
+ablation-suite:
+	dvc repro train_sft_only train_dpo_only train_sft train_dpo
 
 # -------------------------
 # Evaluation / inference (optional shortcuts)
