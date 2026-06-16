@@ -12,6 +12,7 @@ protobuf
 einops
 wandb>=0.27.2
 bitsandbytes>=0.49.2
+flash-attn>=2.8.3.post1
 
 # Data processing & Utils
 pandas
