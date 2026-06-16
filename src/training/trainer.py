@@ -33,14 +33,28 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
 
     load_in_8bit = model_cfg.get("load_in_8bit", False)
     load_in_4bit = model_cfg.get("load_in_4bit", False)
+#    bnb_4bit_use_double_quant = model_cfg.get("bnb_4bit_use_double_quant", False)
 
     if torch.cuda.is_available():
         kwargs["device_map"] = model_cfg.device_map
         if load_in_8bit or load_in_4bit:
-            kwargs["quantization_config"] = BitsAndBytesConfig(
+            compute_dtype = getattr(
+                torch, model_cfg.get(
+                    "bnb_4bit_compute_dtype",
+                    "bfloat16"
+                )
+            )
+
+            quantization_config = BitsAndBytesConfig(
                 load_in_8bit=load_in_8bit,
                 load_in_4bit=load_in_4bit,
+                # QLoRA settings
+                bnb_4bit_quant_type=model_cfg.get("bnb_4bit_quant_type", "nf4"),
+                bnb_4bit_compute_dtype=compute_dtype,
+                bnb_4bit_use_double_quant=model_cfg.get("bnb_4bit_use_double_quant", True),
             )
+
+            kwargs["quantization_config"] = quantization_config
     else:
         # Prevent meta device offloading on Mac/CPU which crashes PEFT backward pass
         if torch.backends.mps.is_available():
