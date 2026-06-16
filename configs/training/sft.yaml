@@ -6,8 +6,8 @@ learning_rate: 2e-4
 warmup_ratio: 0.05
 bf16: true
 logging_steps: 10
-save_steps: 200
-save_total_limit: 2
+save_steps: 500
+save_total_limit: 3
 optim: "paged_adamw_8bit"
 report_to: "wandb"
 max_seq_length: 2048
