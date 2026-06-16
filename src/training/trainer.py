@@ -4,7 +4,11 @@ import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+)
 from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 
 logger = logging.getLogger(__name__)
@@ -32,19 +36,16 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
 
     if torch.cuda.is_available():
         kwargs["device_map"] = model_cfg.device_map
-
         if load_in_8bit or load_in_4bit:
             compute_dtype = getattr(
-                torch,
-                model_cfg.get("bnb_4bit_compute_dtype", "bfloat16"),
+                torch, model_cfg.get("bnb_4bit_compute_dtype", "bfloat16")
             )
 
             quantization_config = BitsAndBytesConfig(
                 load_in_8bit=load_in_8bit,
                 load_in_4bit=load_in_4bit,
-                bnb_4bit_quant_type=model_cfg.get(
-                    "bnb_4bit_quant_type", "nf4"
-                ),
+                # QLoRA settings
+                bnb_4bit_quant_type=model_cfg.get("bnb_4bit_quant_type", "nf4"),
                 bnb_4bit_compute_dtype=compute_dtype,
                 bnb_4bit_use_double_quant=model_cfg.get(
                     "bnb_4bit_use_double_quant", True
@@ -52,7 +53,6 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
             )
 
             kwargs["quantization_config"] = quantization_config
-
     else:
         # Prevent meta device offloading on Mac/CPU which crashes PEFT backward pass
         if torch.backends.mps.is_available():
@@ -62,8 +62,8 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
 
         if load_in_8bit or load_in_4bit:
             logger.warning(
-                "CUDA is not available. Disabling 8-bit/4-bit quantization "
-                "as bitsandbytes requires CUDA."
+                "CUDA is not available. Disabling 8-bit/4-bit quantization as "
+                "bitsandbytes requires CUDA."
             )
 
     model = AutoModelForCausalLM.from_pretrained(model_cfg.name, **kwargs)
@@ -96,10 +96,9 @@ def run_sft_training(cfg: DictConfig):
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
 
     logger.info(f"Loading SFT dataset from {cfg.data.output_sft_file}...")
-    dataset = load_dataset("json", data_files=cfg.data.output_sft_file)[
-        "train"
-    ]
+    dataset = load_dataset("json", data_files=cfg.data.output_sft_file)["train"]
 
+    # Format text for training
     def format_chat(example):
         messages = [
             {"role": "system", "content": example["instruction"]},
@@ -107,24 +106,19 @@ def run_sft_training(cfg: DictConfig):
             {
                 "role": "assistant",
                 "content": (
-                    f"Action: {example['output']['action']}\n"
-                    f"Reasoning: {example['output']['reasoning']}\n"
-                    f"Facets: {example['output']['facets']}\n"
+                    f"Action: {example['output']['action']}\\n"
+                    f"Reasoning: {example['output']['reasoning']}\\n"
+                    f"Facets: {example['output']['facets']}\\n"
                     f"Response: {example['output']['response']}"
                 ),
             },
         ]
-
         formatted = tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=False,
+            messages, tokenize=False, add_generation_prompt=False
         )
         return {"text": formatted}
 
-    formatted_dataset = dataset.map(
-        format_chat, remove_columns=dataset.column_names
-    )
+    formatted_dataset = dataset.map(format_chat, remove_columns=dataset.column_names)
 
     training_args = SFTConfig(
         output_dir=cfg.training.output_dir,
@@ -163,17 +157,14 @@ def run_dpo_training(cfg: DictConfig):
     """Run Direct Preference Optimization."""
     logger.info("Initializing DPO Training...")
 
+    # Load model and reference model
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
-
     ref_model, _ = load_model_and_tokenizer(
-        cfg.model,
-        is_train=False,
-    )
+        cfg.model, is_train=False
+    )  # Ref model without LoRA adapters trainable
 
     logger.info(f"Loading DPO dataset from {cfg.data.output_dpo_file}...")
-    dataset = load_dataset("json", data_files=cfg.data.output_dpo_file)[
-        "train"
-    ]
+    dataset = load_dataset("json", data_files=cfg.data.output_dpo_file)["train"]
 
     training_args = DPOConfig(
         output_dir=cfg.training.output_dir,
