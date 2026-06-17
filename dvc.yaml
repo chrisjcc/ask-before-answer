@@ -30,7 +30,7 @@ stages:
           cache: false
 
   train_dpo:
-    cmd: python scripts/train_dpo.py model.name=models/sft/
+    cmd: python scripts/train_dpo.py model.name=models/sft/final
     deps:
       - models/sft/
       - data/dpo_data.jsonl
