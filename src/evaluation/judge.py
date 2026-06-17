@@ -3,9 +3,9 @@ import logging
 import os
 from typing import Any, Dict, List
 
+import weave
 from google import genai
 from google.genai import types
-import weave
 
 logger = logging.getLogger(__name__)
 
