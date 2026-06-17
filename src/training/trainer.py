@@ -88,8 +88,11 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
         # Apply LoRA
         if "lora" in model_cfg:
             from peft import PeftModel
+
             if isinstance(model, PeftModel):
-                logger.info("Model is already a PEFT model (SFT adapter loaded). Continuing training on existing adapter instead of stacking.")
+                logger.info(
+                    "Model is already a PEFT model (SFT adapter loaded). Continuing training on existing adapter instead of stacking."
+                )
                 # Ensure the existing adapter requires gradients
                 for name, param in model.named_parameters():
                     if "lora_" in name:
