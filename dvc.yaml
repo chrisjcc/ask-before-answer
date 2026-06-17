@@ -1,40 +1,75 @@
 stages:
+
+  # ----------------------------
+  # SHARED PREPROCESSING
+  # ----------------------------
+  preprocess:
+    cmd: python scripts/preprocess_data.py
+    outs:
+      - data/sft_data.jsonl
+      - data/dpo_data.jsonl
+
+  # ----------------------------
+  # FULL PIPELINE (SFT → DPO)
+  # ----------------------------
   train_sft:
     cmd: python scripts/train_sft.py
     deps:
-    - data/sft_data.jsonl
-    - src/training/trainer.py
-    - configs/training/sft.yaml
-    - configs/model/qwen2_5_7b.yaml
+      - data/sft_data.jsonl
+      - configs/training/sft.yaml
+      - configs/model/qwen2_5_7b.yaml
     outs:
-    - models/sft_output/final
+      - models/sft/
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
     deps:
-    - models/sft_output/final
-    - src/evaluation/judge.py
-    - configs/config.yaml
+      - models/sft/
     metrics:
-    - results/sft_metrics.json:
-        cache: false
+      - results/sft_metrics.json:
+          cache: false
 
   train_dpo:
-    cmd: python scripts/train_dpo.py model.name=models/sft_output/final
+    cmd: python scripts/train_dpo.py model.name=models/sft/
     deps:
-    - models/sft_output/final
-    - data/dpo_data.jsonl
-    - src/training/trainer.py
-    - configs/training/dpo.yaml
+      - models/sft/
+      - data/dpo_data.jsonl
+      - configs/training/dpo.yaml
     outs:
-    - models/dpo_output/final
+      - models/dpo/
 
-  evaluate_sft_dpo:
-    cmd: python scripts/evaluate.py model_name=sft_dpo
+  evaluate_dpo:
+    cmd: python scripts/evaluate.py model_name=dpo
     deps:
-    - models/dpo_output/final
-    - src/evaluation/judge.py
-    - configs/config.yaml
+      - models/dpo/
     metrics:
-    - results/sft_dpo_metrics.json:
-        cache: false
+      - results/dpo_metrics.json:
+          cache: false
+
+  # ----------------------------
+  # ABLATION: SFT ONLY
+  # ----------------------------
+  train_sft_only:
+    cmd: python scripts/train_sft.py experiment=ablation
+    deps:
+      - data/sft_data.jsonl
+    outs:
+      - models/sft_only/
+
+  # ----------------------------
+  # ABLATION: DPO ONLY
+  # ----------------------------
+  train_dpo_only:
+    cmd: python scripts/train_dpo.py model.name=base_model
+    deps:
+      - data/dpo_data.jsonl
+    outs:
+      - models/dpo_only/
+
+  evaluate_dpo_only:
+    cmd: python scripts/evaluate.py model_name=dpo_only
+    deps:
+      - models/dpo_only/
+    metrics:
+      - results/dpo_only_metrics.json:
+          cache: false

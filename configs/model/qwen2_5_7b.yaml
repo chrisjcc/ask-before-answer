@@ -1,10 +1,16 @@
 name: "Qwen/Qwen2.5-7B-Instruct"
 use_flash_attention: false
-load_in_8bit: true
-load_in_4bit: false
+load_in_8bit: false
+load_in_4bit: true
 trust_remote_code: true
 device_map: "auto"
 torch_dtype: "bfloat16"
+
+# QLoRA / bitsandbytes
+bnb_4bit_quant_type: "nf4"
+bnb_4bit_compute_dtype: "bfloat16"
+bnb_4bit_use_double_quant: true
+
 
 # LoRA configuration
 lora:
