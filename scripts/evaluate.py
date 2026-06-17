@@ -1,14 +1,15 @@
 import json
 import logging
 import os
+import asyncio
 
 import hydra
-import wandb
+import weave
 from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.evaluation.judge import run_evaluation_suite
+from src.evaluation.judge import GeminiJudge
 from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()
@@ -22,20 +23,17 @@ def main(cfg: DictConfig):
     model_name = cfg.get("model_name", "sft")
     logger.info(f"Starting evaluation pipeline for {model_name}...")
 
-    wandb.init(
-        project=os.environ.get("WANDB_PROJECT", "ask-before-answer"),
-        name=f"eval_{model_name}",
-    )
+    weave.init(os.environ.get("WANDB_PROJECT", "ask-before-answer"))
 
     # Determine model path
     if model_name == "base":
         model_path = "Qwen/Qwen2.5-7B-Instruct"
         is_peft = False
     elif model_name == "sft":
-        model_path = os.path.join(cfg.models_dir, "sft_output", "final")
+        model_path = os.path.join(cfg.models_dir, "sft", "final")
         is_peft = True
     elif model_name == "sft_dpo":
-        model_path = os.path.join(cfg.models_dir, "dpo_output", "final")
+        model_path = os.path.join(cfg.models_dir, "dpo", "final")
         is_peft = True
     else:
         logger.error(f"Unknown model_name: {model_name}")
@@ -53,22 +51,34 @@ def main(cfg: DictConfig):
     max_samples = cfg.evaluation.get("max_samples", 20)
     dataset = dataset.select(range(min(max_samples, len(dataset))))
 
-    outputs = []
-    for example in dataset:
-        q = example["question"]
-        resp = pipeline.generate(q)
-        logger.info(f"Q: {q}\\nA: {resp}\\n---")
-        outputs.append({"question": q, "response": resp})
+    # Prepare Weave Dataset
+    weave_dataset = []
+    for row in dataset:
+        weave_dataset.append({
+            "question": row["question"],
+            "ground_truth": row.get("ground_truth", "")
+        })
 
     # Evaluate with Gemini
     if os.environ.get("GEMINI_API_KEY"):
-        logger.info("Running Gemini evaluation suite...")
-        metrics = run_evaluation_suite(outputs)
-        logger.info(f"Evaluation Metrics: {json.dumps(metrics, indent=2)}")
-        wandb.log(metrics)
+        logger.info("Running Weave evaluation suite...")
+        judge = GeminiJudge()
+
+        @weave.op()
+        def model_predict(question: str) -> str:
+            return pipeline.generate(question)
+
+        evaluation = weave.Evaluation(
+            dataset=weave_dataset,
+            scorers=[judge.score]
+        )
+
+        results = asyncio.run(evaluation.evaluate(model_predict))
 
         # Save metrics
         os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
+        metrics = results.get("score", {})
+        logger.info(f"Evaluation Metrics: {json.dumps(metrics, indent=2)}")
         with open(
             os.path.join(cfg.project_dir, f"results/{model_name}_metrics.json"), "w"
         ) as f:
@@ -77,7 +87,6 @@ def main(cfg: DictConfig):
         logger.warning("GEMINI_API_KEY not found. Skipping Gemini evaluation.")
 
     logger.info("Evaluation complete.")
-    wandb.finish()
 
 
 if __name__ == "__main__":

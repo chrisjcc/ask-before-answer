@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 import torch
+import weave
 from peft import AutoPeftModelForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -28,6 +29,7 @@ class ClarificationPipeline:
 
         self.model.eval()
 
+    @weave.op()
     def generate(self, question: str, system_prompt: str = None) -> str:
         """Run single-turn inference for clarification seeking."""
         if system_prompt is None:
@@ -59,6 +61,7 @@ class ClarificationPipeline:
         gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]
         return self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
 
+    @weave.op()
     def batch_generate(self, questions: List[str]) -> List[str]:
         """Run batch inference."""
         return [self.generate(q) for q in questions]
