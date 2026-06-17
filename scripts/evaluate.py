@@ -54,10 +54,9 @@ def main(cfg: DictConfig):
     # Prepare Weave Dataset
     weave_dataset = []
     for row in dataset:
-        weave_dataset.append({
-            "question": row["question"],
-            "ground_truth": row.get("ground_truth", "")
-        })
+        weave_dataset.append(
+            {"question": row["question"], "ground_truth": row.get("ground_truth", "")}
+        )
 
     # Evaluate with Gemini
     if os.environ.get("GEMINI_API_KEY"):
@@ -68,10 +67,7 @@ def main(cfg: DictConfig):
         def model_predict(question: str) -> str:
             return pipeline.generate(question)
 
-        evaluation = weave.Evaluation(
-            dataset=weave_dataset,
-            scorers=[judge.score]
-        )
+        evaluation = weave.Evaluation(dataset=weave_dataset, scorers=[judge.score])
 
         results = asyncio.run(evaluation.evaluate(model_predict))
 
