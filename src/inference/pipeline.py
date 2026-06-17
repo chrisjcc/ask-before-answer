@@ -54,7 +54,10 @@ class ClarificationPipeline:
 
         with torch.no_grad():
             outputs = self.model.generate(
-                **inputs, max_new_tokens=300, temperature=0.7, top_p=0.9, do_sample=True
+                **inputs,
+                max_new_tokens=300,
+                do_sample=False,
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id
             )
 
         # Decode only the generated response
