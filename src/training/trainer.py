@@ -27,7 +27,7 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     tokenizer.padding_side = "right"
 
     kwargs = {
-        "dtype": getattr(torch, model_cfg.torch_dtype),
+        "torch_dtype": getattr(torch, model_cfg.torch_dtype),
         "trust_remote_code": model_cfg.trust_remote_code,
     }
 
@@ -35,7 +35,13 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     load_in_4bit = model_cfg.get("load_in_4bit", False)
 
     if torch.cuda.is_available():
-        kwargs["device_map"] = model_cfg.device_map
+        if model_cfg.device_map == "auto" and (load_in_8bit or load_in_4bit):
+            from accelerate import Accelerator
+
+            kwargs["device_map"] = {"": Accelerator().local_process_index}
+        else:
+            kwargs["device_map"] = model_cfg.device_map
+
         if load_in_8bit or load_in_4bit:
             compute_dtype = getattr(
                 torch, model_cfg.get("bnb_4bit_compute_dtype", "bfloat16")
@@ -71,6 +77,10 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     if is_train:
         model.config.use_cache = False
         model.gradient_checkpointing_enable()
+        # This forces the model to track gradients for the initial inputs so
+        # the gradients successfully flow backward to your trainable LoRA adapters
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
 
         # Apply LoRA
         if "lora" in model_cfg:
@@ -133,14 +143,15 @@ def run_sft_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
+        run_name="sft_training",
         dataset_text_field="text",
-        max_length=cfg.training.max_seq_length,
+        max_seq_length=cfg.training.max_seq_length,
         packing=cfg.training.packing,
     )
 
     trainer = SFTTrainer(
         model=model,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
         train_dataset=formatted_dataset,
         args=training_args,
     )
@@ -179,6 +190,7 @@ def run_dpo_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
+        run_name="dpo_training",
         beta=cfg.training.beta,
         max_prompt_length=cfg.training.max_prompt_length,
         max_length=cfg.training.max_length,
@@ -189,7 +201,7 @@ def run_dpo_training(cfg: DictConfig):
         ref_model=ref_model,
         args=training_args,
         train_dataset=dataset,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
     )
 
     logger.info("Starting DPO Training...")
