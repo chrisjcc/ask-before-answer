@@ -1,4 +1,5 @@
 import logging
+import os
 
 import torch
 from datasets import load_dataset
@@ -9,10 +10,8 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
 )
-from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
-
-import os
 from transformers.trainer_utils import get_last_checkpoint
+from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +90,7 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
 
             if isinstance(model, PeftModel):
                 logger.info(
-                    "Model is already a PEFT model (SFT adapter loaded). Continuing training on existing adapter instead of stacking."
+                    "PEFT model detected. Continuing training on existing adapter."
                 )
                 # Ensure the existing adapter requires gradients
                 for name, param in model.named_parameters():
