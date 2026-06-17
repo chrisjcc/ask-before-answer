@@ -71,6 +71,10 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     if is_train:
         model.config.use_cache = False
         model.gradient_checkpointing_enable()
+        # This forces the model to track gradients for the initial inputs so 
+        # the gradients successfully flow backward to your trainable LoRA adapters
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
 
         # Apply LoRA
         if "lora" in model_cfg:
