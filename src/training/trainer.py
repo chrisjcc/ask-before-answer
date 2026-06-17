@@ -134,7 +134,7 @@ def run_sft_training(cfg: DictConfig):
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
         dataset_text_field="text",
-        max_length=cfg.training.max_seq_length,
+        max_seq_length=cfg.training.max_seq_length,
         packing=cfg.training.packing,
     )
 
