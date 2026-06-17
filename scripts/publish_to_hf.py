@@ -105,19 +105,19 @@ def main():
 
     # 3. Upload Model Files & README
     print("Uploading to Model Hub...")
-    if os.path.exists("models/sft_output/final"):
+    if os.path.exists("models/sft/final"):
         print("Uploading SFT final model...")
         api.upload_folder(
-            folder_path="models/sft_output/final",
+            folder_path="models/sft/final",
             path_in_repo="sft_final",
             repo_id=MODEL_REPO,
             repo_type="model",
         )
 
-    if os.path.exists("models/dpo_output/final"):
+    if os.path.exists("models/dpo/final"):
         print("Uploading DPO final model...")
         api.upload_folder(
-            folder_path="models/dpo_output/final",
+            folder_path="models/dpo/final",
             path_in_repo="dpo_final",
             repo_id=MODEL_REPO,
             repo_type="model",
