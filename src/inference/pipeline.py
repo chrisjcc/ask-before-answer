@@ -20,11 +20,11 @@ class ClarificationPipeline:
 
         if is_peft:
             self.model = AutoPeftModelForCausalLM.from_pretrained(
-                model_path, dtype=torch.bfloat16, device_map="auto"
+                model_path, torch_dtype=torch.bfloat16, device_map="auto"
             )
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_path, dtype=torch.bfloat16, device_map="auto"
+                model_path, torch_dtype=torch.bfloat16, device_map="auto"
             )
 
         self.model.eval()
@@ -54,7 +54,13 @@ class ClarificationPipeline:
 
         with torch.no_grad():
             outputs = self.model.generate(
-                **inputs, max_new_tokens=300, temperature=0.7, top_p=0.9, do_sample=True
+                **inputs,
+                max_new_tokens=300,
+                do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
             )
 
         # Decode only the generated response

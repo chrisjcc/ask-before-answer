@@ -6,6 +6,7 @@ defaults:
   - _self_
 
 seed: 42
+model_name: "sft"
 output_dir: "outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}"
 
 # Global paths

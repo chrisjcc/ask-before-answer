@@ -1,7 +1,7 @@
+import asyncio
 import json
 import logging
 import os
-import asyncio
 
 import hydra
 import weave
@@ -64,16 +64,20 @@ def main(cfg: DictConfig):
         judge = GeminiJudge()
 
         @weave.op()
+        def gemini_scorer(question: str, output: str, ground_truth: str = "") -> dict:
+            return judge.score(question, output, ground_truth)
+
+        @weave.op()
         def model_predict(question: str) -> str:
             return pipeline.generate(question)
 
-        evaluation = weave.Evaluation(dataset=weave_dataset, scorers=[judge.score])
+        evaluation = weave.Evaluation(dataset=weave_dataset, scorers=[gemini_scorer])
 
         results = asyncio.run(evaluation.evaluate(model_predict))
 
         # Save metrics
         os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
-        metrics = results.get("score", {})
+        metrics = results
         logger.info(f"Evaluation Metrics: {json.dumps(metrics, indent=2)}")
         with open(
             os.path.join(cfg.project_dir, f"results/{model_name}_metrics.json"), "w"
