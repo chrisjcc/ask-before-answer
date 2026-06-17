@@ -87,17 +87,25 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
 
         # Apply LoRA
         if "lora" in model_cfg:
-            lora_cfg = model_cfg.lora
-            config = LoraConfig(
-                r=lora_cfg.r,
-                lora_alpha=lora_cfg.lora_alpha,
-                lora_dropout=lora_cfg.lora_dropout,
-                bias=lora_cfg.bias,
-                task_type=lora_cfg.task_type,
-                target_modules=list(lora_cfg.target_modules),
-            )
-            model = get_peft_model(model, config)
-            logger.info("Applied LoRA configuration.")
+            from peft import PeftModel
+            if isinstance(model, PeftModel):
+                logger.info("Model is already a PEFT model (SFT adapter loaded). Continuing training on existing adapter instead of stacking.")
+                # Ensure the existing adapter requires gradients
+                for name, param in model.named_parameters():
+                    if "lora_" in name:
+                        param.requires_grad = True
+            else:
+                lora_cfg = model_cfg.lora
+                config = LoraConfig(
+                    r=lora_cfg.r,
+                    lora_alpha=lora_cfg.lora_alpha,
+                    lora_dropout=lora_cfg.lora_dropout,
+                    bias=lora_cfg.bias,
+                    task_type=lora_cfg.task_type,
+                    target_modules=list(lora_cfg.target_modules),
+                )
+                model = get_peft_model(model, config)
+                logger.info("Applied LoRA configuration.")
 
     return model, tokenizer
 
