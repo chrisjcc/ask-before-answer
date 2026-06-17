@@ -35,7 +35,12 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     load_in_4bit = model_cfg.get("load_in_4bit", False)
 
     if torch.cuda.is_available():
-        kwargs["device_map"] = model_cfg.device_map
+        if model_cfg.device_map == "auto" and (load_in_8bit or load_in_4bit):
+            from accelerate import Accelerator
+            kwargs["device_map"] = {"": Accelerator().local_process_index}
+        else:
+            kwargs["device_map"] = model_cfg.device_map
+
         if load_in_8bit or load_in_4bit:
             compute_dtype = getattr(
                 torch, model_cfg.get("bnb_4bit_compute_dtype", "bfloat16")
