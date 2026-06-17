@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 import torch
+import weave
 from peft import AutoPeftModelForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -19,15 +20,16 @@ class ClarificationPipeline:
 
         if is_peft:
             self.model = AutoPeftModelForCausalLM.from_pretrained(
-                model_path, dtype=torch.bfloat16, device_map="auto"
+                model_path, torch_dtype=torch.bfloat16, device_map="auto"
             )
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_path, dtype=torch.bfloat16, device_map="auto"
+                model_path, torch_dtype=torch.bfloat16, device_map="auto"
             )
 
         self.model.eval()
 
+    @weave.op()
     def generate(self, question: str, system_prompt: str = None) -> str:
         """Run single-turn inference for clarification seeking."""
         if system_prompt is None:
@@ -52,13 +54,20 @@ class ClarificationPipeline:
 
         with torch.no_grad():
             outputs = self.model.generate(
-                **inputs, max_new_tokens=300, temperature=0.7, top_p=0.9, do_sample=True
+                **inputs,
+                max_new_tokens=300,
+                do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
             )
 
         # Decode only the generated response
         gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]
         return self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
 
+    @weave.op()
     def batch_generate(self, questions: List[str]) -> List[str]:
         """Run batch inference."""
         return [self.generate(q) for q in questions]

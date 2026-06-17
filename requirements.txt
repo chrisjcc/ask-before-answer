@@ -13,6 +13,7 @@ sentencepiece
 protobuf
 einops
 wandb>=0.27.2
+weave>=0.52.43
 
 # Data processing & Utils
 pandas
