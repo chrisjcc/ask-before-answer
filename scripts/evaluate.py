@@ -64,10 +64,14 @@ def main(cfg: DictConfig):
         judge = GeminiJudge()
 
         @weave.op()
+        def gemini_scorer(question: str, output: str, ground_truth: str = "") -> dict:
+            return judge.score(question, output, ground_truth)
+
+        @weave.op()
         def model_predict(question: str) -> str:
             return pipeline.generate(question)
 
-        evaluation = weave.Evaluation(dataset=weave_dataset, scorers=[judge.score])
+        evaluation = weave.Evaluation(dataset=weave_dataset, scorers=[gemini_scorer])
 
         results = asyncio.run(evaluation.evaluate(model_predict))
 

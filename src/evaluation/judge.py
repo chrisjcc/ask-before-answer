@@ -60,10 +60,9 @@ class GeminiJudge:
                 "justification": str(e),
             }
 
-    @weave.op()
-    def score(self, question: str, model_output: str, ground_truth: Any = None) -> dict:
-        """Weave evaluation scorer that returns scalar metrics."""
-        res = self.evaluate_response(question, model_output, ground_truth)
+    def score(self, question: str, output: str, ground_truth: Any = None) -> dict:
+        """Evaluation scorer that returns scalar metrics."""
+        res = self.evaluate_response(question, output, ground_truth)
         return {
             "ambiguity_detection": float(res.get("ambiguity_detection", 0.0)),
             "clarification_quality": float(res.get("clarification_quality", 0.0)),
