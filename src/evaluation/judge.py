@@ -3,6 +3,7 @@ import logging
 import os
 from typing import Any, Dict, List
 
+import weave
 from google import genai
 from google.genai import types
 
@@ -58,6 +59,17 @@ class GeminiJudge:
                 "usefulness": 0.0,
                 "justification": str(e),
             }
+
+    @weave.op()
+    def score(self, question: str, model_output: str, ground_truth: Any = None) -> dict:
+        """Weave evaluation scorer that returns scalar metrics."""
+        res = self.evaluate_response(question, model_output, ground_truth)
+        return {
+            "ambiguity_detection": float(res.get("ambiguity_detection", 0.0)),
+            "clarification_quality": float(res.get("clarification_quality", 0.0)),
+            "usefulness": float(res.get("usefulness", 0.0)),
+            "justification": res.get("justification", ""),
+        }
 
 
 def run_evaluation_suite(model_outputs: List[Dict[str, Any]]) -> Dict[str, float]:
