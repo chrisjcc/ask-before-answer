@@ -32,3 +32,25 @@ stages:
       md5: b51bf7484c2150210730b1989d5476c3.dir
       size: 842302453
       nfiles: 24
+  train_dpo:
+    cmd: python scripts/train_dpo.py model.name=models/sft/final
+    deps:
+    - path: configs/training/dpo.yaml
+      hash: md5
+      md5: 34619a51bf1cbe513c47cd31dbcdd40d
+      size: 313
+    - path: data/dpo_data.jsonl
+      hash: md5
+      md5: fb4d17cef59bf995f39fab5a6ed88c7b
+      size: 1637824
+    - path: models/sft/
+      hash: md5
+      md5: b51bf7484c2150210730b1989d5476c3.dir
+      size: 842302453
+      nfiles: 24
+    outs:
+    - path: models/dpo/
+      hash: md5
+      md5: 0d65e6801ed8bf59f12a24dd8dc58af8.dir
+      size: 1345829293
+      nfiles: 38

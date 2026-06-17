@@ -11,6 +11,9 @@ from transformers import (
 )
 from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 
+import os
+from transformers.trainer_utils import get_last_checkpoint
+
 logger = logging.getLogger(__name__)
 
 
@@ -157,7 +160,13 @@ def run_sft_training(cfg: DictConfig):
     )
 
     logger.info("Starting SFT Training...")
-    trainer.train()
+    last_checkpoint = None
+    if os.path.isdir(cfg.training.output_dir):
+        last_checkpoint = get_last_checkpoint(cfg.training.output_dir)
+        if last_checkpoint is not None:
+            logger.info(f"Resuming SFT training from {last_checkpoint}")
+
+    trainer.train(resume_from_checkpoint=last_checkpoint)
 
     trainer.save_model(f"{cfg.training.output_dir}/final")
     tokenizer.save_pretrained(f"{cfg.training.output_dir}/final")
@@ -205,7 +214,13 @@ def run_dpo_training(cfg: DictConfig):
     )
 
     logger.info("Starting DPO Training...")
-    trainer.train()
+    last_checkpoint = None
+    if os.path.isdir(cfg.training.output_dir):
+        last_checkpoint = get_last_checkpoint(cfg.training.output_dir)
+        if last_checkpoint is not None:
+            logger.info(f"Resuming DPO training from {last_checkpoint}")
+
+    trainer.train(resume_from_checkpoint=last_checkpoint)
 
     trainer.save_model(f"{cfg.training.output_dir}/final")
     tokenizer.save_pretrained(f"{cfg.training.output_dir}/final")
