@@ -27,7 +27,7 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     tokenizer.padding_side = "right"
 
     kwargs = {
-        "dtype": getattr(torch, model_cfg.torch_dtype),
+        "torch_dtype": getattr(torch, model_cfg.torch_dtype),
         "trust_remote_code": model_cfg.trust_remote_code,
     }
 
