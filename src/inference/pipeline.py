@@ -60,7 +60,7 @@ class ClarificationPipeline:
                 temperature=None,
                 top_p=None,
                 top_k=None,
-                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
             )
 
         # Decode only the generated response
