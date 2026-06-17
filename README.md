@@ -49,7 +49,7 @@ This repository has been restructured into a modular, highly maintainable Python
    Copy the example config and add your keys:
    ```bash
    cp .env.example .env
-   # Edit .env with your HF_TOKEN and GEMINI_API_KEY
+   # Edit .env with your HF_TOKEN, GEMINI_API_KEY, WANDB_ENTITY, and WANDB_PROJECT
    ```
 
 ---
@@ -72,10 +72,10 @@ make run-pipeline
 ```
 
 ### Running Individual Stages
-- **Supervised Fine-Tuning (SFT):** `make train-sft`
+- **Supervised Fine-Tuning (SFT):** `make train-sft` (Prefix with `CUDA_VISIBLE_DEVICES=1` if your primary GPU is full)
 - **Direct Preference Optimization (DPO):** `make train-dpo`
 
-By default, models and checkpoints are saved to `models/sft_output/` and `models/dpo_output/`.
+By default, models and checkpoints are saved to `models/sft/` and `models/dpo/`.
 
 ---
 
@@ -129,7 +129,7 @@ This project uses **DVC (Data Version Control)** to manage large datasets, model
 1. **Tracking Large Datasets & Artifacts:**
    Large files in `data/` and `models/` are tracked via DVC. This prevents your Git repository from becoming bloated while still allowing you to version the `.dvc` tracking files.
 2. **Managing Model Checkpoints:**
-   LoRA weights generated in `models/sft_output` and `models/dpo_output` are managed by DVC. You can use `dvc checkout` to revert to previous model weights perfectly synced with your Git commits.
+   LoRA weights generated in `models/sft` and `models/dpo` are managed by DVC. You can use `dvc checkout` to revert to previous model weights perfectly synced with your Git commits.
 3. **Pipeline Reproducibility (`dvc.yaml`):**
    The entire training pipeline (data preprocessing, SFT, DPO, and evaluation) is defined declaratively in `dvc.yaml` as a Directed Acyclic Graph (DAG). DVC automatically detects dependency changes (e.g., if you edit `configs/training/sft.yaml`) and intelligently re-runs only the required stages, skipping unchanged ones.
 4. **Metrics Tracking:**
