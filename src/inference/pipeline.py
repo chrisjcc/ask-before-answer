@@ -57,6 +57,9 @@ class ClarificationPipeline:
                 **inputs,
                 max_new_tokens=300,
                 do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
                 pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id
             )
 
