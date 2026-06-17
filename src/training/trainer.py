@@ -140,7 +140,7 @@ def run_sft_training(cfg: DictConfig):
 
     trainer = SFTTrainer(
         model=model,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
         train_dataset=formatted_dataset,
         args=training_args,
     )
@@ -189,7 +189,7 @@ def run_dpo_training(cfg: DictConfig):
         ref_model=ref_model,
         args=training_args,
         train_dataset=dataset,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
     )
 
     logger.info("Starting DPO Training...")
