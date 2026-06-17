@@ -37,6 +37,7 @@ def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
     if torch.cuda.is_available():
         if model_cfg.device_map == "auto" and (load_in_8bit or load_in_4bit):
             from accelerate import Accelerator
+
             kwargs["device_map"] = {"": Accelerator().local_process_index}
         else:
             kwargs["device_map"] = model_cfg.device_map
