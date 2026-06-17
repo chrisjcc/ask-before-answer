@@ -20,11 +20,11 @@ class ClarificationPipeline:
 
         if is_peft:
             self.model = AutoPeftModelForCausalLM.from_pretrained(
-                model_path, dtype=torch.bfloat16, device_map="auto"
+                model_path, torch_dtype=torch.bfloat16, device_map="auto"
             )
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_path, dtype=torch.bfloat16, device_map="auto"
+                model_path, torch_dtype=torch.bfloat16, device_map="auto"
             )
 
         self.model.eval()
