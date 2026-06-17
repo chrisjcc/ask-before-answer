@@ -77,7 +77,7 @@ def main(cfg: DictConfig):
 
         # Save metrics
         os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
-        metrics = results.get("score", {})
+        metrics = results
         logger.info(f"Evaluation Metrics: {json.dumps(metrics, indent=2)}")
         with open(
             os.path.join(cfg.project_dir, f"results/{model_name}_metrics.json"), "w"
