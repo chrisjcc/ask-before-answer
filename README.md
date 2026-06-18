@@ -83,7 +83,7 @@ This project leverages **Weights & Biases Sweeps** to orchestrate Bayesian hyper
 To launch a sweep optimizing the learning rate against the SFT evaluation loss:
 ```bash
 # 1. Initialize the sweep (this will return a SWEEP_ID)
-wandb sweep configs/sweep.yaml
+make sweep
 
 # 2. Start the sweep agent
 wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID>
