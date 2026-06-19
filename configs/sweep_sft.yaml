@@ -1,4 +1,11 @@
 program: scripts/run_sweep_trial.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--stage"
+  - "train_sft"
+  - ${args}
 method: bayes
 metric:
   name: eval/loss
