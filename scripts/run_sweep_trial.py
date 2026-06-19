@@ -33,30 +33,42 @@ def main():
             f"Unknown stage: {stage}. Must be one of {list(CONFIG_MAP.keys())}"
         )
 
-    # 3. Initialize W&B to get the sweep parameters for this trial
-    run = wandb.init()
-    cfg = wandb.config
+    # 3. Extract W&B hyperparameters manually from unknown args
+    # W&B agent passes parameters as: --learning_rate=0.0001
+    sweep_params = {}
+    for arg in unknown:
+        if arg.startswith("--") and "=" in arg:
+            key, value = arg.lstrip("-").split("=", 1)
+            try:
+                if "." in value or "e" in value.lower():
+                    value = float(value)
+                else:
+                    value = int(value)
+            except ValueError:
+                pass
+            sweep_params[key] = value
 
     # 4. Update the mapped Hydra configuration directly
     cfg_path = CONFIG_MAP[stage]
     hydra_cfg = OmegaConf.load(cfg_path)
 
     # We apply the specific hyperparameters defined in the sweep config
-    if "learning_rate" in cfg:
-        hydra_cfg.learning_rate = cfg.learning_rate
-    if "beta" in cfg:
-        hydra_cfg.beta = cfg.beta
+    if "learning_rate" in sweep_params:
+        hydra_cfg.learning_rate = sweep_params["learning_rate"]
+    if "beta" in sweep_params:
+        hydra_cfg.beta = sweep_params["beta"]
 
     OmegaConf.save(hydra_cfg, cfg_path)
-    print(f"Updated {cfg_path} with new hyperparameters: {dict(cfg)}")
+    print(f"Updated {cfg_path} with new hyperparameters: {sweep_params}")
 
     # 5. Trigger DVC to track and execute the run for the specific stage
-    print(f"Triggering DVC Experiment for Sweep Run: {run.id} targeting stage: {stage}")
-    cmd = ["dvc", "exp", "run", stage, "-n", f"sweep_{run.id}"]
+    # Grab the run ID dynamically injected by the W&B agent environment
+    run_id = os.environ.get("WANDB_RUN_ID", "local")
+    print(f"Triggering DVC Experiment for Sweep Run: {run_id} targeting stage: {stage}")
+    cmd = ["dvc", "exp", "run", stage, "-n", f"sweep_{run_id}"]
 
     # We use subprocess.run to execute the DVC CLI command
     subprocess.run(cmd, check=True)
-
 
 if __name__ == "__main__":
     main()
