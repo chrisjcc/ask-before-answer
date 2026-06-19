@@ -1,4 +1,4 @@
-output_dir: "${models_dir}/dpo"
+output_dir: ${models_dir}/dpo
 per_device_train_batch_size: 1
 gradient_accumulation_steps: 8
 num_train_epochs: 1
@@ -8,8 +8,8 @@ bf16: true
 logging_steps: 10
 save_steps: 200
 save_total_limit: 2
-optim: "paged_adamw_8bit"
-report_to: "wandb"
+optim: paged_adamw_8bit
+report_to: wandb
 max_prompt_length: 1024
 max_length: 2048
 beta: 0.1
