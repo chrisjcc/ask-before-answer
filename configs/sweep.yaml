@@ -1,0 +1,9 @@
+program: scripts/run_sweep_trial.py
+method: bayes
+metric:
+  name: eval/loss
+  goal: minimize
+parameters:
+  learning_rate:
+    min: 1e-5
+    max: 5e-4
