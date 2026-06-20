@@ -25,10 +25,7 @@ def generate_report():
     run_histories = {}
 
     for run in runs:
-        # Debug printing
-        print(
-            f"Run: {run.id}, state: {run.state}, keys: {list(run.summary.keys())[:5]}..."
-        )
+
         # Only process completed runs that logged eval/loss
         if run.state != "finished" or "eval/loss" not in run.summary:
             continue

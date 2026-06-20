@@ -92,6 +92,22 @@ wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10
 ```
 The agent script (`scripts/run_sweep_trial.py`) will automatically fetch the hyperparameters from W&B, update the local Hydra configuration, and invoke `dvc exp run` to securely version and execute the pipeline trial.
 
+### Generating Reports & Applying Best Configurations
+Once your sweeps have completed, you can automatically synthesize a report ranking all your trials:
+```bash
+make ablation-suite
+```
+This command triggers a script that pulls the W&B API and generates `docs/ablation_report.md` along with learning curve plots. 
+
+**Applying the Best Configuration Automatically:**
+Because DVC tracked the exact YAML config state for every single sweep trial, you do not need to manually copy-paste the winning hyper-parameters!
+1. Check the generated `ablation_report.md` for the W&B **Run ID** of the best performing trial (e.g., `5cxs95q7`).
+2. Run the following command to instantly revert your local YAML configuration files to that exact optimal state:
+```bash
+dvc exp apply sweep_<Run ID>
+```
+3. `git commit` the newly updated config files as your new defaults!
+
 ---
 
 ## 📊 Evaluation
