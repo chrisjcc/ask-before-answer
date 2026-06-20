@@ -2,7 +2,6 @@ import argparse
 import os
 import subprocess
 
-import wandb
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
 
