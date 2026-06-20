@@ -77,6 +77,21 @@ make run-pipeline
 
 By default, models and checkpoints are saved to `models/sft/` and `models/dpo/`.
 
+### Orchestrating Sweeps (W&B + DVC)
+This project leverages **Weights & Biases Sweeps** to orchestrate Bayesian hyperparameter optimization, and **DVC** to track the reproducibility and caching of those trials.
+
+To launch a sweep optimizing hyperparameters for a specific stage:
+```bash
+# 1. Initialize the sweep for the stage you want (this will return a SWEEP_ID)
+make sweep-sft
+# or
+make sweep-dpo
+
+# 2. Start the sweep agent
+wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10
+```
+The agent script (`scripts/run_sweep_trial.py`) will automatically fetch the hyperparameters from W&B, update the local Hydra configuration, and invoke `dvc exp run` to securely version and execute the pipeline trial.
+
 ---
 
 ## 📊 Evaluation

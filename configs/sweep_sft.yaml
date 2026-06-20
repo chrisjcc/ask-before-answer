@@ -1,0 +1,18 @@
+project: ask-before-answer
+program: scripts/run_sweep_trial.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--stage"
+  - "train_sft"
+  - ${args}
+method: bayes
+metric:
+  name: eval/loss
+  goal: minimize
+parameters:
+  learning_rate:
+    distribution: log_uniform_values
+    min: 0.00001
+    max: 0.0005

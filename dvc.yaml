@@ -20,7 +20,7 @@ stages:
       - configs/model/qwen2_5_7b.yaml
     outs:
       - models/sft/:
-          persist: true
+          persist: false
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
@@ -38,7 +38,7 @@ stages:
       - configs/training/dpo.yaml
     outs:
       - models/dpo/:
-          persist: true
+          persist: false
 
   evaluate_dpo:
     cmd: python scripts/evaluate.py model_name=dpo

@@ -1,0 +1,18 @@
+project: ask-before-answer
+program: scripts/run_sweep_trial.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--stage"
+  - "train_dpo"
+  - ${args}
+method: bayes
+metric:
+  name: eval/rewards/accuracies
+  goal: maximize
+parameters:
+  beta:
+    distribution: uniform
+    min: 0.01
+    max: 0.5

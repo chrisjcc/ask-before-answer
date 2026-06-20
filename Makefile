@@ -1,4 +1,4 @@
-.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only ablation-suite evaluate infer format lint test docker-build run-app clean
+.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only ablation-suite evaluate infer sweep-sft sweep-dpo format lint test docker-build run-app clean
 
 # -------------------------
 # Help
@@ -76,6 +76,18 @@ evaluate:
 
 infer:
 	python scripts/infer.py
+
+sweep-sft:
+	@echo "Initializing SFT W&B Sweep..."
+	wandb sweep configs/sweep_sft.yaml
+	@echo "Copy the sweep ID above and run:"
+	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
+
+sweep-dpo:
+	@echo "Initializing DPO W&B Sweep..."
+	wandb sweep configs/sweep_dpo.yaml
+	@echo "Copy the sweep ID above and run:"
+	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
 
 # -------------------------
 # Dev tools
