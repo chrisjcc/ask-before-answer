@@ -5,11 +5,7 @@ import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-)
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
 from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 
@@ -118,8 +114,17 @@ def run_sft_training(cfg: DictConfig):
 
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
 
-    logger.info(f"Loading SFT dataset from {cfg.data.output_sft_file}...")
-    dataset = load_dataset("json", data_files=cfg.data.output_sft_file)["train"]
+    logger.info(
+        f"Loading SFT training dataset from {cfg.data.output_sft_train_file}..."
+    )
+    dataset_train = load_dataset("json", data_files=cfg.data.output_sft_train_file)[
+        "train"
+    ]
+
+    logger.info(
+        f"Loading SFT validation dataset from {cfg.data.output_sft_val_file}..."
+    )
+    dataset_val = load_dataset("json", data_files=cfg.data.output_sft_val_file)["train"]
 
     # Format text for training
     def format_chat(example):
@@ -141,7 +146,12 @@ def run_sft_training(cfg: DictConfig):
         )
         return {"text": formatted}
 
-    formatted_dataset = dataset.map(format_chat, remove_columns=dataset.column_names)
+    formatted_train = dataset_train.map(
+        format_chat, remove_columns=dataset_train.column_names
+    )
+    formatted_val = dataset_val.map(
+        format_chat, remove_columns=dataset_val.column_names
+    )
 
     training_args = SFTConfig(
         output_dir=cfg.training.output_dir,
@@ -151,6 +161,8 @@ def run_sft_training(cfg: DictConfig):
         learning_rate=cfg.training.learning_rate,
         warmup_ratio=cfg.training.warmup_ratio,
         bf16=cfg.training.bf16,
+        eval_strategy="steps",
+        eval_steps=cfg.training.logging_steps,
         logging_steps=cfg.training.logging_steps,
         save_steps=cfg.training.save_steps,
         save_total_limit=cfg.training.save_total_limit,
@@ -165,7 +177,8 @@ def run_sft_training(cfg: DictConfig):
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
-        train_dataset=formatted_dataset,
+        train_dataset=formatted_train,
+        eval_dataset=formatted_val,
         args=training_args,
     )
 
@@ -193,8 +206,17 @@ def run_dpo_training(cfg: DictConfig):
         cfg.model, is_train=False
     )  # Ref model without LoRA adapters trainable
 
-    logger.info(f"Loading DPO dataset from {cfg.data.output_dpo_file}...")
-    dataset = load_dataset("json", data_files=cfg.data.output_dpo_file)["train"]
+    logger.info(
+        f"Loading DPO training dataset from {cfg.data.output_dpo_train_file}..."
+    )
+    dataset_train = load_dataset("json", data_files=cfg.data.output_dpo_train_file)[
+        "train"
+    ]
+
+    logger.info(
+        f"Loading DPO validation dataset from {cfg.data.output_dpo_val_file}..."
+    )
+    dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
     training_args = DPOConfig(
         output_dir=cfg.training.output_dir,
@@ -204,6 +226,8 @@ def run_dpo_training(cfg: DictConfig):
         learning_rate=cfg.training.learning_rate,
         warmup_ratio=cfg.training.warmup_ratio,
         bf16=cfg.training.bf16,
+        eval_strategy="steps",
+        eval_steps=cfg.training.logging_steps,
         logging_steps=cfg.training.logging_steps,
         save_steps=cfg.training.save_steps,
         save_total_limit=cfg.training.save_total_limit,
@@ -219,7 +243,8 @@ def run_dpo_training(cfg: DictConfig):
         model=model,
         ref_model=ref_model,
         args=training_args,
-        train_dataset=dataset,
+        train_dataset=dataset_train,
+        eval_dataset=dataset_val,
         tokenizer=tokenizer,
     )
 

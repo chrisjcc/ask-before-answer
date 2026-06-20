@@ -20,14 +20,21 @@ def main(cfg: DictConfig):
 
     os.makedirs(cfg.data_dir, exist_ok=True)
 
-    df = extract_qa_data(
+    df_train = extract_qa_data(
         dataset_name=cfg.data.name,
-        split=cfg.data.split,
+        split="train",
         max_samples=cfg.data.max_samples,
     )
+    prepare_sft_dataset(df_train, cfg.data.output_sft_train_file)
+    prepare_dpo_dataset(df_train, cfg.data.output_dpo_train_file)
 
-    prepare_sft_dataset(df, cfg.data.output_sft_file)
-    prepare_dpo_dataset(df, cfg.data.output_dpo_file)
+    df_val = extract_qa_data(
+        dataset_name=cfg.data.name,
+        split="validation",
+        max_samples=cfg.data.max_samples,
+    )
+    prepare_sft_dataset(df_val, cfg.data.output_sft_val_file)
+    prepare_dpo_dataset(df_val, cfg.data.output_dpo_val_file)
 
     logger.info("Data preprocessing complete.")
 

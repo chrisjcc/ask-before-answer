@@ -5,9 +5,14 @@ stages:
   # ----------------------------
   preprocess:
     cmd: python scripts/preprocess_data.py
+    deps:
+      - scripts/preprocess_data.py
+      - configs/data/ambignq.yaml
     outs:
-      - data/sft_data.jsonl
-      - data/dpo_data.jsonl
+      - data/sft_train.jsonl
+      - data/sft_val.jsonl
+      - data/dpo_train.jsonl
+      - data/dpo_val.jsonl
 
   # ----------------------------
   # FULL PIPELINE (SFT → DPO)
@@ -15,12 +20,13 @@ stages:
   train_sft:
     cmd: python scripts/train_sft.py
     deps:
-      - data/sft_data.jsonl
+      - data/sft_train.jsonl
+      - data/sft_val.jsonl
       - configs/training/sft.yaml
       - configs/model/qwen2_5_7b.yaml
     outs:
       - models/sft/:
-          persist: true
+          persist: false
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
@@ -34,11 +40,12 @@ stages:
     cmd: python scripts/train_dpo.py model.name=models/sft/final
     deps:
       - models/sft/
-      - data/dpo_data.jsonl
+      - data/dpo_train.jsonl
+      - data/dpo_val.jsonl
       - configs/training/dpo.yaml
     outs:
       - models/dpo/:
-          persist: true
+          persist: false
 
   evaluate_dpo:
     cmd: python scripts/evaluate.py model_name=dpo
@@ -54,7 +61,8 @@ stages:
   train_sft_only:
     cmd: python scripts/train_sft.py experiment=ablation
     deps:
-      - data/sft_data.jsonl
+      - data/sft_train.jsonl
+      - data/sft_val.jsonl
     outs:
       - models/sft_only/
 
@@ -64,7 +72,8 @@ stages:
   train_dpo_only:
     cmd: python scripts/train_dpo.py model.name=base_model
     deps:
-      - data/dpo_data.jsonl
+      - data/dpo_train.jsonl
+      - data/dpo_val.jsonl
     outs:
       - models/dpo_only/
 
