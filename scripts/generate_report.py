@@ -34,6 +34,8 @@ def generate_report():
             {
                 "Run ID": run.id,
                 "Name": run.name,
+                "Group": run.group or "N/A",
+                "Hypothesis": run.notes or "N/A",
                 "Sweep ID": run.sweep.id if run.sweep else "N/A",
                 "Learning Rate": run.config.get("learning_rate", "N/A"),
                 "Batch Size": run.config.get("per_device_train_batch_size", "N/A"),
