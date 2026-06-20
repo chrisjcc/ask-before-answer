@@ -18,7 +18,7 @@ stages:
   # FULL PIPELINE (SFT → DPO)
   # ----------------------------
   train_sft:
-    cmd: python scripts/train_sft.py
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py
     deps:
       - data/sft_train.jsonl
       - data/sft_val.jsonl
@@ -37,7 +37,7 @@ stages:
           cache: false
 
   train_dpo:
-    cmd: python scripts/train_dpo.py model.name=models/sft/final
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py model.name=models/sft/final
     deps:
       - models/sft/
       - data/dpo_train.jsonl
@@ -59,7 +59,7 @@ stages:
   # ABLATION: SFT ONLY
   # ----------------------------
   train_sft_only:
-    cmd: python scripts/train_sft.py experiment=ablation
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py experiment=ablation
     deps:
       - data/sft_train.jsonl
       - data/sft_val.jsonl
@@ -70,7 +70,7 @@ stages:
   # ABLATION: DPO ONLY
   # ----------------------------
   train_dpo_only:
-    cmd: python scripts/train_dpo.py model.name=base_model
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py model.name=base_model
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
