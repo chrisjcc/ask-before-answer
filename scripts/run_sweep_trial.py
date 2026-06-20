@@ -69,5 +69,6 @@ def main():
     # We use subprocess.run to execute the DVC CLI command
     subprocess.run(cmd, check=True)
 
+
 if __name__ == "__main__":
     main()
