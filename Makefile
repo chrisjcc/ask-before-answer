@@ -66,7 +66,10 @@ train-dpo-only:
 	dvc repro train_dpo_only
 
 ablation-suite:
+	@echo "Running all experimental baselines..."
 	dvc repro train_sft_only train_dpo_only train_sft train_dpo
+	@echo "Synthesizing experiment results into docs/ablation_report.md..."
+	python scripts/generate_report.py
 
 # -------------------------
 # Evaluation / inference (optional shortcuts)

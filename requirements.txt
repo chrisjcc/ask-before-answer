@@ -22,6 +22,10 @@ python-dotenv
 hydra-core>=1.3.2
 omegaconf>=2.3.0
 
+# Visualization
+matplotlib
+seaborn
+
 # API / UI
 google-genai
 streamlit>=1.30.0
