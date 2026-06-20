@@ -5,6 +5,9 @@ stages:
   # ----------------------------
   preprocess:
     cmd: python scripts/preprocess_data.py
+    deps:
+      - scripts/preprocess_data.py
+      - configs/data/ambignq.yaml
     outs:
       - data/sft_data.jsonl
       - data/dpo_data.jsonl
