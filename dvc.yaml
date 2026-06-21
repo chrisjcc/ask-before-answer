@@ -25,13 +25,13 @@ stages:
       - configs/training/sft.yaml
       - configs/model/qwen2_5_7b.yaml
     outs:
-      - models/sft/:
+      - models/sft/final:
           persist: false
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
     deps:
-      - models/sft/
+      - models/sft/final
     metrics:
       - results/sft_metrics.json:
           cache: false
@@ -39,18 +39,18 @@ stages:
   train_dpo:
     cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py model.name=models/sft/final
     deps:
-      - models/sft/
+      - models/sft/final
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
       - configs/training/dpo.yaml
     outs:
-      - models/dpo/:
+      - models/dpo/final:
           persist: false
 
   evaluate_dpo:
     cmd: python scripts/evaluate.py model_name=dpo
     deps:
-      - models/dpo/
+      - models/dpo/final
     metrics:
       - results/dpo_metrics.json:
           cache: false
@@ -64,7 +64,7 @@ stages:
       - data/sft_train.jsonl
       - data/sft_val.jsonl
     outs:
-      - models/sft_only/
+      - models/sft_only/final
 
   # ----------------------------
   # ABLATION: DPO ONLY
@@ -75,12 +75,12 @@ stages:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
     outs:
-      - models/dpo_only/
+      - models/dpo_only/final
 
   evaluate_dpo_only:
     cmd: python scripts/evaluate.py model_name=dpo_only
     deps:
-      - models/dpo_only/
+      - models/dpo_only/final
     metrics:
       - results/dpo_only_metrics.json:
           cache: false

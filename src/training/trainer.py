@@ -172,6 +172,7 @@ def run_sft_training(cfg: DictConfig):
         dataset_text_field="text",
         max_seq_length=cfg.training.max_seq_length,
         packing=cfg.training.packing,
+        remove_unused_columns=cfg.training.get("remove_unused_columns", True),
     )
 
     trainer = SFTTrainer(
@@ -237,6 +238,7 @@ def run_dpo_training(cfg: DictConfig):
         beta=cfg.training.beta,
         max_prompt_length=cfg.training.max_prompt_length,
         max_length=cfg.training.max_length,
+        remove_unused_columns=cfg.training.get("remove_unused_columns", False),
     )
 
     trainer = DPOTrainer(
