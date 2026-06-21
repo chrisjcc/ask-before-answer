@@ -103,10 +103,14 @@ dpo_dataset = load_dataset("{dataset_repo}", "dpo")
 
         try:
             card = DatasetCard.load(dataset_repo)
-            # Only append if we haven't already
-            if "AskBeforeAnswer Dataset" not in card.text:
-                card.text = card.text + dataset_card_content
-                card.push_to_hub(dataset_repo)
+            # Remove old appended description if it exists so we can cleanly replace it
+            if "# AskBeforeAnswer Dataset" in card.text:
+                card.text = card.text.split("# AskBeforeAnswer Dataset")[0]
+
+            card.text = (
+                card.text.rstrip() + "\n\n" + dataset_card_content.strip() + "\n"
+            )
+            card.push_to_hub(dataset_repo)
         except Exception as e:
             logger.warning(f"Could not load/update DatasetCard: {e}")
 
