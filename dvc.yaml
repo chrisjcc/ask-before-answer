@@ -37,7 +37,7 @@ stages:
           cache: false
 
   train_dpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py model.name=models/sft/final
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo model.name=models/sft/final
     deps:
       - models/sft/final
       - data/dpo_train.jsonl
@@ -70,7 +70,7 @@ stages:
   # ABLATION: DPO ONLY
   # ----------------------------
   train_dpo_only:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training.output_dir=models/dpo_only
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo training.output_dir=models/dpo_only
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
