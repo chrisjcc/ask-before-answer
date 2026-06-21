@@ -1,8 +1,16 @@
 import os
 
 import streamlit as st
+import weave
+from dotenv import load_dotenv
 
 from src.inference.pipeline import ClarificationPipeline
+
+# Load environment variables for W&B authentication
+load_dotenv()
+
+# Initialize Weave to log all LLM traces to the project
+weave.init("rl4aa/ask-before-answer")
 
 # Set page config
 st.set_page_config(
