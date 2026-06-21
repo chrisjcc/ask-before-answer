@@ -1,3 +1,3 @@
 model_repo: "chrisjcc/ask-before-answer"
 dataset_repo: "chrisjcc/ask-before-answer-data"
-release_tag: null  # Optional GitHub Release tag (e.g. "v0.0.2") to link in the Model/Dataset cards
+release_tag: v0.0.3 # Optional GitHub Release tag (e.g. "v0.0.2") to link in the Model/Dataset cards
