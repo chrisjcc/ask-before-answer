@@ -1,0 +1,125 @@
+import logging
+import os
+
+import hydra
+from datasets import DatasetDict, load_dataset
+from huggingface_hub import HfApi
+from omegaconf import DictConfig
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@hydra.main(version_base="1.3", config_path="../configs", config_name="config")
+def main(cfg: DictConfig):
+    api = HfApi()
+
+    # Extract config values
+    model_repo = cfg.deployment.model_repo
+    dataset_repo = cfg.deployment.dataset_repo
+    data_dir = cfg.data_dir
+    model_dir = os.path.join(cfg.models_dir, "dpo", "final")
+
+    # 1. Push Dataset
+    logger.info(f"Loading datasets from {data_dir}...")
+    try:
+        ds_dict = DatasetDict(
+            {
+                "sft_train": load_dataset(
+                    "json",
+                    data_files=os.path.join(data_dir, "sft_train.jsonl"),
+                    split="train",
+                ),
+                "sft_val": load_dataset(
+                    "json",
+                    data_files=os.path.join(data_dir, "sft_val.jsonl"),
+                    split="train",
+                ),
+                "dpo_train": load_dataset(
+                    "json",
+                    data_files=os.path.join(data_dir, "dpo_train.jsonl"),
+                    split="train",
+                ),
+                "dpo_val": load_dataset(
+                    "json",
+                    data_files=os.path.join(data_dir, "dpo_val.jsonl"),
+                    split="train",
+                ),
+            }
+        )
+        logger.info(f"Pushing dataset to {dataset_repo}...")
+        ds_dict.push_to_hub(dataset_repo)
+        logger.info("Dataset push complete.")
+    except Exception as e:
+        logger.error(f"Failed to push dataset: {e}")
+        return
+
+    # 2. Generate Model Card
+    readme_content = f"""---
+language: en
+license: mit
+tags:
+  - reinforcement-learning
+  - dpo
+  - sft
+  - qwen2.5
+  - clarification
+datasets:
+  - {dataset_repo}
+---
+
+# AskBeforeAnswer 🤖
+
+This model is a Qwen 2.5 7B Instruct model fine-tuned using a two-stage \
+pipeline (Supervised Fine-Tuning followed by Direct Preference Optimization) \
+on the AmbigNQ dataset.
+
+## Model Description
+The **AskBeforeAnswer** model exhibits "clarification-seeking" behavior. \
+When presented with an ambiguous question, rather than hallucinating or blindly \
+assuming an intent, the model:
+1. Detects the ambiguity.
+2. Explains the reasoning behind the ambiguity.
+3. Identifies the missing facets of information.
+4. Asks a targeted clarification question to the user.
+
+## Pipeline
+- **Base Model:** Qwen/Qwen2.5-7B-Instruct
+- **Stage 1 (SFT):** Aligned to output structured JSON indicating \
+`Action: Clarify` or `Action: Answer`.
+- **Stage 2 (DPO):** Preference optimized to strongly penalize \
+hallucinations on ambiguous queries, using `{dataset_repo}`.
+
+## Usage
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+
+base_model_name = "Qwen/Qwen2.5-7B-Instruct"
+adapter_model_name = "{model_repo}"
+
+# Load Base
+model = AutoModelForCausalLM.from_pretrained(base_model_name)
+tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+
+# Attach AskBeforeAnswer Adapters
+model = PeftModel.from_pretrained(model, adapter_model_name)
+```
+"""
+    readme_path = os.path.join(model_dir, "README.md")
+    logger.info("Writing Model Card to README.md...")
+    os.makedirs(model_dir, exist_ok=True)
+    with open(readme_path, "w") as f:
+        f.write(readme_content)
+
+    # 3. Push Model
+    logger.info(f"Creating/Checking Model Repo {model_repo}...")
+    api.create_repo(repo_id=model_repo, repo_type="model", exist_ok=True)
+
+    logger.info(f"Uploading model folder {model_dir} to {model_repo}...")
+    api.upload_folder(folder_path=model_dir, repo_id=model_repo, repo_type="model")
+    logger.info("Model upload complete!")
+
+
+if __name__ == "__main__":
+    main()
