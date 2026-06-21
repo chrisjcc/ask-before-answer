@@ -62,12 +62,19 @@ def main(cfg: DictConfig):
         logger.info(f"Pushing DPO subset to {dataset_repo}...")
         dpo_ds.push_to_hub(dataset_repo, config_name="dpo")
         # Upload Dataset Card
+        release_text = (
+            f"**GitHub Release:** [{cfg.deployment.release_tag}](https://github.com/chrisjcc/ask-before-answer/releases/tag/{cfg.deployment.release_tag})\n"
+            if cfg.deployment.get("release_tag")
+            else ""
+        )
+
         dataset_card_content = f"""
 # AskBeforeAnswer Dataset
 
 This dataset contains the training and validation splits for the \
 **AskBeforeAnswer** clarification-seeking model.
 
+{release_text}
 ## Subsets (Configurations)
 This repository contains two subsets which must be loaded separately \
 depending on the training stage:
@@ -144,6 +151,7 @@ assuming an intent, the model:
 - **Stage 2 (DPO):** Preference optimized to strongly penalize \
 hallucinations on ambiguous queries, using `{dataset_repo}`.
 
+{release_text}
 ## Usage
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
