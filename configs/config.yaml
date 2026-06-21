@@ -3,6 +3,7 @@ defaults:
   - data: ambignq
   - training: sft
   - evaluation: default
+  - deployment: hf
   - _self_
 
 seed: 42
