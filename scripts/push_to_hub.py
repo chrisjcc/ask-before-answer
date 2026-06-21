@@ -61,6 +61,47 @@ def main(cfg: DictConfig):
         )
         logger.info(f"Pushing DPO subset to {dataset_repo}...")
         dpo_ds.push_to_hub(dataset_repo, config_name="dpo")
+        # Upload Dataset Card
+        dataset_card_content = f"""
+# AskBeforeAnswer Dataset
+
+This dataset contains the training and validation splits for the \
+**AskBeforeAnswer** clarification-seeking model.
+
+## Subsets (Configurations)
+This repository contains two subsets which must be loaded separately \
+depending on the training stage:
+
+### 1. `sft` (Supervised Fine-Tuning)
+Contains the structured JSON responses for initial alignment.
+- **Features:** `instruction`, `input`, `output` (JSON dict containing \
+`action`, `reasoning`, `facets`, `response`)
+
+```python
+from datasets import load_dataset
+sft_dataset = load_dataset("{dataset_repo}", "sft")
+```
+
+### 2. `dpo` (Direct Preference Optimization)
+Contains the preference pairs used to penalize hallucinations.
+- **Features:** `prompt`, `chosen`, `rejected`
+
+```python
+from datasets import load_dataset
+dpo_dataset = load_dataset("{dataset_repo}", "dpo")
+```
+"""
+        logger.info("Uploading Dataset Card...")
+        from huggingface_hub import DatasetCard
+
+        try:
+            card = DatasetCard.load(dataset_repo)
+            # Only append if we haven't already
+            if "AskBeforeAnswer Dataset" not in card.text:
+                card.text = card.text + dataset_card_content
+                card.push_to_hub(dataset_repo)
+        except Exception as e:
+            logger.warning(f"Could not load/update DatasetCard: {e}")
 
         logger.info("Dataset push complete.")
     except Exception as e:
