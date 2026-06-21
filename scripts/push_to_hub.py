@@ -23,32 +23,42 @@ def main(cfg: DictConfig):
     # 1. Push Dataset
     logger.info(f"Loading datasets from {data_dir}...")
     try:
-        ds_dict = DatasetDict(
+        # SFT Dataset (instruction, input, output)
+        sft_ds = DatasetDict(
             {
-                "sft_train": load_dataset(
+                "train": load_dataset(
                     "json",
                     data_files=os.path.join(data_dir, "sft_train.jsonl"),
                     split="train",
                 ),
-                "sft_val": load_dataset(
+                "validation": load_dataset(
                     "json",
                     data_files=os.path.join(data_dir, "sft_val.jsonl"),
                     split="train",
                 ),
-                "dpo_train": load_dataset(
+            }
+        )
+        logger.info(f"Pushing SFT subset to {dataset_repo}...")
+        sft_ds.push_to_hub(dataset_repo, config_name="sft")
+
+        # DPO Dataset (prompt, chosen, rejected)
+        dpo_ds = DatasetDict(
+            {
+                "train": load_dataset(
                     "json",
                     data_files=os.path.join(data_dir, "dpo_train.jsonl"),
                     split="train",
                 ),
-                "dpo_val": load_dataset(
+                "validation": load_dataset(
                     "json",
                     data_files=os.path.join(data_dir, "dpo_val.jsonl"),
                     split="train",
                 ),
             }
         )
-        logger.info(f"Pushing dataset to {dataset_repo}...")
-        ds_dict.push_to_hub(dataset_repo)
+        logger.info(f"Pushing DPO subset to {dataset_repo}...")
+        dpo_ds.push_to_hub(dataset_repo, config_name="dpo")
+
         logger.info("Dataset push complete.")
     except Exception as e:
         logger.error(f"Failed to push dataset: {e}")
