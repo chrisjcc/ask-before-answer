@@ -19,6 +19,13 @@ def main(cfg: DictConfig):
     cfg.training = hydra.compose(config_name="training/dpo").training
 
     logger.info("Starting DPO training pipeline...")
+
+    # Explicitly group experiments for W&B
+    if os.environ.get("WANDB_SWEEP_ID"):
+        os.environ["WANDB_RUN_GROUP"] = "dpo_sweeps"
+    else:
+        os.environ["WANDB_RUN_GROUP"] = "dpo_baseline"
+
     os.makedirs(cfg.training.output_dir, exist_ok=True)
     run_dpo_training(cfg)
     logger.info("DPO training pipeline complete.")
