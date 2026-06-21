@@ -3,8 +3,11 @@ import os
 
 import hydra
 from datasets import DatasetDict, load_dataset
+from dotenv import load_dotenv
 from huggingface_hub import HfApi
 from omegaconf import DictConfig
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
