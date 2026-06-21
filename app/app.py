@@ -12,7 +12,9 @@ load_dotenv()
 # Initialize Weave to log all LLM traces to the project
 if os.environ.get("WANDB_API_KEY"):
     try:
-        weave.init("rl4aa/ask-before-answer")
+        wandb_entity = os.environ.get("WANDB_ENTITY", "rl4aa")
+        wandb_project = os.environ.get("WANDB_PROJECT", "ask-before-answer")
+        weave.init(f"{wandb_entity}/{wandb_project}")
     except Exception as e:
         print(f"Failed to initialize Weave: {e}")
 else:
