@@ -109,6 +109,10 @@ test:
 # -------------------------
 # Deployment
 # -------------------------
+deploy-hf:
+	@echo "Deploying datasets and final model to Hugging Face Hub..."
+	python scripts/push_to_hub.py
+
 docker-build:
 	docker build -t askbeforeanswer-app .
 
