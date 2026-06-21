@@ -59,7 +59,7 @@ stages:
   # ABLATION: SFT ONLY
   # ----------------------------
   train_sft_only:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py experiment=ablation
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py training.output_dir=models/sft_only
     deps:
       - data/sft_train.jsonl
       - data/sft_val.jsonl
@@ -70,7 +70,7 @@ stages:
   # ABLATION: DPO ONLY
   # ----------------------------
   train_dpo_only:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py model.name=base_model
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training.output_dir=models/dpo_only
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
