@@ -10,7 +10,13 @@ from src.inference.pipeline import ClarificationPipeline
 load_dotenv()
 
 # Initialize Weave to log all LLM traces to the project
-weave.init("rl4aa/ask-before-answer")
+if os.environ.get("WANDB_API_KEY"):
+    try:
+        weave.init("rl4aa/ask-before-answer")
+    except Exception as e:
+        print(f"Failed to initialize Weave: {e}")
+else:
+    print("WANDB_API_KEY not found. Weave tracing disabled.")
 
 # Set page config
 st.set_page_config(
