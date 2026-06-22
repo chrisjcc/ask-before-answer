@@ -1,6 +1,6 @@
 # ML & Model
-# Pinned for PyTorch 2.3.1 compatibility
-transformers==4.45.2
+# Unpinned for Gemma 4 architecture support
+transformers>=4.45.2
 datasets>=4.7.0
 peft==0.13.2
 trl==0.11.0
