@@ -110,21 +110,27 @@ dvc exp apply sweep_<Run ID>
 
 ---
 
-## 📊 Evaluation
+## 📊 Observability & Systematic Evaluation (W&B Weave)
 
-The evaluation pipeline uses Gemini 2.5 Flash as an LLM-as-a-judge to grade the outputs on:
+This project integrates tightly with **Weights & Biases Weave** to provide comprehensive LLM observability, trace logging, and systematic evaluation pipelines. 
+
+### LLM Tracing
+The production Streamlit app (`app/app.py`) automatically logs all user interactions, prompts, and model generations to the Weave dashboard, enabling you to inspect exact input/output traces in real-time.
+
+### Dynamic Leaderboards & LLM-as-a-Judge
+The automated evaluation pipeline (`scripts/evaluate.py`) uses **Gemini 2.5 Flash** as an LLM-as-a-judge to systematically evaluate all model configurations against the test dataset on:
 1. Ambiguity Detection F1
 2. Clarification Quality F1
 3. Clarification Usefulness
 
-**Evaluate a specific model checkpoint:**
+To run the full suite and generate a dynamic leaderboard:
 ```bash
-python scripts/evaluate.py model_name=base
-python scripts/evaluate.py model_name=sft
-python scripts/evaluate.py model_name=sft_dpo
+make evaluate
 ```
-
-Metrics are saved to `results/<model_name>_metrics.json`.
+1. The script automatically fetches the `sewon/ambig_qa` test dataset and publishes it to Weave (`weave.Dataset`).
+2. It iteratively instantiates each configured post-trained model (`base`, `sft_only`, `dpo_only`, `sft`, `dpo`) wrapped in a `weave.Model` and runs a `weave.Evaluation` against the dataset.
+3. The results are logged directly to a centralized **Weave Dynamic Leaderboard** where you can compare model outputs, view judge justifications side-by-side, and save custom UI filters.
+4. The metrics are automatically exported to `results/weave_eval_summary.json` so they can be seamlessly injected into the Markdown ablation report!
 
 ---
 
