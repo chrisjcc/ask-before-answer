@@ -85,7 +85,8 @@ def main(cfg: DictConfig):
     weave.publish(eval_dataset)
 
     # Setup Scorer
-    judge = LocalGemmaJudge(model_id="google/gemma-4-e4b-it")
+    judge_model_id = cfg.evaluation.get("judge_model", "google/gemma-4-e4b-it")
+    judge = LocalGemmaJudge(model_id=judge_model_id)
 
     # Store results for reporting
     all_results = {}
