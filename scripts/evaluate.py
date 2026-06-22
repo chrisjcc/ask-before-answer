@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import threading
 
 import hydra
 import weave
@@ -18,20 +19,37 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+_PIPELINE_CACHE = {}
+_PIPELINE_LOCK = threading.Lock()
+_INFERENCE_LOCK = threading.Lock()
+
+
+def get_cached_pipeline(model_path: str, is_peft: bool):
+    with _PIPELINE_LOCK:
+        if model_path not in _PIPELINE_CACHE:
+            # Clear old models to free VRAM
+            _PIPELINE_CACHE.clear()
+            import gc
+
+            import torch
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            _PIPELINE_CACHE[model_path] = ClarificationPipeline(model_path, is_peft)
+        return _PIPELINE_CACHE[model_path]
+
+
 class ClarificationModel(weave.Model):
     model_name: str
     model_path: str
     is_peft: bool
 
-    def get_pipeline(self):
-        # Cache the pipeline instance to avoid reloading the model for each row
-        if not hasattr(self, "_pipeline"):
-            self._pipeline = ClarificationPipeline(self.model_path, self.is_peft)
-        return self._pipeline
-
     @weave.op()
     def predict(self, question: str) -> str:
-        return self.get_pipeline().generate(question)
+        pipeline = get_cached_pipeline(self.model_path, self.is_peft)
+        with _INFERENCE_LOCK:
+            return pipeline.generate(question)
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
