@@ -44,8 +44,8 @@ def generate_report():
             }
         )
 
-        # Download history for plotting (loss and eval/loss)
-        history = run.history(keys=["_step", "train/loss", "eval/loss", "epoch"])
+        # Download history for plotting
+        history = run.history(samples=10000)
         if not history.empty:
             run_histories[run.name] = history
 
