@@ -10,7 +10,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.evaluation.judge import GeminiJudge
+from src.evaluation.judge import LocalGemmaJudge
 from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()
@@ -85,7 +85,7 @@ def main(cfg: DictConfig):
     weave.publish(eval_dataset)
 
     # Setup Scorer
-    judge = GeminiJudge()
+    judge = LocalGemmaJudge(model_id="google/gemma-4-e4b-it")
 
     # Store results for reporting
     all_results = {}
@@ -123,7 +123,7 @@ def main(cfg: DictConfig):
         results = asyncio.run(evaluation.evaluate(model))
 
         # Format the metric summary nicely
-        metrics = results.get("GeminiJudge") or {}
+        metrics = results.get("LocalGemmaJudge") or results.get("GeminiJudge") or {}
         all_results[model_name] = {
             "ambiguity_detection": metrics.get("ambiguity_detection", {}).get(
                 "mean", 0.0

@@ -1,11 +1,14 @@
 import json
 import logging
 import os
+import threading
 from typing import Any
 
+import torch
 import weave
 from google import genai
 from google.genai import types
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -100,3 +103,101 @@ class GeminiJudge(weave.Scorer):
             "usefulness": float(res.get("usefulness", 0.0)),
             "justification": res.get("justification", ""),
         }
+
+
+_LOCAL_JUDGE_CACHE = {}
+_LOCAL_JUDGE_LOCK = threading.Lock()
+_LOCAL_INFERENCE_LOCK = threading.Lock()
+
+
+def get_local_judge(model_id: str):
+    with _LOCAL_JUDGE_LOCK:
+        if model_id not in _LOCAL_JUDGE_CACHE:
+            _LOCAL_JUDGE_CACHE.clear()
+            import gc
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            logger.info(f"Loading local judge model {model_id}...")
+            tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+            model = AutoModelForCausalLM.from_pretrained(
+                model_id,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+                trust_remote_code=True,
+            )
+            model.eval()
+            _LOCAL_JUDGE_CACHE[model_id] = (model, tokenizer)
+        return _LOCAL_JUDGE_CACHE[model_id]
+
+
+class LocalGemmaJudge(weave.Scorer):
+    model_id: str = "google/gemma-4-12b-it"
+
+    @weave.op()
+    def score(self, target: Any, output: str, question: str = "") -> dict:
+        prompt = (
+            "You are an expert judge evaluating clarification-seeking "
+            "behavior in an AI agent.\\n\\n"
+            f"Question: {question}\\n"
+            f"Agent Response: {output}\\n"
+            f"Ground Truth: {target}\\n\\n"
+            "Evaluate the Agent Response on the following criteria:\\n"
+            "1. Ambiguity Detection F1\\n"
+            "2. Clarification Quality F1\\n"
+            "3. Clarification Usefulness\\n\\n"
+            "Return ONLY a JSON object with scores between 0.0 and 1.0 for each "
+            "metric, and a short justification.\\n"
+            "Format:\\n"
+            "{\\n"
+            '    "ambiguity_detection": 1.0,\\n'
+            '    "clarification_quality": 0.8,\\n'
+            '    "usefulness": 0.9,\\n'
+            '    "justification": "..."\\n'
+            "}"
+        )
+
+        model, tokenizer = get_local_judge(self.model_id)
+
+        messages = [{"role": "user", "content": prompt}]
+        input_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+        with _LOCAL_INFERENCE_LOCK:
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=300,
+                    do_sample=False,
+                    pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+                )
+
+        gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]
+        response_text = tokenizer.decode(gen_tokens, skip_special_tokens=True)
+
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+
+        try:
+            res = json.loads(response_text)
+            return {
+                "ambiguity_detection": float(res.get("ambiguity_detection", 0.0)),
+                "clarification_quality": float(res.get("clarification_quality", 0.0)),
+                "usefulness": float(res.get("usefulness", 0.0)),
+                "justification": res.get("justification", ""),
+            }
+        except Exception as e:
+            logger.error(
+                f"Failed to parse Local Judge JSON: {e} \\nRaw output: {response_text}"
+            )
+            return {
+                "ambiguity_detection": 0.0,
+                "clarification_quality": 0.0,
+                "usefulness": 0.0,
+                "justification": f"Parse error: {str(e)}",
+            }
