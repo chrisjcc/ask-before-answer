@@ -14,10 +14,10 @@ class GeminiJudge(weave.Scorer):
     model_name: str = "gemini-2.5-flash"
 
     @weave.op()
-    def score(self, target: Any, model_output: str, question: str = "") -> dict:
+    def score(self, target: Any, output: str, question: str = "") -> dict:
         """Evaluation scorer that returns scalar metrics."""
         # Using the existing evaluate_response method internally.
-        # Weave passes target, model_output automatically,
+        # Weave passes target, output automatically,
         # but we need to fetch the question.
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
@@ -34,7 +34,7 @@ class GeminiJudge(weave.Scorer):
             "You are an expert judge evaluating clarification-seeking "
             "behavior in an AI agent.\\n\\n"
             f"Question: {question}\\n"
-            f"Agent Response: {model_output}\\n"
+            f"Agent Response: {output}\\n"
             f"Ground Truth: {target}\\n\\n"
             "Evaluate the Agent Response on the following criteria:\\n"
             "1. Ambiguity Detection F1\\n"

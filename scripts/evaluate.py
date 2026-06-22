@@ -123,7 +123,7 @@ def main(cfg: DictConfig):
         results = asyncio.run(evaluation.evaluate(model))
 
         # Format the metric summary nicely
-        metrics = results.get("GeminiJudge", {})
+        metrics = results.get("GeminiJudge") or {}
         all_results[model_name] = {
             "ambiguity_detection": metrics.get("ambiguity_detection", {}).get(
                 "mean", 0.0
