@@ -1,6 +1,5 @@
 # ML & Model
 # Pinned for PyTorch 2.3.1 compatibility
-torch==2.3.1
 transformers==4.45.2
 datasets>=4.7.0
 peft==0.13.2
@@ -14,7 +13,6 @@ protobuf
 einops
 wandb>=0.27.2
 weave>=0.52.43
-weave[scorers]
 
 # Data processing & Utils
 pandas
