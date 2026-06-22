@@ -1,8 +1,24 @@
 import os
 
 import streamlit as st
+import weave
+from dotenv import load_dotenv
 
 from src.inference.pipeline import ClarificationPipeline
+
+# Load environment variables for W&B authentication
+load_dotenv()
+
+# Initialize Weave to log all LLM traces to the project
+if os.environ.get("WANDB_API_KEY"):
+    try:
+        wandb_entity = os.environ.get("WANDB_ENTITY", "rl4aa")
+        wandb_project = os.environ.get("WANDB_PROJECT", "ask-before-answer")
+        weave.init(f"{wandb_entity}/{wandb_project}")
+    except Exception as e:
+        print(f"Failed to initialize Weave: {e}")
+else:
+    print("WANDB_API_KEY not found. Weave tracing disabled.")
 
 # Set page config
 st.set_page_config(
