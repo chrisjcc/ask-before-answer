@@ -62,22 +62,28 @@ def generate_report():
     print("Generating plots...")
     sns.set_theme(style="whitegrid")
 
-    # Plot 1: Eval Loss Comparison
+    # Plot 1: Training Loss Comparison
     plt.figure(figsize=(10, 6))
     for name, hist in run_histories.items():
-        if "eval/loss" in hist.columns:
-            # Drop NaN values for eval/loss
-            valid_hist = hist.dropna(subset=["eval/loss"])
+        if "train/loss" in hist.columns:
+            # Drop NaN values for train/loss
+            valid_hist = hist.dropna(subset=["train/loss"])
             if not valid_hist.empty:
-                sns.lineplot(data=valid_hist, x="_step", y="eval/loss", label=name)
+                # Use a rolling average to smooth the training loss curve
+                valid_hist = valid_hist.sort_values("_step")
+                sns.lineplot(
+                    x=valid_hist["_step"],
+                    y=valid_hist["train/loss"].rolling(10, min_periods=1).mean(),
+                    label=name,
+                )
 
-    plt.title("Evaluation Loss vs Steps")
+    plt.title("Training Loss vs Steps (Smoothed)")
     plt.xlabel("Training Steps")
-    plt.ylabel("Eval Loss")
+    plt.ylabel("Train Loss")
     if plt.gca().get_legend_handles_labels()[0]:
         plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.tight_layout()
-    plot_path = "docs/plots/eval_loss_comparison.png"
+    plot_path = "docs/plots/train_loss_comparison.png"
     plt.savefig(plot_path)
     plt.close()
 
@@ -99,7 +105,7 @@ def generate_report():
             "",
             "## Learning Curves",
             "",
-            "![Evaluation Loss](plots/eval_loss_comparison.png)",
+            "![Training Loss](plots/train_loss_comparison.png)",
             "",
         ]
     )
