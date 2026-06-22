@@ -68,6 +68,8 @@ train-dpo-only:
 ablation-suite:
 	@echo "Running all experimental baselines..."
 	dvc repro train_sft_only train_dpo_only train_sft train_dpo
+	@echo "Evaluating all models with LLM-as-a-Judge..."
+	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
 	python scripts/generate_report.py
 

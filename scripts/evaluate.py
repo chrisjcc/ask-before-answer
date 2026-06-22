@@ -18,75 +18,122 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class ClarificationModel(weave.Model):
+    model_name: str
+    model_path: str
+    is_peft: bool
+
+    def get_pipeline(self):
+        # Cache the pipeline instance to avoid reloading the model for each row
+        if not hasattr(self, "_pipeline"):
+            self._pipeline = ClarificationPipeline(self.model_path, self.is_peft)
+        return self._pipeline
+
+    @weave.op()
+    def predict(self, question: str) -> str:
+        return self.get_pipeline().generate(question)
+
+
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig):
-    model_name = cfg.get("model_name", "sft")
-    logger.info(f"Starting evaluation pipeline for {model_name}...")
-
+    logger.info("Starting systematic evaluation pipeline...")
     weave.init(os.environ.get("WANDB_PROJECT", "ask-before-answer"))
 
-    # Determine model path
-    if model_name == "base":
-        model_path = "Qwen/Qwen2.5-7B-Instruct"
-        is_peft = False
-    elif model_name == "sft":
-        model_path = os.path.join(cfg.models_dir, "sft", "final")
-        is_peft = True
-    elif model_name == "sft_dpo":
-        model_path = os.path.join(cfg.models_dir, "dpo", "final")
-        is_peft = True
-    else:
-        logger.error(f"Unknown model_name: {model_name}")
-        return
-
-    pipeline = ClarificationPipeline(model_path, is_peft=is_peft)
-
-    # Run evaluation on the test set
+    # Load and publish dataset
     dataset_name = cfg.evaluation.dataset_name
     split_name = cfg.evaluation.split
     logger.info(f"Loading evaluation dataset: {dataset_name} ({split_name} split)")
     dataset = load_dataset(dataset_name, split=split_name)
 
-    # Slice to max_samples
-    max_samples = cfg.evaluation.get("max_samples", 20)
+    max_samples = cfg.evaluation.get("max_samples", 50)
     dataset = dataset.select(range(min(max_samples, len(dataset))))
 
-    # Prepare Weave Dataset
-    weave_dataset = []
+    # Preprocess dataset to the format expected by Weave
+    weave_dataset_rows = []
     for row in dataset:
-        weave_dataset.append(
-            {"question": row["question"], "ground_truth": row.get("ground_truth", "")}
+        weave_dataset_rows.append(
+            {
+                "question": row["question"],
+                "target": row.get(
+                    "ground_truth", ""
+                ),  # 'target' is the standard key for Weave Scorers
+            }
         )
 
-    # Evaluate with Gemini
-    if os.environ.get("GEMINI_API_KEY"):
-        logger.info("Running Weave evaluation suite...")
-        judge = GeminiJudge()
+    # Publish the dataset once so all models evaluate against the exact same version
+    eval_dataset = weave.Dataset(
+        name=f"{dataset_name.replace('/', '_')}_eval", rows=weave_dataset_rows
+    )
+    weave.publish(eval_dataset)
 
-        @weave.op()
-        def gemini_scorer(question: str, output: str, ground_truth: str = "") -> dict:
-            return judge.score(question, output, ground_truth)
+    # Setup Scorer
+    judge = GeminiJudge()
 
-        @weave.op()
-        def model_predict(question: str) -> str:
-            return pipeline.generate(question)
+    # Store results for reporting
+    all_results = {}
 
-        evaluation = weave.Evaluation(dataset=weave_dataset, scorers=[gemini_scorer])
+    # Loop over models to evaluate
+    models_to_eval = cfg.evaluation.get("models_to_evaluate", [])
+    if not models_to_eval:
+        logger.warning("No models_to_evaluate found in config.")
+        return
 
-        results = asyncio.run(evaluation.evaluate(model_predict))
+    for model_cfg in models_to_eval:
+        model_name = model_cfg.name
+        model_path = model_cfg.path
+        is_peft = model_cfg.is_peft
 
-        # Save metrics
-        os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
-        metrics = results
-        logger.info(f"Evaluation Metrics: {json.dumps(metrics, indent=2)}")
-        with open(
-            os.path.join(cfg.project_dir, f"results/{model_name}_metrics.json"), "w"
-        ) as f:
-            json.dump(metrics, f, indent=2)
-    else:
-        logger.warning("GEMINI_API_KEY not found. Skipping Gemini evaluation.")
+        # For non-base models, prepend the project directory to the path
+        if is_peft and not os.path.isabs(model_path):
+            model_path = os.path.join(cfg.project_dir, model_path)
 
-    logger.info("Evaluation complete.")
+        logger.info(f"Evaluating model: {model_name} from {model_path}")
+
+        # Instantiate Weave Model
+        model = ClarificationModel(
+            model_name=model_name, model_path=model_path, is_peft=is_peft
+        )
+
+        # Run Evaluation
+        evaluation = weave.Evaluation(
+            name=f"eval_{model_name}",
+            dataset=eval_dataset,
+            scorers=[judge],
+        )
+
+        logger.info(f"Running weave.Evaluation for {model_name}...")
+        results = asyncio.run(evaluation.evaluate(model))
+
+        # Format the metric summary nicely
+        metrics = results.get("GeminiJudge", {})
+        all_results[model_name] = {
+            "ambiguity_detection": metrics.get("ambiguity_detection", {}).get(
+                "mean", 0.0
+            ),
+            "clarification_quality": metrics.get("clarification_quality", {}).get(
+                "mean", 0.0
+            ),
+            "usefulness": metrics.get("usefulness", {}).get("mean", 0.0),
+        }
+
+        # Cleanup model from GPU memory to make room for the next one
+        if hasattr(model, "_pipeline"):
+            del model._pipeline
+        import torch
+
+        torch.cuda.empty_cache()
+        import gc
+
+        gc.collect()
+
+    # Save summary results to JSON for the report generator
+    os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
+    results_path = os.path.join(cfg.project_dir, "results", "weave_eval_summary.json")
+    with open(results_path, "w") as f:
+        json.dump(all_results, f, indent=2)
+
+    logger.info(f"All evaluations complete. Summary saved to {results_path}")
+    logger.info("Check your W&B Weave dashboard for the dynamic leaderboard!")
 
 
 if __name__ == "__main__":

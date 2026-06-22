@@ -1,32 +1,41 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 
+import weave
 from google import genai
 from google.genai import types
 
 logger = logging.getLogger(__name__)
 
 
-class GeminiJudge:
-    def __init__(self, api_key: str = None, model_name: str = "gemini-2.5-flash"):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-        if not self.api_key:
-            raise ValueError("GEMINI_API_KEY is not set.")
-        self.client = genai.Client(api_key=self.api_key)
-        self.model_name = model_name
+class GeminiJudge(weave.Scorer):
+    model_name: str = "gemini-2.5-flash"
 
-    def evaluate_response(
-        self, question: str, response: str, ground_truth: Any = None
-    ) -> Dict[str, Any]:
-        """Use Gemini to evaluate the model's clarification response."""
+    @weave.op()
+    def score(self, target: Any, model_output: str, question: str = "") -> dict:
+        """Evaluation scorer that returns scalar metrics."""
+        # Using the existing evaluate_response method internally.
+        # Weave passes target, model_output automatically,
+        # but we need to fetch the question.
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            return {
+                "ambiguity_detection": 0.0,
+                "clarification_quality": 0.0,
+                "usefulness": 0.0,
+                "justification": "GEMINI_API_KEY not set",
+            }
+
+        client = genai.Client(api_key=api_key)
+
         prompt = (
             "You are an expert judge evaluating clarification-seeking "
             "behavior in an AI agent.\\n\\n"
             f"Question: {question}\\n"
-            f"Agent Response: {response}\\n"
-            f"Ground Truth: {ground_truth}\\n\\n"
+            f"Agent Response: {model_output}\\n"
+            f"Ground Truth: {target}\\n\\n"
             "Evaluate the Agent Response on the following criteria:\\n"
             "1. Ambiguity Detection F1\\n"
             "2. Clarification Quality F1\\n"
@@ -42,14 +51,14 @@ class GeminiJudge:
             "}"
         )
         try:
-            response = self.client.models.generate_content(
+            response = client.models.generate_content(
                 model=self.model_name,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                 ),
             )
-            return json.loads(response.text)
+            res = json.loads(response.text)
         except Exception as e:
             logger.error(f"Error calling Gemini API: {e}")
             return {
@@ -59,44 +68,9 @@ class GeminiJudge:
                 "justification": str(e),
             }
 
-    def score(self, question: str, output: str, ground_truth: Any = None) -> dict:
-        """Evaluation scorer that returns scalar metrics."""
-        res = self.evaluate_response(question, output, ground_truth)
         return {
             "ambiguity_detection": float(res.get("ambiguity_detection", 0.0)),
             "clarification_quality": float(res.get("clarification_quality", 0.0)),
             "usefulness": float(res.get("usefulness", 0.0)),
             "justification": res.get("justification", ""),
         }
-
-
-def run_evaluation_suite(model_outputs: List[Dict[str, Any]]) -> Dict[str, float]:
-    """Run full evaluation suite on a list of model outputs."""
-    judge = GeminiJudge()
-    results = []
-
-    for item in model_outputs:
-        score = judge.evaluate_response(
-            question=item["question"],
-            response=item["response"],
-            ground_truth=item.get("ground_truth"),
-        )
-        results.append(score)
-
-    avg_scores = {
-        "ambiguity_detection": (
-            sum(r["ambiguity_detection"] for r in results) / len(results)
-            if results
-            else 0
-        ),
-        "clarification_quality": (
-            sum(r["clarification_quality"] for r in results) / len(results)
-            if results
-            else 0
-        ),
-        "usefulness": (
-            sum(r["usefulness"] for r in results) / len(results) if results else 0
-        ),
-    }
-
-    return avg_scores

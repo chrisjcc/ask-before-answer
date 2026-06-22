@@ -1,3 +1,19 @@
 dataset_name: "sewon/ambig_qa"
 split: "validation"
-max_samples: 20
+max_samples: 50
+models_to_evaluate:
+  - name: "base"
+    path: "Qwen/Qwen2.5-7B-Instruct"
+    is_peft: false
+  - name: "sft_only"
+    path: "models/sft_only/final"
+    is_peft: true
+  - name: "dpo_only"
+    path: "models/dpo_only/final"
+    is_peft: true
+  - name: "sft"
+    path: "models/sft/final"
+    is_peft: true
+  - name: "sft_dpo"
+    path: "models/dpo/final"
+    is_peft: true
