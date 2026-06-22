@@ -50,22 +50,48 @@ class GeminiJudge(weave.Scorer):
             '    "justification": "..."\\n'
             "}"
         )
-        try:
-            response = client.models.generate_content(
-                model=self.model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                ),
-            )
-            res = json.loads(response.text)
-        except Exception as e:
-            logger.error(f"Error calling Gemini API: {e}")
+        max_retries = 5
+        base_delay = 10  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                    ),
+                )
+                res = json.loads(response.text)
+                break  # Success
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str or "503" in error_str:
+                    if attempt < max_retries - 1:
+                        # Exponential backoff with some jitter
+                        import random
+
+                        delay = base_delay * (2**attempt) + random.uniform(0, 2)
+                        logger.warning(
+                            f"Gemini API rate limit. Retrying in {delay:.1f}s..."
+                        )
+                        import time
+
+                        time.sleep(delay)
+                        continue
+                logger.error(f"Error calling Gemini API: {e}")
+                return {
+                    "ambiguity_detection": 0.0,
+                    "clarification_quality": 0.0,
+                    "usefulness": 0.0,
+                    "justification": error_str,
+                }
+        else:
             return {
                 "ambiguity_detection": 0.0,
                 "clarification_quality": 0.0,
                 "usefulness": 0.0,
-                "justification": str(e),
+                "justification": "Max retries exceeded due to rate limits",
             }
 
         return {
