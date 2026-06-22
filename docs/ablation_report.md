@@ -13,4 +13,4 @@ This report was automatically generated from Weights & Biases metrics.
 
 ## Learning Curves
 
-![Evaluation Loss](plots/eval_loss_comparison.png)
+![Training Loss](plots/train_loss_comparison.png)
