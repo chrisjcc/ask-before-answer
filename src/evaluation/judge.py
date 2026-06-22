@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiJudge(weave.Scorer):
-    model_name: str = "gemini-2.5-flash"
+    model_name: str = "gemini-1.5-flash"
 
     @weave.op()
     def score(self, target: Any, output: str, question: str = "") -> dict:
