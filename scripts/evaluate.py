@@ -10,7 +10,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.evaluation.judge import LocalGemmaJudge
+from src.evaluation.judge import GeminiJudge, LocalGemmaJudge
 from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()
@@ -85,8 +85,11 @@ def main(cfg: DictConfig):
     weave.publish(eval_dataset)
 
     # Setup Scorer
-    judge_model_id = cfg.evaluation.get("judge_model", "google/gemma-4-e4b-it")
-    judge = LocalGemmaJudge(model_id=judge_model_id)
+    judge_model_id = cfg.evaluation.get("judge_model", "gemini-2.0-flash")
+    if "gemini" in judge_model_id.lower():
+        judge = GeminiJudge(model_name=judge_model_id)
+    else:
+        judge = LocalGemmaJudge(model_id=judge_model_id)
 
     # Store results for reporting
     all_results = {}
