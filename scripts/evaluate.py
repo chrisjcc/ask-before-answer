@@ -15,6 +15,7 @@ from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["WEAVE_PARALLELISM"] = "1"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
