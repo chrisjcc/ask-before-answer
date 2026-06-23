@@ -147,8 +147,9 @@ class LocalGemmaJudge(weave.Scorer):
             "1. Ambiguity Detection F1\\n"
             "2. Clarification Quality F1\\n"
             "3. Clarification Usefulness\\n\\n"
-            "Return ONLY a JSON object with scores between 0.0 and 1.0 for each "
-            "metric, and a short justification.\\n"
+            "Return ONLY a valid JSON object with scores between 0.0 and 1.0 for each "
+            "metric, and a short justification. Escape any double quotes inside "
+            "the justification.\\n"
             "Format:\\n"
             "{\\n"
             '    "ambiguity_detection": 1.0,\\n'
@@ -185,6 +186,21 @@ class LocalGemmaJudge(weave.Scorer):
 
         try:
             res = json.loads(response_text)
+        except json.JSONDecodeError:
+            import re
+
+            res = {}
+            for key in ["ambiguity_detection", "clarification_quality", "usefulness"]:
+                match = re.search(rf'"{key}"\s*:\s*([0-9.]+)', response_text)
+                if match:
+                    res[key] = float(match.group(1))
+            just_match = re.search(
+                r'"justification"\s*:\s*"(.*?)"\s*\}?', response_text, re.DOTALL
+            )
+            if just_match:
+                res["justification"] = just_match.group(1)
+
+        try:
             return {
                 "ambiguity_detection": float(res.get("ambiguity_detection", 0.0)),
                 "clarification_quality": float(res.get("clarification_quality", 0.0)),
