@@ -1,10 +1,13 @@
 import logging
+import threading
 from typing import List
 
 import torch
 import weave
 from peft import AutoPeftModelForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+_PIPELINE_LOCK = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
@@ -52,16 +55,22 @@ class ClarificationPipeline:
 
         inputs = self.tokenizer(input_text, return_tensors="pt").to(self.model.device)
 
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=300,
-                do_sample=False,
-                temperature=None,
-                top_p=None,
-                top_k=None,
-                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
-            )
+        pad_token_id = self.tokenizer.pad_token_id
+        if pad_token_id is None:
+            eos = self.tokenizer.eos_token_id
+            pad_token_id = eos[0] if isinstance(eos, list) else eos
+
+        with _PIPELINE_LOCK:
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=300,
+                    do_sample=False,
+                    temperature=None,
+                    top_p=None,
+                    top_k=None,
+                    pad_token_id=pad_token_id,
+                )
 
         # Decode only the generated response
         gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]

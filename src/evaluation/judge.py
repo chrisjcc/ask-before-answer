@@ -167,13 +167,18 @@ class LocalGemmaJudge(weave.Scorer):
         )
         inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
 
+        pad_token_id = tokenizer.pad_token_id
+        if pad_token_id is None:
+            eos = tokenizer.eos_token_id
+            pad_token_id = eos[0] if isinstance(eos, list) else eos
+
         with _LOCAL_INFERENCE_LOCK:
             with torch.no_grad():
                 outputs = model.generate(
                     **inputs,
                     max_new_tokens=300,
                     do_sample=False,
-                    pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+                    pad_token_id=pad_token_id,
                 )
 
         gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]
