@@ -173,6 +173,9 @@ class LocalGemmaJudge(weave.Scorer):
                     **inputs,
                     max_new_tokens=300,
                     do_sample=False,
+                    temperature=None,
+                    top_p=None,
+                    top_k=None,
                     pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
                 )
 
