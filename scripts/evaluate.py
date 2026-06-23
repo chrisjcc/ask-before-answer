@@ -106,8 +106,11 @@ def main(cfg: DictConfig):
         is_peft = model_cfg.is_peft
 
         # For non-base models, prepend the project directory to the path
+        # if the path exists locally, otherwise assume it's a HuggingFace hub path
         if is_peft and not os.path.isabs(model_path):
-            model_path = os.path.join(cfg.project_dir, model_path)
+            local_path = os.path.join(cfg.project_dir, model_path)
+            if os.path.exists(local_path):
+                model_path = local_path
 
         logger.info(f"Evaluating model: {model_name} from {model_path}")
 
