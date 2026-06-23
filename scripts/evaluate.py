@@ -14,6 +14,7 @@ from src.evaluation.judge import GeminiJudge, LocalGemmaJudge
 from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
