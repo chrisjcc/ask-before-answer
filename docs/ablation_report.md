@@ -14,3 +14,15 @@ This report was automatically generated from Weights & Biases metrics.
 ## Learning Curves
 
 ![Training Loss](plots/train_loss_comparison.png)
+
+## LLM-as-a-Judge Evaluation Leaderboard
+
+The following scores were computed using W&B Weave with a Gemini-based judge scorer.
+
+| Model    |   ambiguity_detection |   clarification_quality |   usefulness |
+|:---------|----------------------:|------------------------:|-------------:|
+| base     |                 0.904 |                   0.788 |        0.894 |
+| sft_only |                 0.526 |                   0.61  |        0.718 |
+| dpo_only |                 0.858 |                   0.746 |        0.842 |
+| sft      |                 0.464 |                   0.586 |        0.712 |
+| sft_dpo  |                 0.856 |                   0.74  |        0.838 |
