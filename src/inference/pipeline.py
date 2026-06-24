@@ -17,6 +17,12 @@ class ClarificationPipeline:
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_path, trust_remote_code=True
         )
+        if self.tokenizer.chat_template is None:
+            logger.warning(
+                f"Tokenizer {model_path} missing chat_template. Falling back to Qwen."
+            )
+            base_tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+            self.tokenizer.chat_template = base_tokenizer.chat_template
 
         if is_peft:
             self.model = AutoPeftModelForCausalLM.from_pretrained(

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import threading
 
 import hydra
 import weave
@@ -9,84 +10,157 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.evaluation.judge import GeminiJudge
+from src.evaluation.judge import GeminiJudge, LocalGemmaJudge
 from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["WEAVE_PARALLELISM"] = "1"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+_PIPELINE_CACHE = {}
+_PIPELINE_LOCK = threading.Lock()
+_INFERENCE_LOCK = threading.Lock()
+
+
+def get_cached_pipeline(model_path: str, is_peft: bool):
+    with _PIPELINE_LOCK:
+        if model_path not in _PIPELINE_CACHE:
+            # Clear old models to free VRAM
+            _PIPELINE_CACHE.clear()
+            import gc
+
+            import torch
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            _PIPELINE_CACHE[model_path] = ClarificationPipeline(model_path, is_peft)
+        return _PIPELINE_CACHE[model_path]
+
+
+class ClarificationModel(weave.Model):
+    model_name: str
+    model_path: str
+    is_peft: bool
+
+    @weave.op()
+    def predict(self, question: str) -> str:
+        pipeline = get_cached_pipeline(self.model_path, self.is_peft)
+        with _INFERENCE_LOCK:
+            return pipeline.generate(question)
+
+
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig):
-    model_name = cfg.get("model_name", "sft")
-    logger.info(f"Starting evaluation pipeline for {model_name}...")
-
+    logger.info("Starting systematic evaluation pipeline...")
     weave.init(os.environ.get("WANDB_PROJECT", "ask-before-answer"))
 
-    # Determine model path
-    if model_name == "base":
-        model_path = "Qwen/Qwen2.5-7B-Instruct"
-        is_peft = False
-    elif model_name == "sft":
-        model_path = os.path.join(cfg.models_dir, "sft", "final")
-        is_peft = True
-    elif model_name == "sft_dpo":
-        model_path = os.path.join(cfg.models_dir, "dpo", "final")
-        is_peft = True
-    else:
-        logger.error(f"Unknown model_name: {model_name}")
-        return
-
-    pipeline = ClarificationPipeline(model_path, is_peft=is_peft)
-
-    # Run evaluation on the test set
+    # Load and publish dataset
     dataset_name = cfg.evaluation.dataset_name
     split_name = cfg.evaluation.split
     logger.info(f"Loading evaluation dataset: {dataset_name} ({split_name} split)")
     dataset = load_dataset(dataset_name, split=split_name)
 
-    # Slice to max_samples
-    max_samples = cfg.evaluation.get("max_samples", 20)
+    max_samples = cfg.evaluation.get("max_samples", 50)
     dataset = dataset.select(range(min(max_samples, len(dataset))))
 
-    # Prepare Weave Dataset
-    weave_dataset = []
+    # Preprocess dataset to the format expected by Weave
+    weave_dataset_rows = []
     for row in dataset:
-        weave_dataset.append(
-            {"question": row["question"], "ground_truth": row.get("ground_truth", "")}
+        weave_dataset_rows.append(
+            {
+                "question": row["question"],
+                "target": row.get(
+                    "ground_truth", ""
+                ),  # 'target' is the standard key for Weave Scorers
+            }
         )
 
-    # Evaluate with Gemini
-    if os.environ.get("GEMINI_API_KEY"):
-        logger.info("Running Weave evaluation suite...")
-        judge = GeminiJudge()
+    # Publish the dataset once so all models evaluate against the exact same version
+    eval_dataset = weave.Dataset(
+        name=f"{dataset_name.replace('/', '_')}_eval", rows=weave_dataset_rows
+    )
+    weave.publish(eval_dataset)
 
-        @weave.op()
-        def gemini_scorer(question: str, output: str, ground_truth: str = "") -> dict:
-            return judge.score(question, output, ground_truth)
-
-        @weave.op()
-        def model_predict(question: str) -> str:
-            return pipeline.generate(question)
-
-        evaluation = weave.Evaluation(dataset=weave_dataset, scorers=[gemini_scorer])
-
-        results = asyncio.run(evaluation.evaluate(model_predict))
-
-        # Save metrics
-        os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
-        metrics = results
-        logger.info(f"Evaluation Metrics: {json.dumps(metrics, indent=2)}")
-        with open(
-            os.path.join(cfg.project_dir, f"results/{model_name}_metrics.json"), "w"
-        ) as f:
-            json.dump(metrics, f, indent=2)
+    # Setup Scorer
+    judge_model_id = cfg.evaluation.get("judge_model", "gemini-2.0-flash")
+    if "gemini" in judge_model_id.lower():
+        judge = GeminiJudge(model_name=judge_model_id)
     else:
-        logger.warning("GEMINI_API_KEY not found. Skipping Gemini evaluation.")
+        judge = LocalGemmaJudge(model_id=judge_model_id)
 
-    logger.info("Evaluation complete.")
+    # Store results for reporting
+    all_results = {}
+
+    # Loop over models to evaluate
+    models_to_eval = cfg.evaluation.get("models_to_evaluate", [])
+    if not models_to_eval:
+        logger.warning("No models_to_evaluate found in config.")
+        return
+
+    for model_cfg in models_to_eval:
+        model_name = model_cfg.name
+        model_path = model_cfg.path
+        is_peft = model_cfg.is_peft
+
+        # For non-base models, prepend the project directory to the path
+        # if the path exists locally, otherwise assume it's a HuggingFace hub path
+        if is_peft and not os.path.isabs(model_path):
+            local_path = os.path.join(cfg.project_dir, model_path)
+            if os.path.exists(local_path):
+                model_path = local_path
+
+        logger.info(f"Evaluating model: {model_name} from {model_path}")
+
+        # Instantiate Weave Model
+        model = ClarificationModel(
+            model_name=model_name, model_path=model_path, is_peft=is_peft
+        )
+
+        # Run Evaluation
+        evaluation = weave.Evaluation(
+            name=f"eval_{model_name}",
+            dataset=eval_dataset,
+            scorers=[judge],
+        )
+
+        logger.info(f"Running weave.Evaluation for {model_name}...")
+        results = asyncio.run(evaluation.evaluate(model))
+
+        # Format the metric summary nicely
+        metrics = results.get("LocalGemmaJudge") or results.get("GeminiJudge") or {}
+        all_results[model_name] = {
+            "ambiguity_detection": metrics.get("ambiguity_detection", {}).get(
+                "mean", 0.0
+            ),
+            "clarification_quality": metrics.get("clarification_quality", {}).get(
+                "mean", 0.0
+            ),
+            "usefulness": metrics.get("usefulness", {}).get("mean", 0.0),
+        }
+
+        # Cleanup model from GPU memory to make room for the next one
+        if hasattr(model, "_pipeline"):
+            del model._pipeline
+        import torch
+
+        torch.cuda.empty_cache()
+        import gc
+
+        gc.collect()
+
+    # Save summary results to JSON for the report generator
+    os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
+    results_path = os.path.join(cfg.project_dir, "results", "weave_eval_summary.json")
+    with open(results_path, "w") as f:
+        json.dump(all_results, f, indent=2)
+
+    logger.info(f"All evaluations complete. Summary saved to {results_path}")
+    logger.info("Check your W&B Weave dashboard for the dynamic leaderboard!")
 
 
 if __name__ == "__main__":
