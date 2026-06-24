@@ -19,13 +19,14 @@ This report was automatically generated from Weights & Biases metrics.
 
 The following scores were computed using W&B Weave with a local Gemma-based judge scorer (google/gemma-2-9b-it).
 
-| Model    |   ambiguity_detection |   clarification_quality |   usefulness |
-|:---------|----------------------:|------------------------:|-------------:|
-| base     |                 0.904 |                   0.788 |        0.894 |
-| sft_only |                 0.526 |                   0.61  |        0.718 |
-| dpo_only |                 0.858 |                   0.746 |        0.842 |
-| sft      |                 0.464 |                   0.586 |        0.712 |
-| sft_dpo  |                 0.856 |                   0.74  |        0.838 |
+| Model          |   ambiguity_detection |   clarification_quality |   usefulness |
+|:---------------|----------------------:|------------------------:|-------------:|
+| base           |                 0.9   |                   0.758 |        0.876 |
+| sft_only	 |                 0.524 |                   0.468 |        0.564 |
+| dpo_only	 |                 0.898 |                   0.748 |        0.87  |
+| sft            |                 0.448 |                   0.448 |        0.562 |
+| sft_dpo        |                 0.928 |                   0.744 |        0.878 |
+| clarifier_lora |                 0.946 |                   0.776 |        0.876 |
 
 ## Analysis & Conclusion
 
