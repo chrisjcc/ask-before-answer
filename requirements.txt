@@ -2,7 +2,7 @@
 # Unpinned for Gemma 4 architecture support
 transformers>=4.45.2
 datasets>=4.7.0
-peft==0.13.2
+peft==0.19.1
 trl==0.11.0
 accelerate==0.34.2
 bitsandbytes>=0.49.2
