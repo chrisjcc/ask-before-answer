@@ -1,0 +1,28 @@
+name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+use_flash_attention: false
+load_in_8bit: false
+load_in_4bit: true
+trust_remote_code: true
+device_map: "auto"
+torch_dtype: "bfloat16"
+
+# QLoRA / bitsandbytes
+bnb_4bit_quant_type: "nf4"
+bnb_4bit_compute_dtype: "bfloat16"
+bnb_4bit_use_double_quant: true
+
+# LoRA configuration
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
