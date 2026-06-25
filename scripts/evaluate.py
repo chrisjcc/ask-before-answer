@@ -93,8 +93,8 @@ def main(cfg: DictConfig):
     else:
         judge = LocalGemmaJudge(model_id=judge_model_id)
 
-    # Store results for reporting
     all_results = {}
+    evaluations_list = []
 
     # Loop over models to evaluate
     models_to_eval = cfg.evaluation.get("models_to_evaluate", [])
@@ -129,7 +129,10 @@ def main(cfg: DictConfig):
         )
 
         logger.info(f"Running weave.Evaluation for {model_name}...")
-        results = asyncio.run(evaluation.evaluate(model))
+        results = asyncio.run(
+            evaluation.evaluate(model, __weave={"display_name": f"{model_name}_eval"})
+        )
+        evaluations_list.append(evaluation)
 
         # Format the metric summary nicely
         metrics = results.get("LocalGemmaJudge") or results.get("GeminiJudge") or {}
@@ -160,7 +163,54 @@ def main(cfg: DictConfig):
         json.dump(all_results, f, indent=2)
 
     logger.info(f"All evaluations complete. Summary saved to {results_path}")
-    logger.info("Check your W&B Weave dashboard for the dynamic leaderboard!")
+
+    # Publish native Weave Leaderboard
+    logger.info("Publishing Weave Leaderboard...")
+    try:
+        from weave.flow import leaderboard
+        from weave.trace.ref_util import get_ref
+
+        # We assume the scorer name is the class name of the judge used
+        scorer_name = judge.__class__.__name__
+
+        columns = []
+        for eval_obj in evaluations_list:
+            try:
+                eval_ref = get_ref(eval_obj).uri()
+                columns.extend(
+                    [
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name=scorer_name,
+                            summary_metric_path="ambiguity_detection.mean",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name=scorer_name,
+                            summary_metric_path="clarification_quality.mean",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name=scorer_name,
+                            summary_metric_path="usefulness.mean",
+                        ),
+                    ]
+                )
+            except Exception as e:
+                logger.warning(f"Could not get ref for evaluation {eval_obj.name}: {e}")
+
+        if columns:
+            spec = leaderboard.Leaderboard(
+                name="Clarify-or-Act Ablation Leaderboard",
+                description="Model ambiguity and clarify quality comparison.",
+                columns=columns,
+            )
+            weave.publish(spec)
+            logger.info("Check your W&B Weave dashboard for the dynamic leaderboard!")
+    except ImportError:
+        logger.warning(
+            "weave.flow.leaderboard not found. Update weave to publish leaderboards."
+        )
 
 
 if __name__ == "__main__":
