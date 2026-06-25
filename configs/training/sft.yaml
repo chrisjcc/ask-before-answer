@@ -1,7 +1,7 @@
 output_dir: "${models_dir}/sft"
 per_device_train_batch_size: 1
-gradient_accumulation_steps: 16
-num_train_epochs: 2
+gradient_accumulation_steps: 8
+num_train_epochs: 1
 learning_rate: 2e-4
 warmup_ratio: 0.05
 bf16: true
@@ -11,4 +11,4 @@ save_total_limit: 3
 optim: "adamw_torch"
 report_to: "wandb"
 max_seq_length: 2048
-packing: true
+packing: false
