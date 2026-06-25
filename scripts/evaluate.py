@@ -10,7 +10,8 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.evaluation.judge import ActionScorer, GeminiJudge, LocalGemmaJudge
+from src.evaluation.judge import GeminiJudge, LocalGemmaJudge
+from src.evaluation.metrics import ActionScorer
 from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()

@@ -194,7 +194,9 @@ ask-before-answer/
 ├── scripts/              # Executable CLI entry points
 ├── src/                  # Core Python modules
 │   ├── data/             # Preprocessing logic
-│   ├── evaluation/       # Gemini judge and metrics
+│   ├── evaluation/       # Evaluation logic
+│   │   ├── judge.py      # Stochastic, LLM-as-a-judge scorers (GeminiJudge)
+│   │   └── metrics.py    # Deterministic, rule/regex-based scorers (ActionScorer)
 │   ├── inference/        # Generation pipeline
 │   └── training/         # SFT and DPO LoRA trainers
 ├── tests/                # Pytest unit tests
