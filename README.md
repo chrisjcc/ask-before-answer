@@ -199,6 +199,7 @@ ask-before-answer/
 │   │   └── metrics.py    # Deterministic, rule/regex-based scorers (ActionScorer)
 │   ├── inference/        # Generation pipeline
 │   └── training/         # SFT and DPO LoRA trainers
+├── sweeps/               # W&B sweep orchestration configurations
 ├── tests/                # Pytest unit tests
 ├── .env.example          # Environment secrets template
 ├── Dockerfile            # Container deployment definition
