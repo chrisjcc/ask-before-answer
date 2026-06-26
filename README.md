@@ -79,6 +79,20 @@ make run-pipeline
 
 By default, models and checkpoints are saved to `models/sft/` and `models/dpo/`.
 
+### 🛠️ Emergency Recovery (Resuming Checkpoints)
+If your remote server crashes midway through a training run, you can resume from the latest Hugging Face checkpoint. 
+**Do NOT edit your `.yaml` configs to set `resume_from_checkpoint: true`.** Because DVC strictly tracks the YAML configs, modifying them will permanently alter the file hash and pollute your Git history with an "emergency recovery" flag, causing future runs on new datasets to fail.
+
+Instead, utilize Hydra's dynamic CLI override to bypass DVC temporarily and finish the job:
+1. Run the script directly from the terminal, injecting the override dynamically:
+   ```bash
+   CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py training.resume_from_checkpoint=true
+   ```
+2. Once the script successfully finishes and generates the `models/sft/final` folder, tell DVC to manually hash the outputs and mark the stage as complete:
+   ```bash
+   dvc commit train_sft
+   ```
+
 ### Orchestrating Sweeps (W&B + DVC)
 This project leverages **Weights & Biases Sweeps** to orchestrate Bayesian hyperparameter optimization, and **DVC** to track the reproducibility and caching of those trials.
 
