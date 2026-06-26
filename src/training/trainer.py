@@ -185,7 +185,9 @@ def run_sft_training(cfg: DictConfig):
 
     logger.info("Starting SFT Training...")
     last_checkpoint = None
-    if cfg.training.get("resume_from_checkpoint", False) and os.path.isdir(cfg.training.output_dir):
+    if cfg.training.get("resume_from_checkpoint", False) and os.path.isdir(
+        cfg.training.output_dir
+    ):
         last_checkpoint = get_last_checkpoint(cfg.training.output_dir)
         if last_checkpoint is not None:
             logger.info(f"Resuming SFT training from {last_checkpoint}")
@@ -252,7 +254,9 @@ def run_dpo_training(cfg: DictConfig):
 
     logger.info("Starting DPO Training...")
     last_checkpoint = None
-    if cfg.training.get("resume_from_checkpoint", False) and os.path.isdir(cfg.training.output_dir):
+    if cfg.training.get("resume_from_checkpoint", False) and os.path.isdir(
+        cfg.training.output_dir
+    ):
         last_checkpoint = get_last_checkpoint(cfg.training.output_dir)
         if last_checkpoint is not None:
             logger.info(f"Resuming DPO training from {last_checkpoint}")
