@@ -63,6 +63,8 @@ stages:
     deps:
       - data/sft_train.jsonl
       - data/sft_val.jsonl
+      - configs/training/sft.yaml
+      - configs/model/qwen2_5_7b.yaml
     outs:
       - models/sft_only/final
 
@@ -74,6 +76,8 @@ stages:
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
+      - configs/training/dpo.yaml
+      - configs/model/qwen2_5_7b.yaml
     outs:
       - models/dpo_only/final
 
