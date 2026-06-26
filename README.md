@@ -141,6 +141,13 @@ make evaluate
 3. The results are logged directly to a centralized **Weave Dynamic Leaderboard** where you can compare model outputs, view judge justifications side-by-side, and save custom UI filters.
 4. The metrics are automatically exported to `results/weave_eval_summary.json` so they can be seamlessly injected into the Markdown ablation report!
 
+### Internal Model Registry (Lifecycle Management)
+While Hugging Face Hub is used for public distribution, this project leverages the **W&B Model Registry** for internal lifecycle management (`AskBeforeAnswer-Models` portfolio).
+During evaluation (`make evaluate`), every model (`sft_only`, `sft_dpo`, etc.) is:
+1. Published as a formal `weave.Model` object.
+2. Logged as a `wandb.Artifact` directly into the central Model Registry.
+3. Automatically linked so you can instantly trace any registered checkpoint back to its private Weave evaluation dashboard!
+
 ---
 
 ## 💬 Inference & UI
