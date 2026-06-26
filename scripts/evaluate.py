@@ -72,12 +72,17 @@ def main(cfg: DictConfig):
     # Preprocess dataset to the format expected by Weave
     weave_dataset_rows = []
     for row in dataset:
+        # Determine the true action based on AmbigQA schema
+        annotations = row.get("annotations", [])
+        ann_type = annotations[0].get("type", "") if annotations else ""
+        is_ambiguous = ann_type == "multipleQAs"
+        expected_action = "Clarify" if is_ambiguous else "Answer"
+
         weave_dataset_rows.append(
             {
                 "question": row["question"],
-                "target": row.get(
-                    "ground_truth", ""
-                ),  # 'target' is the standard key for Weave Scorers
+                "target": f"Action: {expected_action}\n"
+                + str(row.get("ground_truth", "")),
             }
         )
 
