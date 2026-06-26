@@ -154,6 +154,47 @@ def main(cfg: DictConfig):
             ),
         }
 
+        # ---------------------------------------------------------
+        # W&B Model Registry Integration
+        # ---------------------------------------------------------
+        try:
+            model_ref = weave.publish(model)
+            ENTITY = os.environ.get("WANDB_ENTITY")
+            PROJECT = os.environ.get("WANDB_PROJECT")
+
+            if ENTITY and PROJECT:
+                import wandb
+
+                models_object_name = model_ref.name
+                models_object_version = model_ref.digest
+
+                models_url = f"https://wandb.ai/{ENTITY}/{PROJECT}/weave/objects/{models_object_name}/versions/{models_object_version}"
+                models_link = f"weave://{ENTITY}/{PROJECT}/object/{models_object_name}:{models_object_version}"
+
+                with wandb.init(
+                    project=PROJECT,
+                    entity=ENTITY,
+                    job_type="model-registry",
+                    reinit=True,
+                ) as run:
+                    artifact_model = wandb.Artifact(
+                        name=f"Clarifier-{model_name}",
+                        type="model",
+                        description=f"Weave Model Link for {model_name}",
+                        metadata={"url": models_url},
+                    )
+                    artifact_model.add_reference(
+                        models_link, name="model", checksum=False
+                    )
+                    run.log_artifact(artifact_model, aliases=[models_object_version])
+                    run.link_artifact(
+                        artifact_model,
+                        target_path=f"{ENTITY}/{PROJECT}/AskBeforeAnswer-Models",
+                    )
+                logger.info(f"Registered {model_name} to W&B Model Registry.")
+        except Exception as e:
+            logger.warning(f"Could not register model to W&B Registry: {e}")
+
         # Cleanup model from GPU memory to make room for the next one
         if hasattr(model, "_pipeline"):
             del model._pipeline
