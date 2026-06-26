@@ -68,6 +68,14 @@ stages:
     outs:
       - models/sft_only/final
 
+  evaluate_sft_only:
+    cmd: python scripts/evaluate.py model_name=sft_only
+    deps:
+      - models/sft_only/final
+    metrics:
+      - results/sft_only_metrics.json:
+          cache: false
+
   # ----------------------------
   # ABLATION: DPO ONLY
   # ----------------------------
