@@ -122,4 +122,4 @@ run-app:
 	streamlit run app/app.py
 
 clean:
-	rm -rf models/* outputs/* results/*
+	rm -rf models/* outputs/* results/* wandb/
