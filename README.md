@@ -72,8 +72,10 @@ make run-pipeline
 ```
 
 ### Running Individual Stages
-- **Supervised Fine-Tuning (SFT):** `make train-sft` (Prefix with `CUDA_VISIBLE_DEVICES=1` if your primary GPU is full)
+- **Supervised Fine-Tuning (SFT):** `make train-sft`
+  - *Optimization:* Standard Cross-Entropy Loss (learning to imitate the exact tokens of the ground-truth formatting).
 - **Direct Preference Optimization (DPO):** `make train-dpo`
+  - *Optimization:* Bradley-Terry preference margin (increasing the log probability of the "chosen" response while decreasing the log probability of the "rejected" response).
 
 By default, models and checkpoints are saved to `models/sft/` and `models/dpo/`.
 
@@ -117,11 +119,18 @@ This project integrates tightly with **Weights & Biases Weave** to provide compr
 ### LLM Tracing
 The production Streamlit app (`app/app.py`) automatically logs all user interactions, prompts, and model generations to the Weave dashboard, enabling you to inspect exact input/output traces in real-time.
 
-### Dynamic Leaderboards & LLM-as-a-Judge
-The automated evaluation pipeline (`scripts/evaluate.py`) uses **Gemini 2.5 Flash** as an LLM-as-a-judge to systematically evaluate all model configurations against the test dataset on:
-1. Ambiguity Detection F1
-2. Clarification Quality F1
-3. Clarification Usefulness
+### Dynamic Leaderboards, LLM-as-a-Judge, & Rule-Based Scoring
+The automated evaluation pipeline (`scripts/evaluate.py`) uses a dual-scoring approach to systematically evaluate all model configurations against the test dataset:
+
+**1. LLM-as-a-Judge (Gemini 2.5 Flash / Gemma 4):**
+Evaluates the subjective nuance and quality of the response:
+- Ambiguity Detection F1
+- Clarification Quality F1
+- Clarification Usefulness
+
+**2. Rule-Based Programmatic Scoring (`ActionScorer`):**
+Evaluates the deterministic structural accuracy of the agent's chosen action:
+- Model Accuracy (Raw percentage of correct `Action` choices—Clarify vs. Answer—compared to the ground-truth labels).
 
 To run the full suite and generate a dynamic leaderboard:
 ```bash
@@ -185,9 +194,12 @@ ask-before-answer/
 ├── scripts/              # Executable CLI entry points
 ├── src/                  # Core Python modules
 │   ├── data/             # Preprocessing logic
-│   ├── evaluation/       # Gemini judge and metrics
+│   ├── evaluation/       # Evaluation logic
+│   │   ├── judge.py      # Stochastic, LLM-as-a-judge scorers (GeminiJudge)
+│   │   └── metrics.py    # Deterministic, rule/regex-based scorers (ActionScorer)
 │   ├── inference/        # Generation pipeline
 │   └── training/         # SFT and DPO LoRA trainers
+├── sweeps/               # W&B sweep orchestration configurations
 ├── tests/                # Pytest unit tests
 ├── .env.example          # Environment secrets template
 ├── Dockerfile            # Container deployment definition

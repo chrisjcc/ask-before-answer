@@ -84,13 +84,13 @@ infer:
 
 sweep-sft:
 	@echo "Initializing SFT W&B Sweep..."
-	wandb sweep configs/sweep_sft.yaml
+	wandb sweep sweeps/sft.yaml
 	@echo "Copy the sweep ID above and run:"
 	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
 
 sweep-dpo:
 	@echo "Initializing DPO W&B Sweep..."
-	wandb sweep configs/sweep_dpo.yaml
+	wandb sweep sweeps/dpo.yaml
 	@echo "Copy the sweep ID above and run:"
 	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
 

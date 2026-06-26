@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from omegaconf import DictConfig
 
 from src.evaluation.judge import GeminiJudge, LocalGemmaJudge
+from src.evaluation.metrics import ActionScorer
 from src.inference.pipeline import ClarificationPipeline
 
 load_dotenv()
@@ -93,6 +94,8 @@ def main(cfg: DictConfig):
     else:
         judge = LocalGemmaJudge(model_id=judge_model_id)
 
+    action_scorer = ActionScorer()
+
     all_results = {}
     evaluations_list = []
 
@@ -125,7 +128,7 @@ def main(cfg: DictConfig):
         evaluation = weave.Evaluation(
             name=f"eval_{model_name}",
             dataset=eval_dataset,
-            scorers=[judge],
+            scorers=[judge, action_scorer],
         )
 
         logger.info(f"Running weave.Evaluation for {model_name}...")
@@ -136,6 +139,8 @@ def main(cfg: DictConfig):
 
         # Format the metric summary nicely
         metrics = results.get("LocalGemmaJudge") or results.get("GeminiJudge") or {}
+        action_metrics = results.get("ActionScorer") or {}
+
         all_results[model_name] = {
             "ambiguity_detection": metrics.get("ambiguity_detection", {}).get(
                 "mean", 0.0
@@ -144,6 +149,9 @@ def main(cfg: DictConfig):
                 "mean", 0.0
             ),
             "usefulness": metrics.get("usefulness", {}).get("mean", 0.0),
+            "model_accuracy": action_metrics.get("correct_action", {}).get(
+                "true_fraction", 0.0
+            ),
         }
 
         # Cleanup model from GPU memory to make room for the next one
@@ -193,6 +201,11 @@ def main(cfg: DictConfig):
                             evaluation_object_ref=eval_ref,
                             scorer_name=scorer_name,
                             summary_metric_path="usefulness.mean",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="correct_action.true_fraction",
                         ),
                     ]
                 )
