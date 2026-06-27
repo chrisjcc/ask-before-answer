@@ -1,20 +1,17 @@
 # End-to-End Deployment & Version Control Workflow
 
-This document outlines the architecture and step-by-step instructions for managing datasets and model weights in the AskBeforeAnswer project. It explains how we seamlessly bridge local experimentation with public Hugging Face deployment using Data Version Control (DVC) and GitHub Actions.
+This document outlines the architecture and step-by-step instructions for managing datasets, model weights, and deployments in the AskBeforeAnswer project. It explains how we seamlessly bridge local experimentation (DVC) with production deployment using the **Weights & Biases Model Registry** and the **Hugging Face Hub**.
 
 ## Architectural Overview: The "Messy Kitchen" vs. The "Dining Room"
 
-When training machine learning models, a common problem is managing hundreds of intermediate, experimental datasets and model checkpoints. You do not want to pollute your public repository or public Hugging Face Hub with broken or intermediate files.
-
-We solve this using a two-tiered architecture:
+When training machine learning models, you do not want to pollute your public repository or public Hugging Face Hub with broken or intermediate files. We solve this using a two-tiered architecture:
 
 ### 1. The "Messy Kitchen" (DVC + Internal Cloud Storage)
 During development, we use **Data Version Control (DVC)**. DVC acts like Git for large binary files. It silently tracks every dataset generation and model training run you execute locally, mapping them to your Git commits. 
-When you run `dvc push`, it uploads these heavy files to a private, internal storage bucket (e.g., a Hugging Face Storage Bucket, AWS S3, or Google Drive) in a compressed, hidden format. This keeps your local laptop clean and ensures your team has private backups of every experiment.
 
-### 2. The "Dining Room" (GitHub Actions + Hugging Face Hub)
-Once an experiment is successful and finalized, we want to serve it to the public. This is handled entirely by **GitHub Actions** (`.github/workflows/release_hf.yml`) and our custom deployment script (`scripts/publish_to_hf.py`).
-By triggering a **Git Release Tag**, the CI/CD pipeline automatically authenticates with DVC, downloads the heavy files from the private "Messy Kitchen," and cleanly publishes the uncompressed datasets and final model weights to the public Hugging Face Datasets and Model Hubs.
+### 2. The "Dining Room" (W&B Model Registry + Hugging Face Hub)
+Once an experiment is successful and finalized, we want to serve it to the public. 
+Rather than hardcoding deployment logic, we use the **Weights & Biases (W&B) Model Registry** as our single source of truth for deployment decisions. By tagging an experimental model (e.g., `sft_only` or `dpo`) with the `production` alias in the W&B web UI, our local deployment script dynamically resolves the winner, injects the Weave evaluation leaderboard into the Model Card, and pushes the model straight to Hugging Face!
 
 ---
 
@@ -22,66 +19,42 @@ By triggering a **Git Release Tag**, the CI/CD pipeline automatically authentica
 
 Follow these instructions to execute the end-to-end pipeline from local development to public Hugging Face deployment.
 
-### 1. One-Time Setup: Configure DVC Remote (Google Drive API)
-You must configure DVC to know where your internal "Messy Kitchen" storage bucket is located. In this project, we use a Google Drive folder as the DVC remote, authenticated via a Service Account. The preprocessed data is stored in the user's Google Drive and when a github release is created, a version of the preprocessed dataset is uploaded to the Hugging Face dataset hub.
-
-**Creating the Google Drive Service Account:**
-To call this API from your own applications, you may need to create credentials. What data will you be accessing? Select "Application data" this will create a service account.
-
-1. Go to Google Cloud Console → **IAM & Admin** → **Service Accounts**.
-2. Click **Create Service Account**.
-3. Give it a name like `dvc-gdrive`.
-4. Give the service account a description (e.g., *GDRIVE CREDENTIALS DATA*).
-5. Permissions (optional), e.g., role set to **Editor**. Skip role assignment (Drive access is via sharing, not IAM roles).
-6. Principals with access (optional), skip.
-7. Create and download a new JSON key by clicking on **Keys**, then **Add Key**, then select **JSON** (recommended).
-8. Share your target Google Drive folder with the new `dvc-gdrive@...iam.gserviceaccount.com` email address.
-9. Update your `GDRIVE_CREDENTIALS_DATA` GitHub repository secret with the contents of the new JSON file.
-
-**Configure DVC Locally:**
-```bash
-# Add your Google Drive folder as the default DVC remote
-# Replace <YOUR_FOLDER_ID> with the long ID string from your Google Drive folder's URL
-dvc remote add -d origin gdrive://<YOUR_FOLDER_ID>
-```
-
-### 2. The Development Phase (Locally)
-When you want to process data or train the model, do not run the Python scripts directly. Let DVC orchestrate the pipeline so it can automatically track the outputs.
+### 1. The Development Phase (Locally)
+When you want to process data or train the models, let DVC orchestrate the pipeline so it can automatically track the outputs.
 
 ```bash
-# This automatically runs preprocess_data.py, train_sft.py, and train_dpo.py
-make run-pipeline
+# This automatically orchestrates the entire ablation suite (SFT, DPO, evaluations, etc.)
+make ablation-suite
 ```
 
-### 3. Backup to the "Messy Kitchen" (DVC Push)
-After the pipeline finishes, DVC updates the `dvc.lock` file. You now need to upload the actual heavy datasets and model weights to your internal storage bucket.
+### 2. Evaluate the Models
+Once the suite finishes, DVC triggers the evaluation script which generates a Weave leaderboard and local markdown summaries.
+
+### 3. Promote a Model to Production (W&B Web UI)
+1. Go to your **W&B Web Dashboard** and open your project.
+2. Navigate to the **Model Registry** portfolio (`AskBeforeAnswer-Models`).
+3. Find the specific model variant that won the ablation suite (e.g., `Clarifier-sft_only`).
+4. Click on the model version and add the **`production`** alias to it.
+
+### 4. Deploy to Hugging Face
+With the alias set in W&B, you can now seamlessly deploy directly from your remote server!
 
 ```bash
-dvc push
+make deploy-hf
 ```
-*(This securely uploads the heavy binary data into your private HF bucket in a compressed format).*
 
-### 4. Update the GitHub Repository
-Now, save the pointer (`dvc.lock`) to your GitHub repository so your codebase knows about the new experiment.
+**What this script does dynamically:**
+1. Authenticates with the W&B API and queries your `AskBeforeAnswer-Models` registry.
+2. Identifies the model tagged with `production` (e.g., `sft_only`).
+3. Maps that alias directly to the existing local checkpoint cache (`models/sft_only/final`), saving gigabytes of cloud download bandwidth.
+4. Dynamically reads `results/leaderboard.md` and injects the Weave Evaluation Metrics directly into the Hugging Face `README.md` Model Card.
+5. Pushes the dataset and the exact winning model weights to your public Hugging Face Hub.
+
+### 5. Update the GitHub Repository
+Now, save the pointer (`dvc.lock`) to your GitHub repository so your codebase knows about the finalized experiment.
 
 ```bash
 git add dvc.lock
-git commit -m "feat: generated new v1.5 dataset and trained model"
+git commit -m "feat: deployed new state-of-the-art clarification model"
 git push origin main
 ```
-*(At this point, your GitHub repository is updated, but nothing has been formally published to the public Hugging Face Model or Dataset Hubs).*
-
-### 5. Publish to the "Dining Room" (GitHub Release)
-When you decide a specific commit is ready for public release:
-
-1. Go to your **GitHub Repository** in your web browser.
-2. Navigate to the **Releases** tab on the right side.
-3. Click **Draft a new release**.
-4. Type a version tag (e.g., `v1.5.0`).
-5. Write your release notes in the description box (e.g., *"Added 5,000 new clarification examples!"*).
-6. Click **Publish release**.
-
-**Automated Deployment Execution:**
-The moment you click publish, the `.github/workflows/release_hf.yml` GitHub Action triggers. It spins up a cloud runner, automatically authenticates with DVC using the `HF_TOKEN` repository secret, runs `dvc pull` to fetch your heavy files, and executes `scripts/publish_to_hf.py`. 
-
-This script dynamically generates professional READMEs containing your release notes and publishes the final `sft_data.jsonl`, `dpo_data.jsonl`, and model weights directly to your public Hugging Face repositories!

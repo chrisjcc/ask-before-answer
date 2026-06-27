@@ -162,6 +162,16 @@ During evaluation (`make evaluate`), every model (`sft_only`, `sft_dpo`, etc.) i
 2. Logged as a `wandb.Artifact` directly into the central Model Registry.
 3. Automatically linked so you can instantly trace any registered checkpoint back to its private Weave evaluation dashboard!
 
+### Public Deployment (Hugging Face Hub)
+We use the W&B Model Registry as our single source of truth for public deployments!
+1. Review your `docs/ablation_report.md` or Weave Leaderboard to see which model variant won the suite.
+2. Go to the W&B Web UI and add the `production` alias to the winning model artifact (e.g., `Clarifier-sft_only`).
+3. Run the deployment script from your server:
+```bash
+make deploy-hf
+```
+This script dynamically asks W&B which model has the `production` tag, maps it to your local disk, injects the Weave Leaderboard into a dynamic Hugging Face Model Card, and pushes the final weights directly to the public Hub!
+
 ---
 
 ## 💬 Inference & UI
