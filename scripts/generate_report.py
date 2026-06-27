@@ -26,7 +26,6 @@ def generate_report():
     run_histories = {}
 
     for run in runs:
-
         # Only process completed runs that logged eval/loss
         if run.state != "finished" or "eval/loss" not in run.summary:
             continue
@@ -115,38 +114,13 @@ def generate_report():
         f.write("\n".join(report_content))
 
     # Append Weave Evaluation Leaderboard if available
-    eval_summary_path = "results/weave_eval_summary.json"
+    eval_summary_path = "results/leaderboard.md"
     if os.path.exists(eval_summary_path):
         with open(eval_summary_path, "r") as f:
-            eval_data = json.load(f)
-
-        # Convert to DataFrame for markdown table
-        records = []
-        for model_name, metrics in eval_data.items():
-            record = {"Model": model_name}
-            record.update(metrics)
-            records.append(record)
-
-        df_eval = pd.DataFrame(records)
-
-        # Format the numbers nicely
-        for col in df_eval.columns:
-            if col != "Model":
-                df_eval[col] = df_eval[col].apply(lambda x: f"{x:.4f}")
-
-        eval_content = [
-            "",
-            "## LLM-as-a-Judge Evaluation Leaderboard",
-            "",
-            "The following scores were computed using W&B Weave with "
-            "a Gemini-based judge scorer.",
-            "",
-            df_eval.to_markdown(index=False),
-            "",
-        ]
+            leaderboard_content = f.read()
 
         with open("docs/ablation_report.md", "a") as f:
-            f.write("\n".join(eval_content))
+            f.write("\n\n" + leaderboard_content + "\n")
 
     print("Report successfully generated at docs/ablation_report.md")
 

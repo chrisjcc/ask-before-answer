@@ -181,6 +181,12 @@ dpo_dataset = load_dataset("{dataset_repo}", "dpo")
         return
 
     # 2. Generate Model Card
+    leaderboard_content = ""
+    leaderboard_path = os.path.join(cfg.project_dir, "results", "leaderboard.md")
+    if os.path.exists(leaderboard_path):
+        with open(leaderboard_path, "r") as f:
+            leaderboard_content = f.read()
+
     readme_content = f"""---
 language: en
 license: mit
@@ -212,6 +218,8 @@ assuming an intent, the model:
 ## Pipeline
 - **Base Model:** Qwen/Qwen2.5-7B-Instruct
 - **Ablation Winner:** The model variant promoted to Production via W&B Registry is: `{winning_model_name}`.
+
+{leaderboard_content}
 
 {release_text}
 ## Usage

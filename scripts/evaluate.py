@@ -78,10 +78,14 @@ def main(cfg: DictConfig):
             ann_type = ann[0].get("type", "") if ann else ""
         elif isinstance(ann, dict):
             type_val = ann.get("type", "")
-            ann_type = type_val[0] if isinstance(type_val, list) and len(type_val) > 0 else type_val
+            ann_type = (
+                type_val[0]
+                if isinstance(type_val, list) and len(type_val) > 0
+                else type_val
+            )
         else:
             ann_type = ""
-            
+
         is_ambiguous = ann_type == "multipleQAs"
         expected_action = "Clarify" if is_ambiguous else "Answer"
 
@@ -222,6 +226,23 @@ def main(cfg: DictConfig):
     results_path = os.path.join(cfg.project_dir, "results", "weave_eval_summary.json")
     with open(results_path, "w") as f:
         json.dump(all_results, f, indent=2)
+
+    try:
+        import pandas as pd
+
+        df_eval = pd.DataFrame(all_results)
+        leaderboard_md = [
+            "## LLM-as-a-Judge Evaluation Leaderboard",
+            "",
+            f"The following scores were computed using W&B Weave with a Gemini-based judge scorer on a randomly selected **{max_samples}-sample** subset of the `{dataset_name}` ({split_name} split).",
+            "",
+            df_eval.to_markdown(index=False),
+            "",
+        ]
+        with open(os.path.join(cfg.project_dir, "results", "leaderboard.md"), "w") as f:
+            f.write("\n".join(leaderboard_md))
+    except Exception as e:
+        logger.warning(f"Could not write leaderboard.md: {e}")
 
     logger.info(f"All evaluations complete. Summary saved to {results_path}")
 
