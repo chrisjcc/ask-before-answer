@@ -21,7 +21,68 @@ def main(cfg: DictConfig):
     model_repo = cfg.deployment.model_repo
     dataset_repo = cfg.deployment.dataset_repo
     data_dir = cfg.data_dir
-    model_dir = os.path.join(cfg.models_dir, "dpo", "final")
+
+    # ---------------------------------------------------------
+    # W&B Model Registry Resolution
+    # ---------------------------------------------------------
+    registry_alias = cfg.deployment.get("registry_alias", "production")
+    wandb_entity = os.environ.get("WANDB_ENTITY")
+    wandb_project = os.environ.get("WANDB_PROJECT")
+
+    winning_model_name = "dpo"  # Fallback
+
+    if wandb_entity and wandb_project:
+        import wandb
+
+        logger.info(f"Querying W&B Model Registry for alias: '{registry_alias}'...")
+        try:
+            api = wandb.Api()
+            # The artifact is stored in the Model Registry portfolio
+            artifact_path = f"{wandb_entity}/{wandb_project}/AskBeforeAnswer-Models:{registry_alias}"
+            artifact = api.artifact(artifact_path)
+
+            # The artifact name format is Clarifier-{model_name}
+            artifact_basename = artifact.name.split(":")[0]  # e.g. Clarifier-sft_only
+            if artifact_basename.startswith("Clarifier-"):
+                winning_model_name = artifact_basename.replace("Clarifier-", "")
+                logger.info(f"🏆 W&B resolved winning model: '{winning_model_name}'!")
+            else:
+                logger.warning(
+                    f"Unexpected artifact name format: {artifact.name}. Falling back to 'dpo'."
+                )
+
+        except Exception as e:
+            logger.warning(
+                f"Could not fetch artifact from W&B Registry: {e}. Falling back to 'dpo'."
+            )
+    else:
+        logger.warning(
+            "WANDB_ENTITY or WANDB_PROJECT not set. Skipping W&B resolution and falling back to 'dpo'."
+        )
+
+    # Construct dynamic local directory path
+    local_dir_mapping = {
+        "sft_only": "models/sft_only/final",
+        "dpo_only": "models/dpo_only/final",
+        "sft": "models/sft/final",
+        "dpo": "models/dpo/final",
+        "base": "Qwen/Qwen2.5-7B-Instruct",
+    }
+
+    if winning_model_name not in local_dir_mapping:
+        logger.error(
+            f"Resolved model '{winning_model_name}' is not mapped to a local directory! Aborting."
+        )
+        return
+
+    model_dir = (
+        os.path.join(
+            cfg.models_dir, local_dir_mapping[winning_model_name].split("/", 1)[-1]
+        )
+        if "models/" in local_dir_mapping[winning_model_name]
+        else local_dir_mapping[winning_model_name]
+    )
+    logger.info(f"Targeting local model directory: {model_dir}")
 
     # 1. Push Dataset
     logger.info(f"Loading datasets from {data_dir}...")
@@ -150,10 +211,7 @@ assuming an intent, the model:
 
 ## Pipeline
 - **Base Model:** Qwen/Qwen2.5-7B-Instruct
-- **Stage 1 (SFT):** Aligned to output structured JSON indicating \
-`Action: Clarify` or `Action: Answer`.
-- **Stage 2 (DPO):** Preference optimized to strongly penalize \
-hallucinations on ambiguous queries, using `{dataset_repo}`.
+- **Ablation Winner:** The model variant promoted to Production via W&B Registry is: `{winning_model_name}`.
 
 {release_text}
 ## Usage

@@ -3,3 +3,6 @@ dataset_repo: "chrisjcc/ask-before-answer-data"
 
 # Optional GitHub Release tag (e.g. "v0.0.1") to link in the Model/Dataset cards
 release_tag: v0.0.5
+
+# W&B Model Registry alias to target for deployment (e.g. "production", "staging")
+registry_alias: "production"
