@@ -38,7 +38,10 @@ def main(cfg: DictConfig):
         try:
             api = wandb.Api()
             # The artifact is stored in the Model Registry portfolio
-            artifact_path = f"{wandb_entity}/{wandb_project}/AskBeforeAnswer-Models:{registry_alias}"
+            artifact_path = (
+                f"{wandb_entity}/{wandb_project}/AskBeforeAnswer-Models:"
+                f"{registry_alias}"
+            )
             artifact = api.artifact(artifact_path)
 
             # The artifact name format is Clarifier-{model_name}
@@ -48,16 +51,19 @@ def main(cfg: DictConfig):
                 logger.info(f"🏆 W&B resolved winning model: '{winning_model_name}'!")
             else:
                 logger.warning(
-                    f"Unexpected artifact name format: {artifact.name}. Falling back to 'dpo'."
+                    f"Unexpected artifact name format: {artifact.name}. "
+                    "Falling back to 'dpo'."
                 )
 
         except Exception as e:
             logger.warning(
-                f"Could not fetch artifact from W&B Registry: {e}. Falling back to 'dpo'."
+                f"Could not fetch artifact from W&B Registry: {e}. "
+                " Falling back to 'dpo'."
             )
     else:
         logger.warning(
-            "WANDB_ENTITY or WANDB_PROJECT not set. Skipping W&B resolution and falling back to 'dpo'."
+            "WANDB_ENTITY or WANDB_PROJECT not set. "
+            "Skipping W&B resolution and falling back to 'dpo'."
         )
 
     # Construct dynamic local directory path
@@ -71,7 +77,8 @@ def main(cfg: DictConfig):
 
     if winning_model_name not in local_dir_mapping:
         logger.error(
-            f"Resolved model '{winning_model_name}' is not mapped to a local directory! Aborting."
+            f"Resolved model '{winning_model_name}' "
+            "is not mapped to a local directory! Aborting."
         )
         return
 
@@ -217,7 +224,8 @@ assuming an intent, the model:
 
 ## Pipeline
 - **Base Model:** Qwen/Qwen2.5-7B-Instruct
-- **Ablation Winner:** The model variant promoted to Production via W&B Registry is: `{winning_model_name}`.
+- **Ablation Winner:** The model variant promoted to Production via W&B Registry is: 
+  `{winning_model_name}`.
 
 {leaderboard_content}
 
