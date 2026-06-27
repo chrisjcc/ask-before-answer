@@ -145,10 +145,19 @@ def prepare_dpo_dataset(df: pd.DataFrame, output_path: str):
         facets_str = str(facets_list)
 
         chosen_resp = clean_response(row["positive_response"])
-        chosen = f"Action: {action}\nReasoning: {reasoning}\nFacets: {facets_str}\nResponse: {chosen_resp}"
-
+        chosen = (
+            f"Action: {action}\n"
+            f"Reasoning: {reasoning}\n"
+            f"Facets: {facets_str}\n"
+            f"Response: {chosen_resp}"
+        )
         rejected_action = "Answer" if action == "Clarify" else "Clarify"
-        rejected = f"Action: {rejected_action}\nReasoning: I am not sure.\nFacets: []\nResponse: I don't know."
+        rejected = (
+            f"Action: {rejected_action}\n"
+            "Reasoning: I am not sure.\n"
+            "Facets: []\n"
+             "Response: I don't know."
+        )
 
         records.append(
             {
