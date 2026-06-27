@@ -237,8 +237,9 @@ def main(cfg: DictConfig):
         leaderboard_md = [
             "## LLM-as-a-Judge Evaluation Leaderboard",
             "",
-            "The following scores were computed using W&B Weave with a Gemini-based ,
-            f"judge scorer on a randomly selected **{max_samples}-sample** subset ",
+            "The following scores were computed using W&B Weave with a ",
+            "Gemini-based judge scorer on a randomly selected ",
+            f"**{max_samples}-sample** subset ",
             f"of the `{dataset_name}` ({split_name} split).",
             "",
             df_eval.to_markdown(index=False),
