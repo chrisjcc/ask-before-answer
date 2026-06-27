@@ -156,7 +156,7 @@ def prepare_dpo_dataset(df: pd.DataFrame, output_path: str):
             f"Action: {rejected_action}\n"
             "Reasoning: I am not sure.\n"
             "Facets: []\n"
-             "Response: I don't know."
+            "Response: I don't know."
         )
 
         records.append(
