@@ -221,6 +221,35 @@ def run_dpo_training(cfg: DictConfig):
     )
     dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
+    # Wrap DPO dataset with ChatML to match SFT
+    def format_dpo(example):
+        system_prompt = (
+            "You are a helpful assistant. "
+            "Given a question, you must decide whether it is ambiguous or not. "
+            "Output MUST follow this format:\n"
+            "Action: Clarify|Answer\n"
+            "Reasoning: <your reasoning>\n"
+            "Facets: <list of facets if ambiguous, else empty>\n"
+            "Response: <clarifying question or direct answer>"
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": example["prompt"]},
+        ]
+
+        prompt_str = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        return {
+            "prompt": prompt_str,
+            "chosen": example["chosen"] + tokenizer.eos_token,
+            "rejected": example["rejected"] + tokenizer.eos_token,
+        }
+
+    dataset_train = dataset_train.map(format_dpo)
+    dataset_val = dataset_val.map(format_dpo)
+
     training_args = DPOConfig(
         output_dir=cfg.training.output_dir,
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,

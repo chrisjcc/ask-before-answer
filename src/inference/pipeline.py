@@ -40,11 +40,13 @@ class ClarificationPipeline:
         """Run single-turn inference for clarification seeking."""
         if system_prompt is None:
             system_prompt = (
-                "You are a question understanding agent. For each user question:\\n"
-                "1) Decide if it is ambiguous.\\n"
-                "2) Explain your reasoning.\\n"
-                "3) List facets if ambiguous.\\n"
-                "4) Ask a clarifying question OR give a direct answer."
+                "You are a helpful assistant. "
+                "Given a question, you must decide whether it is ambiguous or not. "
+                "Output MUST follow this format:\n"
+                "Action: Clarify|Answer\n"
+                "Reasoning: <your reasoning>\n"
+                "Facets: <list of facets if ambiguous, else empty>\n"
+                "Response: <clarifying question or direct answer>"
             )
 
         messages = [

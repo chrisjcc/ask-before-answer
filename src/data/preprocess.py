@@ -97,10 +97,13 @@ def prepare_sft_dataset(df: pd.DataFrame, output_path: str):
     records = []
 
     system_instruction = (
-        "Decide whether the user's question is ambiguous. "
-        "If ambiguous, explain the ambiguity, list facets, and ask a "
-        "clarifying question. "
-        "If not ambiguous, explain why and answer directly."
+        "You are a helpful assistant. "
+        "Given a question, you must decide whether it is ambiguous or not. "
+        "Output MUST follow this format:\n"
+        "Action: Clarify|Answer\n"
+        "Reasoning: <your reasoning>\n"
+        "Facets: <list of facets if ambiguous, else empty>\n"
+        "Response: <clarifying question or direct answer>"
     )
 
     for _, row in df.iterrows():
@@ -134,14 +137,24 @@ def prepare_dpo_dataset(df: pd.DataFrame, output_path: str):
 
     for _, row in df.iterrows():
         # DPO requires chosen vs rejected
+        action = row["action"]
+        reasoning = row["reasoning"]
+
+        is_amb = row["is_ambiguous"]
+        facets_list = clean_facets(row["facets"]) if is_amb else []
+        facets_str = str(facets_list)
+
         chosen_resp = clean_response(row["positive_response"])
-        rejected_resp = "I don't know."  # A placeholder bad response
+        chosen = f"Action: {action}\nReasoning: {reasoning}\nFacets: {facets_str}\nResponse: {chosen_resp}"
+
+        rejected_action = "Answer" if action == "Clarify" else "Clarify"
+        rejected = f"Action: {rejected_action}\nReasoning: I am not sure.\nFacets: []\nResponse: I don't know."
 
         records.append(
             {
-                "prompt": f"User: {row['question']}\\nAssistant: ",
-                "chosen": chosen_resp,
-                "rejected": rejected_resp,
+                "prompt": row["question"],
+                "chosen": chosen,
+                "rejected": rejected,
             }
         )
 
