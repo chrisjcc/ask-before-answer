@@ -165,9 +165,10 @@ def main(cfg: DictConfig):
                 "mean", 0.0
             ),
             "usefulness": metrics.get("usefulness", {}).get("mean", 0.0),
-            "model_accuracy": action_metrics.get("correct_action", {}).get(
-                "true_fraction", 0.0
-            ),
+            "model_accuracy": action_metrics.get("accuracy", 0.0),
+            "clarify_precision": action_metrics.get("clarify_precision", 0.0),
+            "clarify_recall": action_metrics.get("clarify_recall", 0.0),
+            "clarify_f1": action_metrics.get("clarify_f1", 0.0),
         }
 
         # ---------------------------------------------------------
@@ -230,16 +231,13 @@ def main(cfg: DictConfig):
     try:
         import pandas as pd
 
-        df_eval = pd.DataFrame(all_results)
+        df_eval = (
+            pd.DataFrame(all_results).reset_index().rename(columns={"index": "Metric"})
+        )
         leaderboard_md = [
             "## LLM-as-a-Judge Evaluation Leaderboard",
             "",
-            (
-                "The following scores were computed using W&B Weave "
-                "with a Gemini-based judge scorer on a randomly selected "
-                f"**{max_samples}-sample** subset of the `{dataset_name}` "
-                f"({split_name} split)."
-            ),
+            f"The following scores were computed using W&B Weave with a Gemini-based judge scorer on a randomly selected **{max_samples}-sample** subset of the `{dataset_name}` ({split_name} split).",
             "",
             df_eval.to_markdown(index=False),
             "",
@@ -284,7 +282,22 @@ def main(cfg: DictConfig):
                         leaderboard.LeaderboardColumn(
                             evaluation_object_ref=eval_ref,
                             scorer_name="ActionScorer",
-                            summary_metric_path="correct_action.true_fraction",
+                            summary_metric_path="accuracy",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_precision",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_recall",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_f1",
                         ),
                     ]
                 )
