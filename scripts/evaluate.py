@@ -73,8 +73,15 @@ def main(cfg: DictConfig):
     weave_dataset_rows = []
     for row in dataset:
         # Determine the true action based on AmbigQA schema
-        annotations = row.get("annotations", [])
-        ann_type = annotations[0].get("type", "") if annotations else ""
+        ann = row.get("annotations", {})
+        if isinstance(ann, list):
+            ann_type = ann[0].get("type", "") if ann else ""
+        elif isinstance(ann, dict):
+            type_val = ann.get("type", "")
+            ann_type = type_val[0] if isinstance(type_val, list) and len(type_val) > 0 else type_val
+        else:
+            ann_type = ""
+            
         is_ambiguous = ann_type == "multipleQAs"
         expected_action = "Clarify" if is_ambiguous else "Answer"
 
