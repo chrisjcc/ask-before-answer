@@ -26,7 +26,8 @@ def load_model_and_tokenizer(
 
     Args:
         model_cfg (DictConfig): The Hydra configuration for the model.
-        is_train (bool): Whether to prepare the model for training (e.g. enable gradients).
+        is_train (bool): Whether to prepare the model for training
+            (e.g. enable gradients).
 
     Returns:
         Tuple[Any, Any]: A tuple containing the loaded (model, tokenizer).

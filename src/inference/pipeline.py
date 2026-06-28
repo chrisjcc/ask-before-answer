@@ -1,7 +1,8 @@
 """Inference pipeline for clarification generation.
 
 This module provides the core inference class for the ClarifyOrAct architecture,
-routing ambiguous questions to clarification requests and clear questions to direct answers.
+routing ambiguous questions to clarification requests and clear questions
+to direct answers.
 """
 
 import logging
@@ -54,7 +55,8 @@ class ClarifyOrActPipeline:
 
         Args:
             question (str): The user's input query.
-            system_prompt (Optional[str]): A custom system prompt overriding the default.
+            system_prompt (Optional[str]): A custom system prompt overriding
+               the default.
 
         Returns:
             str: The raw generated string from the model.
