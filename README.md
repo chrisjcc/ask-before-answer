@@ -19,6 +19,15 @@ This repository has been restructured into a modular, highly maintainable Python
 
 ---
 
+## 🌐 Hugging Face Artifacts
+
+You can explore the deployed final model, the dataset, and interact with the UI demo on Hugging Face:
+- **🤗 Space Demo:** [AskBeforeAnswer Demo](https://huggingface.co/spaces/chrisjcc/ask-before-answer-demo)
+- **🤗 Model Card:** [AskBeforeAnswer Qwen Model](https://huggingface.co/chrisjcc/ask-before-answer)
+- **🤗 Dataset:** [AskBeforeAnswer Data](https://huggingface.co/datasets/chrisjcc/ask-before-answer-data)
+
+---
+
 ## 💻 System Requirements
 
 **Software:**
