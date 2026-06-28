@@ -1,3 +1,9 @@
+"""Interactive CLI for inference.
+
+This script allows you to chat with the trained ClarifyOrAct models in
+your terminal to manually evaluate their clarification-seeking behaviors.
+"""
+
 import logging
 import os
 
@@ -11,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
-def main(cfg: DictConfig):
+def main(cfg: DictConfig) -> None:
     model_name = cfg.get("model_name", "sft")
     logger.info(f"Starting interactive inference for {model_name}...")
 
