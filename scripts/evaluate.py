@@ -12,7 +12,7 @@ from omegaconf import DictConfig
 
 from src.evaluation.judge import GeminiJudge, LocalGemmaJudge
 from src.evaluation.metrics import ActionScorer
-from src.inference.pipeline import ClarificationPipeline
+from src.inference.pipeline import ClarifyOrActPipeline
 
 load_dotenv()
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -39,11 +39,11 @@ def get_cached_pipeline(model_path: str, is_peft: bool):
             gc.collect()
             torch.cuda.empty_cache()
 
-            _PIPELINE_CACHE[model_path] = ClarificationPipeline(model_path, is_peft)
+            _PIPELINE_CACHE[model_path] = ClarifyOrActPipeline(model_path, is_peft)
         return _PIPELINE_CACHE[model_path]
 
 
-class ClarificationModel(weave.Model):
+class ClarifyOrActModel(weave.Model):
     model_name: str
     model_path: str
     is_peft: bool
@@ -136,7 +136,7 @@ def main(cfg: DictConfig):
         logger.info(f"Evaluating model: {model_name} from {model_path}")
 
         # Instantiate Weave Model
-        model = ClarificationModel(
+        model = ClarifyOrActModel(
             model_name=model_name, model_path=model_path, is_peft=is_peft
         )
 

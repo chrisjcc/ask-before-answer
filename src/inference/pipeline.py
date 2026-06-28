@@ -9,7 +9,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 logger = logging.getLogger(__name__)
 
 
-class ClarificationPipeline:
+class ClarifyOrActPipeline:
     def __init__(self, model_path: str, is_peft: bool = True):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Loading inference model from {model_path} on {self.device}...")

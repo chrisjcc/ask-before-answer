@@ -4,7 +4,7 @@ import os
 import hydra
 from omegaconf import DictConfig
 
-from src.inference.pipeline import ClarificationPipeline
+from src.inference.pipeline import ClarifyOrActPipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def main(cfg: DictConfig):
         logger.error(f"Unknown model_name: {model_name}")
         return
 
-    pipeline = ClarificationPipeline(model_path, is_peft=is_peft)
+    pipeline = ClarifyOrActPipeline(model_path, is_peft=is_peft)
 
     print("\\nInteractive inference started. Type 'quit' or 'exit' to stop.")
     while True:

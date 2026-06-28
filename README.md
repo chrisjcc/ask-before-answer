@@ -15,6 +15,8 @@ This repository has been restructured into a modular, highly maintainable Python
 - Lightweight production deployments (Streamlit / Docker)
 - Future experimentation with RLHF, ORPO, or Reward Modeling
 
+> **Architecture Note:** At the core of the inference framework lies the `ClarifyOrActPipeline`. This module is designed to autonomously parse user queries and route them using a dual-action mechanism: if the query is ambiguous, it returns an `Action: Clarify` schema with facets and a targeted question; if the query is clear, it routes to `Action: Answer` and answers directly.
+
 ---
 
 ## 💻 System Requirements
