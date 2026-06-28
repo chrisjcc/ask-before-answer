@@ -1,8 +1,14 @@
+"""LLM-as-a-Judge Evaluation framework.
+
+This module provides the semantic scorers (Gemini and Local Gemma) that
+act as Weave Scorers to evaluate ambiguity detection and clarification quality.
+"""
+
 import json
 import logging
 import os
 import threading
-from typing import Any
+from typing import Any, Dict
 
 import torch
 import weave
@@ -14,10 +20,17 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiJudge(weave.Scorer):
+    """A Weave Scorer that uses Google's Gemini to evaluate semantic quality.
+
+    This judge assesses three key metrics (ambiguity detection, clarification
+    quality, and usefulness) by prompting a remote Gemini model to score
+    the agent's response against the ground truth.
+    """
+
     model_name: str = "gemini-2.0-flash"
 
     @weave.op()
-    def score(self, target: Any, output: str, question: str = "") -> dict:
+    def score(self, target: Any, output: str, question: str = "") -> Dict[str, Any]:
         """Evaluation scorer that returns scalar metrics."""
         # Using the existing evaluate_response method internally.
         # Weave passes target, output automatically,
@@ -133,10 +146,16 @@ def get_local_judge(model_id: str):
 
 
 class LocalGemmaJudge(weave.Scorer):
+    """A Weave Scorer that uses a local Gemma-4-12B model for evaluation.
+
+    This provides an alternative to the Gemini API for evaluating semantic
+    quality, running entirely locally on GPU.
+    """
+
     model_id: str = "google/gemma-4-12b-it"
 
     @weave.op()
-    def score(self, target: Any, output: str, question: str = "") -> dict:
+    def score(self, target: Any, output: str, question: str = "") -> Dict[str, Any]:
         prompt = (
             "You are an expert judge evaluating clarification-seeking "
             "behavior in an AI agent.\\n\\n"

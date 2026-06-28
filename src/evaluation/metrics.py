@@ -1,12 +1,25 @@
+"""Syntactic and deterministic evaluation metrics.
+
+This module provides the ActionScorer class, which evaluates whether the agent
+correctly adhered to the required `Action: Clarify|Answer` output syntax format.
+"""
+
 import re
-from typing import Any
+from typing import Any, Dict
 
 import weave
 
 
 class ActionScorer(weave.Scorer):
+    """A Weave Scorer that validates deterministic structural formatting.
+
+    This scorer parses the agent's raw string output to ensure it matches
+    the strict `Action: [Clarify|Answer]` format and tracks true/false positive
+    rates for clarification actions across the dataset.
+    """
+
     @weave.op()
-    def score(self, target: Any, output: str, **kwargs) -> dict:
+    def score(self, target: Any, output: str, **kwargs) -> Dict[str, Any]:
         # Extract true action from ground truth
         true_action_match = re.search(
             r"Action:\s*(Clarify|Answer)", str(target), re.IGNORECASE
