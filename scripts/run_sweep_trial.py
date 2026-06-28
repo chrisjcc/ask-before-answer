@@ -1,7 +1,7 @@
 import argparse
+import logging
 import os
 import subprocess
-import logging
 
 from dotenv import load_dotenv
 from omegaconf import OmegaConf

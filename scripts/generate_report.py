@@ -1,10 +1,10 @@
+import logging
 import os
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import wandb
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
