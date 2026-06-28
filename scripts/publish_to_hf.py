@@ -1,8 +1,12 @@
 import os
 import sys
 import tempfile
+import logging
 
 from huggingface_hub import HfApi, login
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 DATASET_REPO = "chrisjcc/ask-before-answer-dataset"
 MODEL_REPO = "chrisjcc/ask-before-answer-Qwen2.5-1.5B-Instruct"
@@ -55,7 +59,7 @@ questions before answering. It contains both the Supervised Fine-Tuning
 def main():
     hf_token = os.environ.get("HF_TOKEN")
     if not hf_token:
-        print("Error: HF_TOKEN environment variable is not set.", file=sys.stderr)
+        logger.error("HF_TOKEN environment variable is not set.")
         sys.exit(1)
 
     release_tag = os.environ.get("RELEASE_TAG", "v1.0.0")
@@ -69,14 +73,14 @@ def main():
     api = HfApi()
 
     # 1. Ensure Repositories Exist
-    print(f"Ensuring Dataset Repository exists: {DATASET_REPO}")
+    logger.info(f"Ensuring Dataset Repository exists: {DATASET_REPO}")
     api.create_repo(repo_id=DATASET_REPO, repo_type="dataset", exist_ok=True)
 
-    print(f"Ensuring Model Repository exists: {MODEL_REPO}")
+    logger.info(f"Ensuring Model Repository exists: {MODEL_REPO}")
     api.create_repo(repo_id=MODEL_REPO, repo_type="model", exist_ok=True)
 
     # 2. Upload Dataset Files & README
-    print("Uploading to Dataset Hub...")
+    logger.info("Uploading to Dataset Hub...")
     if os.path.exists("data/sft_data.jsonl"):
         api.upload_file(
             path_or_fileobj="data/sft_data.jsonl",
@@ -104,9 +108,9 @@ def main():
     os.unlink(ds_readme_path)
 
     # 3. Upload Model Files & README
-    print("Uploading to Model Hub...")
+    logger.info("Uploading to Model Hub...")
     if os.path.exists("models/sft/final"):
-        print("Uploading SFT final model...")
+        logger.info("Uploading SFT final model...")
         api.upload_folder(
             folder_path="models/sft/final",
             path_in_repo="sft_final",
@@ -115,7 +119,7 @@ def main():
         )
 
     if os.path.exists("models/dpo/final"):
-        print("Uploading DPO final model...")
+        logger.info("Uploading DPO final model...")
         api.upload_folder(
             folder_path="models/dpo/final",
             path_in_repo="dpo_final",
@@ -134,7 +138,7 @@ def main():
     )
     os.unlink(mdl_readme_path)
 
-    print("Successfully published Release to Hugging Face! 🚀")
+    logger.info("Successfully published Release to Hugging Face! 🚀")
 
 
 if __name__ == "__main__":

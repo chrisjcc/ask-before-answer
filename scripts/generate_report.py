@@ -4,21 +4,25 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import wandb
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def generate_report():
-    print("Connecting to Weights & Biases API...")
+    logger.info("Connecting to Weights & Biases API...")
     api = wandb.Api()
 
     # Update with actual entity and project
     ENTITY = "rl4aa"
     PROJECT = "ask-before-answer"
 
-    print(f"Fetching runs for {ENTITY}/{PROJECT}...")
+    logger.info(f"Fetching runs for {ENTITY}/{PROJECT}...")
     try:
         runs = api.runs(f"{ENTITY}/{PROJECT}")
     except Exception as e:
-        print(f"Error fetching runs: {e}")
+        logger.error(f"Error fetching runs: {e}")
         return
 
     summary_list = []
@@ -49,7 +53,7 @@ def generate_report():
             run_histories[run.name] = history
 
     if not summary_list:
-        print("No completed runs with eval_loss found.")
+        logger.info("No completed runs with eval_loss found.")
         return
 
     # Convert to DataFrame and sort by Eval Loss
@@ -58,7 +62,7 @@ def generate_report():
     # Setup directories
     os.makedirs("docs/plots", exist_ok=True)
 
-    print("Generating plots...")
+    logger.info("Generating plots...")
     sns.set_theme(style="whitegrid")
 
     # Plot 1: Training Loss Comparison
@@ -86,7 +90,7 @@ def generate_report():
     plt.savefig(plot_path)
     plt.close()
 
-    print("Generating Markdown Report...")
+    logger.info("Generating Markdown Report...")
     report_content = [
         "# Ablation Experiment Report",
         "",
@@ -121,7 +125,7 @@ def generate_report():
         with open("docs/ablation_report.md", "a") as f:
             f.write("\n\n" + leaderboard_content + "\n")
 
-    print("Report successfully generated at docs/ablation_report.md")
+    logger.info("Report successfully generated at docs/ablation_report.md")
 
 
 if __name__ == "__main__":

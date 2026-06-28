@@ -1,9 +1,13 @@
 import argparse
 import os
 import subprocess
+import logging
 
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 CONFIG_MAP = {
     "train_sft": "configs/training/sft.yaml",
@@ -58,12 +62,14 @@ def main():
         hydra_cfg.beta = sweep_params["beta"]
 
     OmegaConf.save(hydra_cfg, cfg_path)
-    print(f"Updated {cfg_path} with new hyperparameters: {sweep_params}")
+    logger.info(f"Updated {cfg_path} with new hyperparameters: {sweep_params}")
 
     # 5. Trigger DVC to track and execute the run for the specific stage
     # Grab the run ID dynamically injected by the W&B agent environment
     run_id = os.environ.get("WANDB_RUN_ID", "local")
-    print(f"Triggering DVC Experiment for Sweep Run: {run_id} targeting stage: {stage}")
+    logger.info(
+        f"Triggering DVC Experiment for Sweep Run: {run_id} targeting stage: {stage}"
+    )
     cmd = ["dvc", "exp", "run", stage, "-n", f"sweep_{run_id}"]
 
     # We use subprocess.run to execute the DVC CLI command
