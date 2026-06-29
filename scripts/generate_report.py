@@ -1,3 +1,5 @@
+import json
+import logging
 import os
 
 import matplotlib.pyplot as plt
@@ -5,20 +7,23 @@ import pandas as pd
 import seaborn as sns
 import wandb
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 def generate_report():
-    print("Connecting to Weights & Biases API...")
+    logger.info("Connecting to Weights & Biases API...")
     api = wandb.Api()
 
     # Update with actual entity and project
     ENTITY = "rl4aa"
     PROJECT = "ask-before-answer"
 
-    print(f"Fetching runs for {ENTITY}/{PROJECT}...")
+    logger.info(f"Fetching runs for {ENTITY}/{PROJECT}...")
     try:
         runs = api.runs(f"{ENTITY}/{PROJECT}")
     except Exception as e:
-        print(f"Error fetching runs: {e}")
+        logger.error(f"Error fetching runs: {e}")
         return
 
     summary_list = []
@@ -49,7 +54,7 @@ def generate_report():
             run_histories[run.name] = history
 
     if not summary_list:
-        print("No completed runs with eval_loss found.")
+        logger.info("No completed runs with eval_loss found.")
         return
 
     # Convert to DataFrame and sort by Eval Loss
@@ -58,7 +63,7 @@ def generate_report():
     # Setup directories
     os.makedirs("docs/plots", exist_ok=True)
 
-    print("Generating plots...")
+    logger.info("Generating plots...")
     sns.set_theme(style="whitegrid")
 
     # Plot 1: Training Loss Comparison
@@ -86,7 +91,7 @@ def generate_report():
     plt.savefig(plot_path)
     plt.close()
 
-    print("Generating Markdown Report...")
+    logger.info("Generating Markdown Report...")
     report_content = [
         "# Ablation Experiment Report",
         "",
@@ -113,15 +118,39 @@ def generate_report():
         f.write("\n".join(report_content))
 
     # Append Weave Evaluation Leaderboard if available
-    eval_summary_path = "results/leaderboard.md"
-    if os.path.exists(eval_summary_path):
-        with open(eval_summary_path, "r") as f:
-            leaderboard_content = f.read()
+    eval_summary_json = "results/weave_eval_summary.json"
+    if os.path.exists(eval_summary_json):
+        logger.info("Found weave_eval_summary.json, generating leaderboard table...")
+        with open(eval_summary_json, "r") as f:
+            all_results = json.load(f)
+
+        df_eval = (
+            pd.DataFrame(all_results).reset_index().rename(columns={"index": "Metric"})
+        )
+
+        leaderboard_md = [
+            "## LLM-as-a-Judge Evaluation Leaderboard",
+            "",
+            "The following scores were computed using W&B Weave ",
+            "with a Gemini-based judge scorer.",
+            "",
+            df_eval.to_markdown(index=False),
+            "",
+        ]
 
         with open("docs/ablation_report.md", "a") as f:
-            f.write("\n\n" + leaderboard_content + "\n")
+            f.write("\n\n" + "\n".join(leaderboard_md) + "\n")
+    else:
+        # Fallback to the old markdown file if JSON doesn't exist
+        eval_summary_path = "results/leaderboard.md"
+        if os.path.exists(eval_summary_path):
+            with open(eval_summary_path, "r") as f:
+                leaderboard_content = f.read()
 
-    print("Report successfully generated at docs/ablation_report.md")
+            with open("docs/ablation_report.md", "a") as f:
+                f.write("\n\n" + leaderboard_content + "\n")
+
+    logger.info("Report successfully generated at docs/ablation_report.md")
 
 
 if __name__ == "__main__":

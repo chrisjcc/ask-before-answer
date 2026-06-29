@@ -15,6 +15,17 @@ This repository has been restructured into a modular, highly maintainable Python
 - Lightweight production deployments (Streamlit / Docker)
 - Future experimentation with RLHF, ORPO, or Reward Modeling
 
+> **Architecture Note:** At the core of the inference framework lies the `ClarifyOrActPipeline`. This module is designed to autonomously parse user queries and route them using a dual-action mechanism: if the query is ambiguous, it returns an `Action: Clarify` schema with facets and a targeted question; if the query is clear, it routes to `Action: Answer` and answers directly.
+
+---
+
+## 🌐 Hugging Face Artifacts
+
+You can explore the deployed final model, the dataset, and interact with the UI demo on Hugging Face:
+- **🤗 Space Demo:** [AskBeforeAnswer Demo](https://huggingface.co/spaces/chrisjcc/ask-before-answer-demo)
+- **🤗 Model Card:** [AskBeforeAnswer Qwen Model](https://huggingface.co/chrisjcc/ask-before-answer)
+- **🤗 Dataset:** [AskBeforeAnswer Data](https://huggingface.co/datasets/chrisjcc/ask-before-answer-data)
+
 ---
 
 ## 💻 System Requirements

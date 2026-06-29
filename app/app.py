@@ -6,7 +6,7 @@ import weave
 import yaml
 from dotenv import load_dotenv
 
-from src.inference.pipeline import ClarificationPipeline
+from src.inference.pipeline import ClarifyOrActPipeline
 
 # Load environment variables for W&B authentication
 load_dotenv()
@@ -60,7 +60,7 @@ def get_available_models():
 
 @st.cache_resource(show_spinner=False)
 def load_pipeline(model_path: str, is_peft: bool):
-    return ClarificationPipeline(model_path, is_peft=is_peft)
+    return ClarifyOrActPipeline(model_path, is_peft=is_peft)
 
 
 st.title("AskBeforeAnswer 🤖")

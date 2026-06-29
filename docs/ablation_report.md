@@ -4,12 +4,14 @@ This report was automatically generated from Weights & Biases metrics.
 
 ## Top Performing Configurations
 
-| Run ID   | Name         | Group        | Hypothesis                                                                                                                                                                                                                                                                                                    | Sweep ID   |   Learning Rate |   Batch Size |   Eval Loss | URL                                                    |
-|:---------|:-------------|:-------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------|----------------:|-------------:|------------:|:-------------------------------------------------------|
-| 7omeutrj | dpo_training | dpo_baseline | Supervised Fine-Tuning (SFT) alone is insufficient to align the model to consistently ask clarification questions without hallucinating. A two-stage pipeline (SFT followed by DPO) will achieve a lower evaluation loss and better disambiguation formatting than either the SFT-only or DPO-only baselines. | N/A        |          5e-05  |            1 | 3.99771e-05 | https://wandb.ai/rl4aa/ask-before-answer/runs/7omeutrj |
-| buzbquuo | dpo_training | dpo_baseline | Supervised Fine-Tuning (SFT) alone is insufficient to align the model to consistently ask clarification questions without hallucinating. A two-stage pipeline (SFT followed by DPO) will achieve a lower evaluation loss and better disambiguation formatting than either the SFT-only or DPO-only baselines. | N/A        |          5e-05  |            1 | 0.000113545 | https://wandb.ai/rl4aa/ask-before-answer/runs/buzbquuo |
-| lln0thjk | sft_training | sft_baseline | Supervised Fine-Tuning (SFT) alone is insufficient to align the model to consistently ask clarification questions without hallucinating. A two-stage pipeline (SFT followed by DPO) will achieve a lower evaluation loss and better disambiguation formatting than either the SFT-only or DPO-only baselines. | N/A        |          0.0002 |            1 | 0.43139     | https://wandb.ai/rl4aa/ask-before-answer/runs/lln0thjk |
-| nxep4c1i | sft_training | sft_baseline | Supervised Fine-Tuning (SFT) alone is insufficient to align the model to consistently ask clarification questions without hallucinating. A two-stage pipeline (SFT followed by DPO) will achieve a lower evaluation loss and better disambiguation formatting than either the SFT-only or DPO-only baselines. | N/A        |          0.0002 |            1 | 0.432052    | https://wandb.ai/rl4aa/ask-before-answer/runs/nxep4c1i |
+| Run ID   | Name         | Group        | Hypothesis   | Sweep ID   |   Learning Rate |   Batch Size |   Eval Loss | URL                                                    |
+|:---------|:-------------|:-------------|:-------------|:-----------|----------------:|-------------:|------------:|:-------------------------------------------------------|
+| r6sizb0y | dpo_training | dpo_baseline | N/A          | N/A        |          5e-06  |            1 | 7.05993e-06 | https://wandb.ai/rl4aa/ask-before-answer/runs/r6sizb0y |
+| ug1588ni | dpo_training | dpo_baseline | N/A          | N/A        |          5e-06  |            1 | 1.57452e-05 | https://wandb.ai/rl4aa/ask-before-answer/runs/ug1588ni |
+| jb5rwd53 | dpo_training | dpo_baseline | N/A          | N/A        |          5e-06  |            1 | 0.000174062 | https://wandb.ai/rl4aa/ask-before-answer/runs/jb5rwd53 |
+| 9e8k17om | sft_training | sft_baseline | N/A          | N/A        |          0.0002 |            1 | 0.278733    | https://wandb.ai/rl4aa/ask-before-answer/runs/9e8k17om |
+| rkhn6qmv | sft_training | sft_baseline | N/A          | N/A        |          0.0002 |            1 | 0.278736    | https://wandb.ai/rl4aa/ask-before-answer/runs/rkhn6qmv |
+| xdcoxf14 | sft_training | sft_baseline | N/A          | N/A        |          0.0002 |            1 | 0.353315    | https://wandb.ai/rl4aa/ask-before-answer/runs/xdcoxf14 |
 
 ## Learning Curves
 
@@ -17,16 +19,18 @@ This report was automatically generated from Weights & Biases metrics.
 
 ## LLM-as-a-Judge Evaluation Leaderboard
 
-The following scores were computed using W&B Weave with a local Gemma-based judge scorer (google/gemma-2-9b-it).
+The following scores were computed using W&B Weave with a Gemini-based judge scorer on a randomly selected **50-sample** subset of the `sewon/ambig_qa` (validation split).
 
-| Model          |   ambiguity_detection |   clarification_quality |   usefulness |
-|:---------------|----------------------:|------------------------:|-------------:|
-| base           |                 0.9   |                   0.758 |        0.876 |
-| sft_only	 |                 0.524 |                   0.468 |        0.564 |
-| dpo_only	 |                 0.898 |                   0.748 |        0.87  |
-| sft            |                 0.448 |                   0.448 |        0.562 |
-| sft_dpo        |                 0.928 |                   0.744 |        0.878 |
-| clarifier_lora |                 0.946 |                   0.776 |        0.876 |
+
+| Metric                |     base |   sft_only |   dpo_only |   sft |   sft_dpo |   clarifier_lora |
+|:----------------------|---------:|-----------:|-----------:|------:|----------:|-----------------:|
+| ambiguity_detection   | 0.952    |      0.04  |   0.988    | 0.04  |  0.986    |         1        |
+| clarification_quality | 0.8      |      0.182 |   0.802    | 0.182 |  0.804    |         0.8      |
+| usefulness            | 0.9      |      0.228 |   0.9      | 0.228 |  0.9      |         0.9      |
+| model_accuracy        | 0.6      |      0.38  |   0.62     | 0.38  |  0.62     |         0.58     |
+| clarify_precision     | 0.631579 |      0     |   0.648649 | 0     |  0.622222 |         0.595745 |
+| clarify_recall        | 0.8      |      0     |   0.8      | 0     |  0.933333 |         0.933333 |
+| clarify_f1            | 0.705882 |      0     |   0.716418 | 0     |  0.746667 |         0.727273 |
 
 ## Analysis & Conclusion
 

@@ -1,3 +1,9 @@
+"""DVC Stage: Data Preprocessing.
+
+This script executes the data processing step of the DVC pipeline, saving
+the outputs to the paths defined in the Hydra configuration.
+"""
+
 import logging
 import os
 
@@ -15,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
-def main(cfg: DictConfig):
+def main(cfg: DictConfig) -> None:
     logger.info("Starting data preprocessing...")
 
     os.makedirs(cfg.data_dir, exist_ok=True)

@@ -1,5 +1,12 @@
+"""Training pipelines for SFT and DPO.
+
+This module contains the setup and execution logic for fine-tuning language models
+using Supervised Fine-Tuning and Direct Preference Optimization via the TRL library.
+"""
+
 import logging
 import os
+from typing import Any, Tuple
 
 import torch
 from datasets import load_dataset
@@ -12,8 +19,19 @@ from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 logger = logging.getLogger(__name__)
 
 
-def load_model_and_tokenizer(model_cfg: DictConfig, is_train: bool = True):
-    """Load tokenizer and model with given configuration."""
+def load_model_and_tokenizer(
+    model_cfg: DictConfig, is_train: bool = True
+) -> Tuple[Any, Any]:
+    """Load tokenizer and model with given configuration.
+
+    Args:
+        model_cfg (DictConfig): The Hydra configuration for the model.
+        is_train (bool): Whether to prepare the model for training
+            (e.g. enable gradients).
+
+    Returns:
+        Tuple[Any, Any]: A tuple containing the loaded (model, tokenizer).
+    """
     logger.info(f"Loading model {model_cfg.name}...")
 
     tokenizer = AutoTokenizer.from_pretrained(

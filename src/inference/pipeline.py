@@ -1,5 +1,12 @@
+"""Inference pipeline for clarification generation.
+
+This module provides the core inference class for the ClarifyOrAct architecture,
+routing ambiguous questions to clarification requests and clear questions
+to direct answers.
+"""
+
 import logging
-from typing import List
+from typing import List, Optional
 
 import torch
 import weave
@@ -9,8 +16,15 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 logger = logging.getLogger(__name__)
 
 
-class ClarificationPipeline:
-    def __init__(self, model_path: str, is_peft: bool = True):
+class ClarifyOrActPipeline:
+    """A dual-routing inference pipeline for ambiguity resolution.
+
+    This class wraps the trained models (either base or LoRA-adapter) and provides
+    methods to generate clarification-seeking questions or direct answers based on
+    the input question's inherent ambiguity.
+    """
+
+    def __init__(self, model_path: str, is_peft: bool = True) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Loading inference model from {model_path} on {self.device}...")
 
@@ -36,8 +50,17 @@ class ClarificationPipeline:
         self.model.eval()
 
     @weave.op()
-    def generate(self, question: str, system_prompt: str = None) -> str:
-        """Run single-turn inference for clarification seeking."""
+    def generate(self, question: str, system_prompt: Optional[str] = None) -> str:
+        """Run single-turn inference for clarification seeking.
+
+        Args:
+            question (str): The user's input query.
+            system_prompt (Optional[str]): A custom system prompt overriding
+               the default.
+
+        Returns:
+            str: The raw generated string from the model.
+        """
         if system_prompt is None:
             system_prompt = (
                 "You are a helpful assistant. "

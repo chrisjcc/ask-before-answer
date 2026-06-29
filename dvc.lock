@@ -11,47 +11,51 @@ stages:
       hash: md5
       md5: 9ee84113891a73b3e983cf3e625bd827
       size: 1091
+    - path: src/data/preprocess.py
+      hash: md5
+      md5: 9f1390323acf0f06839cd9cc8355cb76
+      size: 5579
     outs:
     - path: data/dpo_train.jsonl
       hash: md5
-      md5: fb4d17cef59bf995f39fab5a6ed88c7b
-      size: 1637824
+      md5: 353e239ccb1c23936fbac1782d6b3d99
+      size: 3007747
     - path: data/dpo_val.jsonl
       hash: md5
-      md5: d36e9d36e0d536d92fb92d12fdc77781
-      size: 337194
+      md5: f2af266e81a6cfeaa07b54551a7916a4
+      size: 615022
     - path: data/sft_train.jsonl
       hash: md5
-      md5: 47ab148625c934a719cebe4a3c928bf3
-      size: 4186706
+      md5: d6e21129a16e47481ccd0ad4d2c6365f
+      size: 5190306
     - path: data/sft_val.jsonl
       hash: md5
-      md5: 72dda6ede42d3afda901eaf5bab46cd4
-      size: 850326
+      md5: 90b66e0619bd09c1c763c2ab7d7b2a70
+      size: 1050526
   train_sft:
     cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py
     deps:
     - path: configs/model/qwen2_5_7b.yaml
       hash: md5
-      md5: 021e71d72923c9c97d9b8f145d467a32
+      md5: 9a59ea5602ab43dd045c0580477d0d8e
       size: 529
     - path: configs/training/sft.yaml
       hash: md5
-      md5: 088d3672624058e860c05cc97caf071d
-      size: 298
+      md5: 77f070302aa423de405a4645e3530657
+      size: 293
     - path: data/sft_train.jsonl
       hash: md5
-      md5: 47ab148625c934a719cebe4a3c928bf3
-      size: 4186706
+      md5: d6e21129a16e47481ccd0ad4d2c6365f
+      size: 5190306
     - path: data/sft_val.jsonl
       hash: md5
-      md5: 72dda6ede42d3afda901eaf5bab46cd4
-      size: 850326
+      md5: 90b66e0619bd09c1c763c2ab7d7b2a70
+      size: 1050526
     outs:
     - path: models/sft/final
       hash: md5
-      md5: 20f161f5b1bf3753599d29741f3f2c8a.dir
-      size: 338904659
+      md5: 0782228e434204a7b04159ad8c0c8a5a.dir
+      size: 177424274
       nfiles: 10
   train_dpo:
     cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo 
@@ -59,60 +63,76 @@ stages:
     deps:
     - path: configs/training/dpo.yaml
       hash: md5
-      md5: d8a461336e1d29006ffeb88390b9ddff
-      size: 336
+      md5: 93eab6bbeb92c5e774a0d45bd7ebe5e9
+      size: 331
     - path: data/dpo_train.jsonl
       hash: md5
-      md5: fb4d17cef59bf995f39fab5a6ed88c7b
-      size: 1637824
+      md5: 353e239ccb1c23936fbac1782d6b3d99
+      size: 3007747
     - path: data/dpo_val.jsonl
       hash: md5
-      md5: d36e9d36e0d536d92fb92d12fdc77781
-      size: 337194
+      md5: f2af266e81a6cfeaa07b54551a7916a4
+      size: 615022
     - path: models/sft/final
       hash: md5
-      md5: 20f161f5b1bf3753599d29741f3f2c8a.dir
-      size: 338904659
+      md5: 0782228e434204a7b04159ad8c0c8a5a.dir
+      size: 177424274
       nfiles: 10
     outs:
     - path: models/dpo/final
       hash: md5
-      md5: b3e721f0d0b32dd1bb1e6455abd5be6f.dir
-      size: 338905171
+      md5: 6f38ff0e68f8cfec9f2aa5fed410a869.dir
+      size: 177424796
       nfiles: 10
   train_sft_only:
     cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py 
       training.output_dir=models/sft_only
     deps:
+    - path: configs/model/qwen2_5_7b.yaml
+      hash: md5
+      md5: 9a59ea5602ab43dd045c0580477d0d8e
+      size: 529
+    - path: configs/training/sft.yaml
+      hash: md5
+      md5: 77f070302aa423de405a4645e3530657
+      size: 293
     - path: data/sft_train.jsonl
       hash: md5
-      md5: 47ab148625c934a719cebe4a3c928bf3
-      size: 4186706
+      md5: d6e21129a16e47481ccd0ad4d2c6365f
+      size: 5190306
     - path: data/sft_val.jsonl
       hash: md5
-      md5: 72dda6ede42d3afda901eaf5bab46cd4
-      size: 850326
+      md5: 90b66e0619bd09c1c763c2ab7d7b2a70
+      size: 1050526
     outs:
     - path: models/sft_only/final
       hash: md5
-      md5: a8bb8009a634a34c1253306fd12328c4.dir
-      size: 338904595
+      md5: aaefc5c0392510ae3b816414ccad659e.dir
+      size: 177424047
       nfiles: 10
   train_dpo_only:
     cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo 
       training.output_dir=models/dpo_only
     deps:
+    - path: configs/model/qwen2_5_7b.yaml
+      hash: md5
+      md5: 9a59ea5602ab43dd045c0580477d0d8e
+      size: 529
+    - path: configs/training/dpo.yaml
+      hash: md5
+      md5: 93eab6bbeb92c5e774a0d45bd7ebe5e9
+      size: 331
     - path: data/dpo_train.jsonl
       hash: md5
-      md5: fb4d17cef59bf995f39fab5a6ed88c7b
-      size: 1637824
+      md5: 353e239ccb1c23936fbac1782d6b3d99
+      size: 3007747
     - path: data/dpo_val.jsonl
       hash: md5
-      md5: d36e9d36e0d536d92fb92d12fdc77781
-      size: 337194
+      md5: f2af266e81a6cfeaa07b54551a7916a4
+      size: 615022
     outs:
     - path: models/dpo_only/final
       hash: md5
-      md5: 547edb5acd5f1a0416347f238e6a56c2.dir
-      size: 338905107
+      md5: 3299e0c1b83d84869f07d220be0989d5.dir
+      size: 177424623
       nfiles: 10

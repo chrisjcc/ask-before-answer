@@ -1,7 +1,14 @@
+"""Data preprocessing pipeline for AskBeforeAnswer.
+
+This module is responsible for loading the raw datasets and processing them
+into the structured JSONL formats required for Supervised Fine-Tuning (SFT)
+and Direct Preference Optimization (DPO).
+"""
+
 import ast
 import json
 import logging
-from typing import Any, List
+from typing import Any, List, Optional
 
 import pandas as pd
 from datasets import load_dataset
@@ -38,9 +45,18 @@ def clean_response(resp: Any) -> str:
 
 
 def extract_qa_data(
-    dataset_name: str, split: str = "train", max_samples: int = None
+    dataset_name: str, split: str = "train", max_samples: Optional[int] = None
 ) -> pd.DataFrame:
-    """Load AmbigQA dataset and extract question and annotation details."""
+    """Load AmbigQA dataset and extract question and annotation details.
+
+    Args:
+        dataset_name (str): The name or path of the dataset to load from HuggingFace.
+        split (str): The dataset split to process (e.g., 'train', 'validation').
+        max_samples (Optional[int]): Maximum number of rows to extract.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the extracted questions and facets.
+    """
     logger.info(f"Loading dataset {dataset_name} ({split})...")
     ds = load_dataset(dataset_name, split=split)
     if max_samples:
@@ -91,8 +107,13 @@ def extract_qa_data(
     return df
 
 
-def prepare_sft_dataset(df: pd.DataFrame, output_path: str):
-    """Format DataFrame into SFT JSONL format."""
+def prepare_sft_dataset(df: pd.DataFrame, output_path: str) -> None:
+    """Format DataFrame into SFT JSONL format and save to disk.
+
+    Args:
+        df (pd.DataFrame): The extracted dataset.
+        output_path (str): The file path where the JSONL should be written.
+    """
     logger.info(f"Preparing SFT dataset to {output_path}...")
     records = []
 
@@ -130,8 +151,13 @@ def prepare_sft_dataset(df: pd.DataFrame, output_path: str):
     logger.info(f"Saved {len(records)} records for SFT.")
 
 
-def prepare_dpo_dataset(df: pd.DataFrame, output_path: str):
-    """Format DataFrame into DPO JSONL format."""
+def prepare_dpo_dataset(df: pd.DataFrame, output_path: str) -> None:
+    """Format DataFrame into DPO JSONL format and save to disk.
+
+    Args:
+        df (pd.DataFrame): The extracted dataset.
+        output_path (str): The file path where the JSONL should be written.
+    """
     logger.info(f"Preparing DPO dataset to {output_path}...")
     records = []
 
