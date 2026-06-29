@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -117,13 +118,36 @@ def generate_report():
         f.write("\n".join(report_content))
 
     # Append Weave Evaluation Leaderboard if available
-    eval_summary_path = "results/leaderboard.md"
-    if os.path.exists(eval_summary_path):
-        with open(eval_summary_path, "r") as f:
-            leaderboard_content = f.read()
+    eval_summary_json = "results/weave_eval_summary.json"
+    if os.path.exists(eval_summary_json):
+        logger.info("Found weave_eval_summary.json, generating leaderboard table...")
+        with open(eval_summary_json, "r") as f:
+            all_results = json.load(f)
+
+        df_eval = (
+            pd.DataFrame(all_results).reset_index().rename(columns={"index": "Metric"})
+        )
+
+        leaderboard_md = [
+            "## LLM-as-a-Judge Evaluation Leaderboard",
+            "",
+            "The following scores were computed using W&B Weave with a Gemini-based judge scorer.",
+            "",
+            df_eval.to_markdown(index=False),
+            "",
+        ]
 
         with open("docs/ablation_report.md", "a") as f:
-            f.write("\n\n" + leaderboard_content + "\n")
+            f.write("\n\n" + "\n".join(leaderboard_md) + "\n")
+    else:
+        # Fallback to the old markdown file if JSON doesn't exist
+        eval_summary_path = "results/leaderboard.md"
+        if os.path.exists(eval_summary_path):
+            with open(eval_summary_path, "r") as f:
+                leaderboard_content = f.read()
+
+            with open("docs/ablation_report.md", "a") as f:
+                f.write("\n\n" + leaderboard_content + "\n")
 
     logger.info("Report successfully generated at docs/ablation_report.md")
 
