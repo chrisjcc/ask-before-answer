@@ -1,6 +1,6 @@
+import json
 import logging
 import os
-import json
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -131,7 +131,8 @@ def generate_report():
         leaderboard_md = [
             "## LLM-as-a-Judge Evaluation Leaderboard",
             "",
-            "The following scores were computed using W&B Weave with a Gemini-based judge scorer.",
+            "The following scores were computed using W&B Weave ", 
+            "with a Gemini-based judge scorer.",
             "",
             df_eval.to_markdown(index=False),
             "",
