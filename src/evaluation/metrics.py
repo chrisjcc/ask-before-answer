@@ -125,6 +125,22 @@ class ActionScorer(weave.Scorer):
             else 0.0
         )
 
+        # Answer metrics (treating Answer as the positive class)
+        # For a binary Clarify/Answer split:
+        # TP(Answer) = True Negatives (for Clarify)
+        # FP(Answer) = False Negatives (for Clarify)
+        # FN(Answer) = False Positives (for Clarify)
+        tn = len(score_rows) - tp - fp - fn
+        ans_precision = tn / (tn + fn) if (tn + fn) > 0 else 0.0
+        ans_recall = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        ans_f1 = (
+            2 * ans_precision * ans_recall / (ans_precision + ans_recall)
+            if (ans_precision + ans_recall) > 0
+            else 0.0
+        )
+
+        macro_f1 = (f1 + ans_f1) / 2.0
+
         correct = sum(row.get("correct_action", False) for row in score_rows)
         accuracy = correct / len(score_rows) if score_rows else 0.0
 
@@ -153,6 +169,8 @@ class ActionScorer(weave.Scorer):
             "clarify_precision": precision,
             "clarify_recall": recall,
             "clarify_f1": f1,
+            "answer_f1": ans_f1,
+            "macro_f1": macro_f1,
             "answer_accuracy": answer_accuracy,
             "facet_generation_rate": facet_generation_rate,
             "clarify_ratio": clarify_ratio,
