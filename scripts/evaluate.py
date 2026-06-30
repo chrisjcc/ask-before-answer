@@ -112,11 +112,29 @@ def main(cfg: DictConfig) -> None:
         is_ambiguous = ann_type == "multipleQAs"
         expected_action = "Clarify" if is_ambiguous else "Answer"
 
+        target_response = ""
+        if expected_action == "Answer":
+            if isinstance(ann, dict):
+                answers = ann.get("answer", [])
+                if isinstance(answers, list) and len(answers) > 0:
+                    first_ans_group = answers[0]
+                    if isinstance(first_ans_group, list) and len(first_ans_group) > 0:
+                        target_response = first_ans_group[0]
+                    elif isinstance(first_ans_group, str):
+                        target_response = first_ans_group
+            if not target_response and "nq_answer" in row and row["nq_answer"]:
+                target_response = row["nq_answer"][0]
+
+        target_str = f"Action: {expected_action}\n"
+        if target_response:
+            target_str += f"Response: {target_response}\n"
+        if "ground_truth" in row:
+            target_str += str(row["ground_truth"])
+
         weave_dataset_rows.append(
             {
                 "question": row["question"],
-                "target": f"Action: {expected_action}\n"
-                + str(row.get("ground_truth", "")),
+                "target": target_str,
             }
         )
 
@@ -192,6 +210,9 @@ def main(cfg: DictConfig) -> None:
             "clarify_precision": action_metrics.get("clarify_precision", 0.0),
             "clarify_recall": action_metrics.get("clarify_recall", 0.0),
             "clarify_f1": action_metrics.get("clarify_f1", 0.0),
+            "answer_accuracy": action_metrics.get("answer_accuracy", 0.0),
+            "facet_generation_rate": action_metrics.get("facet_generation_rate", 0.0),
+            "clarify_ratio": action_metrics.get("clarify_ratio", 0.0),
         }
 
         # ---------------------------------------------------------
@@ -324,6 +345,21 @@ def main(cfg: DictConfig) -> None:
                             evaluation_object_ref=eval_ref,
                             scorer_name="ActionScorer",
                             summary_metric_path="clarify_f1",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="answer_accuracy",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="facet_generation_rate",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_ratio",
                         ),
                     ]
                 )
