@@ -21,3 +21,12 @@ models_to_evaluate:
   - name: "clarifier_lora"
     path: "itsbhoomika/clarifier-dpo-lora"
     is_peft: true
+  - name: "orpo"
+    path: "models/orpo/final"
+    is_peft: true
+  - name: "grpo"
+    path: "models/grpo/final"
+    is_peft: true
+  - name: "grpo_dpo"
+    path: "models/grpo_dpo/final"
+    is_peft: true

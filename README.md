@@ -87,8 +87,14 @@ make run-pipeline
   - *Optimization:* Standard Cross-Entropy Loss (learning to imitate the exact tokens of the ground-truth formatting).
 - **Direct Preference Optimization (DPO):** `make train-dpo`
   - *Optimization:* Bradley-Terry preference margin (increasing the log probability of the "chosen" response while decreasing the log probability of the "rejected" response).
+- **Odds Ratio Preference Optimization (ORPO):** `make train-orpo`
+  - *Optimization:* Combines instruction tuning and preference alignment into a single objective. It uses an odds ratio penalty to suppress the generation of rejected paths without needing a frozen reference model in memory.
+- **Group Relative Policy Optimization (GRPO):** `make train-grpo`
+  - *Optimization:* A reinforcement learning algorithm that samples multiple rollouts per prompt, scores them using Python-based deterministic reward functions (checking for strict structural adherence and action logic), and optimizes the policy relative to the group average.
+- **GRPO + DPO Pipeline:** `make train-grpo-dpo`
+  - *Optimization:* A cutting-edge hybrid approach. GRPO replaces SFT as the Stage 1 structural foundation (using trial-and-error to learn robust formatting), and DPO acts as the Stage 2 stylistic polisher to align the nuance of the generated clarification questions.
 
-By default, models and checkpoints are saved to `models/sft/` and `models/dpo/`.
+By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, `models/grpo/`, and `models/grpo_dpo/`.
 
 ### 🛠️ Emergency Recovery (Resuming Checkpoints)
 If your remote server crashes midway through a training run, you can resume from the latest Hugging Face checkpoint. 
@@ -165,6 +171,19 @@ make evaluate
 2. It iteratively instantiates each configured post-trained model (`base`, `sft_only`, `dpo_only`, `sft`, `dpo`) wrapped in a `weave.Model` and runs a `weave.Evaluation` against the dataset.
 3. The results are logged directly to a centralized **Weave Dynamic Leaderboard** where you can compare model outputs, view judge justifications side-by-side, and save custom UI filters.
 4. The metrics are automatically exported to `results/weave_eval_summary.json` so they can be seamlessly injected into the Markdown ablation report!
+
+### 📏 Evaluation Metrics Breakdown
+
+To fully capture the nuances of the "clarify-or-act" problem, AskBeforeAnswer tracks multiple distinct metrics across both classes (`Clarify` and `Answer`) to expose model biases, such as over-clarification or answer-hallucination:
+
+1. **Action Accuracy (Macro Accuracy)**: The overall percentage of times the model correctly predicts the target action (`Clarify` vs `Answer`). 
+2. **Clarify Detection (Precision/Recall/F1)**: Treats "Clarify" as the positive class. Evaluates if the model correctly identified ambiguous questions (Recall) without hallucinating ambiguity where there was none (Precision).
+3. **Clarify F1 (Class 1 F1)**: The harmonic mean of Clarify Precision and Clarify Recall. Penalizes the model for missing ambiguous questions or asking unnecessary questions.
+4. **Answer F1 (Class 2 F1)**: Treats "Answer" as the positive class. Penalizes the model for refusing to answer a straightforward question (False Negatives) or for confidently answering a question that it should have clarified (False Positives).
+5. **Macro F1**: The unweighted mathematical average of Clarify F1 and Answer F1. This is the ultimate balanced metric to prevent a model from scoring high simply by defaulting to the majority class.
+6. **Answer Accuracy**: Evaluated *only* on ground-truth `Answer` cases. It measures whether the model's generated answer semantically matches the target answer using a fuzzy token-matching algorithm (`difflib.SequenceMatcher`).
+7. **Clarify Ratio**: The total number of predicted `Clarify` actions divided by the total number of ground-truth `Clarify` actions. A ratio > 1.0 indicates a bias toward over-clarifying. A ratio < 1.0 indicates a bias toward under-clarifying.
+8. **Facet Generation Rate**: The percentage of predicted `Clarify` actions that successfully included a non-empty list of extracted facets. This ensures that when the model asks for clarification, it explicitly grounds its request in identified missing information, rather than asking a generic "What do you mean?" question.
 
 ### Internal Model Registry (Lifecycle Management)
 While Hugging Face Hub is used for public distribution, this project leverages the **W&B Model Registry** for internal lifecycle management (`AskBeforeAnswer-Models` portfolio).
@@ -257,7 +276,6 @@ ask-before-answer/
 
 Future iterations of AskBeforeAnswer can easily extend the current pipeline to support:
 - Multi-turn clarification datasets
-- ORPO (Odds Ratio Preference Optimization)
 - Constitutional AI and Reward Modeling
 
 To contribute, ensure code passes the CI pipeline (`make lint` and `make test`).
