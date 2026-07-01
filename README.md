@@ -87,8 +87,10 @@ make run-pipeline
   - *Optimization:* Standard Cross-Entropy Loss (learning to imitate the exact tokens of the ground-truth formatting).
 - **Direct Preference Optimization (DPO):** `make train-dpo`
   - *Optimization:* Bradley-Terry preference margin (increasing the log probability of the "chosen" response while decreasing the log probability of the "rejected" response).
+- **Odds Ratio Preference Optimization (ORPO):** `make train-orpo`
+  - *Optimization:* Combines instruction tuning and preference alignment into a single objective. It uses an odds ratio penalty to suppress the generation of rejected paths without needing a frozen reference model in memory.
 
-By default, models and checkpoints are saved to `models/sft/` and `models/dpo/`.
+By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, and `models/orpo/`.
 
 ### 🛠️ Emergency Recovery (Resuming Checkpoints)
 If your remote server crashes midway through a training run, you can resume from the latest Hugging Face checkpoint. 
@@ -270,7 +272,6 @@ ask-before-answer/
 
 Future iterations of AskBeforeAnswer can easily extend the current pipeline to support:
 - Multi-turn clarification datasets
-- ORPO (Odds Ratio Preference Optimization)
 - Constitutional AI and Reward Modeling
 
 To contribute, ensure code passes the CI pipeline (`make lint` and `make test`).
