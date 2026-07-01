@@ -4,10 +4,10 @@ This module contains the setup and execution logic for fine-tuning language mode
 using Supervised Fine-Tuning and Direct Preference Optimization via the TRL library.
 """
 
-import re
 import ast
 import logging
 import os
+import re
 from typing import Any, Tuple
 
 import torch
@@ -16,7 +16,16 @@ from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
-from trl import DPOConfig, DPOTrainer, ORPOConfig, ORPOTrainer, SFTConfig, SFTTrainer, GRPOConfig, GRPOTrainer
+from trl import (
+    DPOConfig,
+    DPOTrainer,
+    GRPOConfig,
+    GRPOTrainer,
+    ORPOConfig,
+    ORPOTrainer,
+    SFTConfig,
+    SFTTrainer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -421,7 +430,7 @@ def format_reward_func(prompts, completions, **kwargs):
         has_reasoning = "Reasoning:" in text
         has_facets = "Facets:" in text
         has_response = "Response:" in text
-        
+
         if has_action and has_reasoning and has_facets and has_response:
             rewards.append(1.0)
         else:
@@ -433,11 +442,11 @@ def action_reward_func(prompts, completions, **kwargs):
     """Reward function that checks if the predicted action matches the target."""
     rewards = []
     target_actions = kwargs.get("target_action", [])
-    
+
     for i, completion in enumerate(completions):
         text = completion[0]["content"] if isinstance(completion, list) else completion
         target = target_actions[i]
-        
+
         action_match = re.search(r"Action:\s*(Clarify|Answer)", text)
         if action_match:
             pred_action = action_match.group(1)
@@ -457,21 +466,21 @@ def facet_logic_reward_func(prompts, completions, **kwargs):
         text = completion[0]["content"] if isinstance(completion, list) else completion
         action_match = re.search(r"Action:\s*(Clarify|Answer)", text)
         facets_match = re.search(r"Facets:\s*(\[.*?\])", text, re.DOTALL)
-        
+
         if not action_match or not facets_match:
             rewards.append(-0.5)
             continue
-            
+
         pred_action = action_match.group(1)
         facets_str = facets_match.group(1)
-        
+
         try:
             facets = ast.literal_eval(facets_str)
             if not isinstance(facets, list):
                 facets = []
         except Exception:
             facets = []
-            
+
         if pred_action == "Clarify":
             # Clarify MUST have non-empty facets
             if len(facets) > 0:
@@ -493,9 +502,15 @@ def run_grpo_training(cfg: DictConfig):
 
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
 
-    logger.info(f"Loading GRPO training dataset from {cfg.data.output_dpo_train_file}...")
-    dataset_train = load_dataset("json", data_files=cfg.data.output_dpo_train_file)["train"]
-    logger.info(f"Loading GRPO validation dataset from {cfg.data.output_dpo_val_file}...")
+    logger.info(
+        f"Loading GRPO training dataset from {cfg.data.output_dpo_train_file}..."
+    )
+    dataset_train = load_dataset("json", data_files=cfg.data.output_dpo_train_file)[
+        "train"
+    ]
+    logger.info(
+        f"Loading GRPO validation dataset from {cfg.data.output_dpo_val_file}..."
+    )
     dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
     def format_grpo(example):
@@ -512,22 +527,24 @@ def run_grpo_training(cfg: DictConfig):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": example["prompt"]},
         ]
-        
+
         prompt_str = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        
+
         # Extract the target action from the 'chosen' string in the DPO dataset
         target_action = "Answer"
         if "Action: Clarify" in example["chosen"]:
             target_action = "Clarify"
-            
+
         return {
             "prompt": prompt_str,
             "target_action": target_action,
         }
 
-    dataset_train = dataset_train.map(format_grpo, remove_columns=dataset_train.column_names)
+    dataset_train = dataset_train.map(
+        format_grpo, remove_columns=dataset_train.column_names
+    )
     dataset_val = dataset_val.map(format_grpo, remove_columns=dataset_val.column_names)
 
     training_args = GRPOConfig(
@@ -561,7 +578,9 @@ def run_grpo_training(cfg: DictConfig):
 
     logger.info("Starting GRPO Training...")
     last_checkpoint = None
-    if cfg.training.get("resume_from_checkpoint", False) and os.path.isdir(cfg.training.output_dir):
+    if cfg.training.get("resume_from_checkpoint", False) and os.path.isdir(
+        cfg.training.output_dir
+    ):
         last_checkpoint = get_last_checkpoint(cfg.training.output_dir)
         if last_checkpoint is not None:
             logger.info(f"Resuming GRPO training from {last_checkpoint}")
