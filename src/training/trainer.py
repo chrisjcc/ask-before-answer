@@ -565,6 +565,7 @@ def run_grpo_training(cfg: DictConfig):
         max_prompt_length=cfg.training.max_prompt_length,
         max_completion_length=cfg.training.max_completion_length,
         num_generations=cfg.training.num_generations,
+        loss_type=cfg.training.get("loss_type", "grpo"),
     )
 
     trainer = GRPOTrainer(

@@ -15,3 +15,4 @@ max_prompt_length: 512
 max_completion_length: 512
 num_generations: 8
 beta: 0.1
+loss_type: "grpo" # Options: "grpo", "dapo", "dr_grpo"
