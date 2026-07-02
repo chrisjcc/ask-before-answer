@@ -298,74 +298,14 @@ Authors should cite their own work in the third person in the initial version
 of their paper submitted for blind review. Please refer to \cref{author info}
 for detailed instructions on how to cite your own papers.
 
-Use an unnumbered first-level section heading for the references, and use a
-hanging indent style, with the first line of the reference flush against the
-left margin and subsequent lines indented by 10 points. The references at the
-end of this document give examples for journal articles \cite{Samuel59},
-conference publications \cite{langley00}, book chapters \cite{Newell81}, books
-\cite{DudaHart2nd}, edited volumes \cite{MachineLearningI}, technical reports
-\cite{mitchell80}, and dissertations \cite{kearns89}.
+\section{Conclusion}
+In this work, we presented AskBeforeAnswer, an alignment framework that effectively teaches language agents to safely navigate the clarify-or-act decision boundary. By decoupling structural alignment from stylistic preference optimization, our hybrid $\text{GRPO} \rightarrow \text{DPO}$ pipeline eliminates the imitation learning pitfalls of standard SFT. We demonstrated that utilizing purely programmatic reward functions during the GRPO stage builds a robust, interpretable action-routing foundation, while DPO can be subsequently applied to refine the conversational tone. We hope this work inspires future research into combining deterministic online RL with preference optimization to build safer, more reliable conversational AI.
 
-Alphabetize references by the surnames of the first authors, with single author
-entries preceding multiple author entries. Order references for the same
-authors by year of publication, with the earliest first. Make sure that each
-reference includes all relevant information (e.g., page numbers).
-
-Please put some effort into making references complete, presentable, and
-consistent, e.g. use the actual current name of authors. If using bibtex,
-please protect capital letters of names and abbreviations in titles, for
-example, use \{B\}ayesian or \{L\}ipschitz in your .bib file.
-
-\section*{Accessibility}
-
-Authors are kindly asked to make their submissions as accessible as possible
-for everyone including people with disabilities and sensory or neurological
-differences. Tips of how to achieve this and what to pay attention to will be
-provided on the conference website \url{http://icml.cc/}.
-
-\section*{Software and Data}
-
-If a paper is accepted, we strongly encourage the publication of software and
-data with the camera-ready version of the paper whenever appropriate. This can
-be done by including a URL in the camera-ready copy. However, \textbf{do not}
-include URLs that reveal your institution or identity in your submission for
-review. Instead, provide an anonymous URL or upload the material as
-``Supplementary Material'' into the OpenReview reviewing system. Note that
-reviewers are not required to look at this material when writing their review.
-
-% Acknowledgements should only appear in the accepted version.
-\section*{Acknowledgements}
-
-\textbf{Do not} include acknowledgements in the initial version of the paper
-submitted for blind review.
-
-If a paper is accepted, the final camera-ready version can (and usually should)
-include acknowledgements.  Such acknowledgements should be placed at the end of
-the section, in an unnumbered section that does not count towards the paper
-page limit. Typically, this will include thanks to reviewers who gave useful
-comments, to colleagues who contributed to the ideas, and to funding agencies
-and corporate sponsors that provided financial support.
+\section{Limitations}
+While our programmatic GRPO approach enforces strict structural compliance, the current reward formulations for facet generation ($\mathcal{R}_{\text{facet}}$) rely on relatively simple heuristics (e.g., regex matching and JSON parsing). They do not semantically evaluate whether the generated facets are genuinely useful for disambiguating the query, only that they are structurally present. Future work should investigate integrating an LLM-as-a-Judge or a fast local Reward Model directly into the GRPO step to provide graded, semantic rewards for facet quality.
 
 \section*{Impact Statement}
-
-Authors are \textbf{required} to include a statement of the potential broader
-impact of their work, including its ethical aspects and future societal
-consequences. This statement should be in an unnumbered section at the end of
-the paper (co-located with Acknowledgements -- the two may appear in either
-order, but both must be before References), and does not count toward the paper
-page limit. In many cases, where the ethical impacts and expected societal
-implications are those that are well established when advancing the field of
-Machine Learning, substantial discussion is not required, and a simple
-statement such as the following will suffice:
-
-``This paper presents work whose goal is to advance the field of Machine
-Learning. There are many potential societal consequences of our work, none
-which we feel must be specifically highlighted here.''
-
-The above statement can be used verbatim in such cases, but we encourage
-authors to think about whether there is content which does warrant further
-discussion, as this statement will be apparent if the paper is later flagged
-for ethics review.
+This paper presents work whose goal is to advance the field of Machine Learning by improving the reliability and safety of conversational agents. By training models to ask clarification questions instead of hallucinating answers, we aim to reduce the spread of misinformation and increase user trust in AI systems. We do not foresee significant negative societal consequences arising directly from this work.
 
 % In the unusual situation where you want a paper to appear in the
 % references without citing it in the main text, use \nocite
@@ -382,16 +322,60 @@ for ethics review.
 \newpage
 \appendix
 \onecolumn
-\section{You \emph{can} have an appendix here.}
+\section{Appendix: Prompts and Reward Functions}
 
-You can have as much text here as you want. The main body must be at most $8$
-pages long. For the final version, one more page can be added. If you want, you
-can use an appendix like this one.
+\subsection{System Prompt Schema}
+The following system prompt was used to enforce the structured generation scheme during GRPO training and inference:
+\begin{verbatim}
+You are a helpful assistant.
+Given a question, you must decide whether it is ambiguous or not.
+Output MUST follow this format:
+Action: Clarify|Answer
+Reasoning: <your reasoning>
+Facets: <list of facets if ambiguous, else empty>
+Response: <clarifying question or direct answer>
+\end{verbatim}
 
-The $\mathtt{\backslash onecolumn}$ command above can be kept in place if you
-prefer a one-column appendix, or can be removed if you prefer a two-column
-appendix.  Apart from this possible change, the style (font size, spacing,
-margins, page numbering, etc.) should be kept the same as the main body.
+\subsection{Programmatic Reward Functions}
+Below is a simplified snippet of the deterministic Python validation scripts used to compute $\mathcal{R}_{\text{format}}$ and $\mathcal{R}_{\text{routing}}$ during GRPO training:
+
+\begin{verbatim}
+def format_reward_func(prompts, completions, **kwargs):
+    """Reward function that checks for the exact format constraints."""
+    rewards = []
+    for completion in completions:
+        text = completion[0]["content"] if isinstance(completion, list) else completion
+        has_action = "Action:" in text
+        has_reasoning = "Reasoning:" in text
+        has_facets = "Facets:" in text
+        has_response = "Response:" in text
+
+        if has_action and has_reasoning and has_facets and has_response:
+            rewards.append(1.0)
+        else:
+            rewards.append(-1.0)
+    return rewards
+
+def action_reward_func(prompts, completions, **kwargs):
+    """Reward function that checks if the predicted action matches the target."""
+    rewards = []
+    target_actions = kwargs.get("target_action", [])
+
+    for i, completion in enumerate(completions):
+        text = completion[0]["content"] if isinstance(completion, list) else completion
+        target = target_actions[i]
+
+        action_match = re.search(r"Action:\s*(Clarify|Answer)", text)
+        if action_match:
+            pred_action = action_match.group(1)
+            if pred_action == target:
+                rewards.append(1.0)
+            else:
+                rewards.append(-1.0)
+        else:
+            rewards.append(-1.0)
+    return rewards
+\end{verbatim}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
