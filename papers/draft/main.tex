@@ -7,6 +7,7 @@
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{booktabs} % for professional tables
+\usepackage{stfloats}
 
 % hyperref makes hyperlinks in the resulting PDF.
 % If your build breaks (sometimes temporarily if a hyperlink spans a page)
@@ -165,18 +166,83 @@ where:
 $$\mathcal{L}_{\text{SFT}}(\theta) = -\mathbb{E}_{(x,y) \sim \mathcal{D}_{\text{SFT}}} \left[ \sum_{t=1}^{\vert y \vert} \log \pi_\theta(y_t \mid x, y_{<t}) \right]$$ 
 
 \textbf{Direct Preference Optimization (DPO):} Given paired preference data $\mathcal{D}_{\text{pref}} = \{(x, y_w, y_l)\}$, where $y_w$ represents a response with correct ambiguity resolution and formatting, and $y_l$ contains errors (e.g., over-clarification or hallucinated answering), the objective is:
-$$\mathcal{L}_{\text{DPO}}(\theta; \pi_{\text{ref}}) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}} \left[ \log \sigma \left( \beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)} \right) \right]$$
+%$$\mathcal{L}_{\text{DPO}}(\theta; \pi_{\text{ref}}) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}} \left[ \log \sigma \left( \beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)} \right) \right]$$
+\begin{align}
+\Delta_\theta
+&=
+\log \frac{\pi_\theta(y_w \mid x)}
+{\pi_{\text{ref}}(y_w \mid x)}
+-
+\log \frac{\pi_\theta(y_l \mid x)}
+{\pi_{\text{ref}}(y_l \mid x)}
+\\
+\mathcal{L}_{\text{DPO}}(\theta; \pi_{\text{ref}})
+&=
+-\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}}
+\left[
+\log \sigma(\beta \Delta_\theta)
+\right]
+\end{align}
 
 \textbf{Odds Ratio Preference Optimization (ORPO):} To evaluate single-stage alignment without a reference policy, we implement ORPO as an alternative baseline:
-$$\mathcal{L}_{\text{ORPO}}(\theta) = \mathcal{L}_{\text{SFT}}(\theta) - \lambda \cdot \mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}} \left[ \log \sigma \left( \log \frac{\pi_\theta(y_w \mid x)}{1 - \pi_\theta(y_w \mid x)} - \log \frac{\pi_\theta(y_l \mid x)}{1 - \pi_\theta(y_l \mid x)} \right) \right]$$
-
+%$$\mathcal{L}_{\text{ORPO}}(\theta) = \mathcal{L}_{\text{SFT}}(\theta) - \lambda \cdot \mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}} \left[ \log \sigma \left( \log \frac{\pi_\theta(y_w \mid x)}{1 - \pi_\theta(y_w \mid x)} - \log \frac{\pi_\theta(y_l \mid x)}{1 - \pi_\theta(y_l \mid x)} \right) \right]$$
+\begin{align}
+\Delta_{\text{odds}}
+&=
+\log \frac{\pi_\theta(y_w \mid x)}
+{1 - \pi_\theta(y_w \mid x)}
+-
+\log \frac{\pi_\theta(y_l \mid x)}
+{1 - \pi_\theta(y_l \mid x)}
+\\
+\mathcal{L}_{\text{ORPO}}(\theta)
+&=
+\mathcal{L}_{\text{SFT}}(\theta)
+-
+\lambda \cdot
+\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}}
+\left[
+\log \sigma \left(
+\Delta_\theta^{\text{OR}}
+\right)
+\right]
+\end{align}
 
 \section{Methodology: The Clarify-or-Act Ablation Suite}
 Our core contribution evaluates online, critic-free reinforcement learning using Group Relative Policy Optimization (GRPO) as a direct substitute or prelude to preference optimization stages.
 
 \subsection{Group Relative Policy Optimization (GRPO) Base}
 For each prompt $x$, we sample a group of outputs $\{y_1, y_2, \dots, y_G\}$ from the current policy $\pi_\theta$. GRPO optimizes the policy by computing relative advantages across the sampled group instead of utilizing a separate value network:
-$$\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{G} \sum_{i=1}^G \left[ \min \left( \frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)} A_i, \text{clip}\left(\frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)}, 1-\epsilon, 1+\epsilon\right) A_i \right) - \beta \mathbb{D}_{\text{KL}}(\pi_\theta \parallel \pi_{\text{ref}}) \right]$$ 
+%$$\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{G} \sum_{i=1}^G \left[ \min \left( \frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)} A_i, \text{clip}\left(\frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)}, 1-\epsilon, 1+\epsilon\right) A_i \right) - \beta \mathbb{D}_{\text{KL}}(\pi_\theta \parallel \pi_{\text{ref}}) \right]$$ 
+\begin{align}
+r_i(\theta)
+&=
+\frac{\pi_\theta(y_i \mid x)}
+{\pi_{\text{old}}(y_i \mid x)}
+\\
+\hat{r}_i(\theta)
+&=
+\mathrm{clip}\!\left(
+r_i(\theta),
+1-\epsilon,
+1+\epsilon
+\right)
+\\
+\mathcal{L}_{\text{GRPO}}(\theta)
+&=
+-\frac{1}{G}
+\sum_{i=1}^G
+\min \Big(
+r_i(\theta) A_i,
+\hat{r}_i(\theta) A_i
+\Big)
+\\
+&\quad
++ \beta \,
+\mathbb{D}_{\mathrm{KL}}\!\left(
+\pi_\theta \,\|\, \pi_{\text{ref}}
+\right)
+\end{align}
 The group relative advantage $A_i$ is computed by standardizing the programmatic rewards:
 $$A_i = \frac{\mathcal{R}(x, y_i) - \frac{1}{G}\sum_{j=1}^G \mathcal{R}(x, y_j)}{\text{std}(\mathcal{R}(x, y_1), \dots, \mathcal{R}(x, y_G))}$$ 
 
@@ -190,48 +256,69 @@ $$\min_\theta \max_{P \in \mathcal{P}} \mathbb{E}_{x \sim P} \left[ \mathcal{L}_
 
 \subsection{Deterministic Programmatic Reward Function}
 The reward function $\mathcal{R}(x, y)$ is calculated entirely via deterministic Python validation scripts. It is a linear combination of four sub-rewards:
-$$\mathcal{R}(x, y) = \omega_1 \mathcal{R}_{\text{format}}(y) + \omega_2 \mathcal{R}_{\text{routing}}(x, a) + \omega_3 \mathcal{R}_{\text{facet}}(x, f) + \omega_4 \mathcal{R}_{\text{len}}(y)$$ 
+%$$\mathcal{R}(x, y) = \omega_1 \mathcal{R}_{\text{format}}(y) + \omega_2 \mathcal{R}_{\text{routing}}(x, a) + \omega_3 \mathcal{R}_{\text{facet}}(x, f) + \omega_4 \mathcal{R}_{\text{len}}(y)$$ 
+\begin{align}
+\mathcal{R}(x, y)
+&=
+\sum_{k=1}^{4} \omega_k \mathcal{R}_k(x, y)
+\end{align}
 
-\begin{figure}[ht]
-\begin{center}
-\begin{verbatim}
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Reward Execution Engine                         │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-       ┌──────────────────────────────────────────────────────────┐
-       │             Format Check: R_format(y)                   │
-       │    Validates schema blocks via regex/JSON parser         │
-       └────────────────────────────┬─────────────────────────────┘
-                                    │
-                  ┌─────────────────┴─────────────────┐
-                  ▼ Pass                              ▼ Fail (-1.0)
-┌──────────────────────────────────┐        ┌────────────────────────────┐
-│    Routing Check: R_routing      │        │ Terminate Early            │
-│ Compares action 'a' with ground  │        │ Skip downstream processing │
-│ truth data annotation            │        └────────────────────────────┘
-└─────────────────┬────────────────┘
-                  │
-                  ▼ Pass
-┌──────────────────────────────────┐
-│     Facet Validation: R_facet    │
-│ If Clarify: measures string overlap│
-│ or exact parameter key matching  │
-└─────────────────┬────────────────┘
-                  │
-                  ▼ Pass
-┌──────────────────────────────────┐
-│     Length Penalty: R_len        │
-│ Penalizes verbose outputs using  │
-│ a dynamic length scaling term    │
-└──────────────────────────────────┘
-\end{verbatim}
-\caption{The Deterministic Programmatic Reward pipeline for GRPO.}
-\end{center}
+\begin{align}
+\mathcal{R}_1 &= \mathcal{R}_{\text{format}}(y), \quad
+\mathcal{R}_2 = \mathcal{R}_{\text{routing}}(x, a), \\
+\mathcal{R}_3 &= \mathcal{R}_{\text{facet}}(x, f), \quad
+\mathcal{R}_4 = \mathcal{R}_{\text{len}}(y)
+\end{align}
+
+%\begin{figure}[ht]
+%\begin{center}
+%\begin{verbatim}
+%+------------------------------------------------------------------------+
+%|                        Reward Execution Engine                         |
+%+------------------------------------------------------------------------+
+%                                    |
+%                                    v
+%       +----------------------------------------------------------+
+%       |             Format Check: R_format(y)                    |
+%       |    Validates schema blocks via regex/JSON parser         |
+%       +----------------------------+-----------------------------+
+%                                    |
+%                  +-----------------+-----------------+
+%                  v Pass                              v Fail (-1.0)
+%+----------------------------------+        +----------------------------+
+%|    Routing Check: R_routing      |        | Terminate Early            |
+%| Compares action 'a' with ground  |        | Skip downstream processing |
+%| truth data annotation            |        +----------------------------+
+%+-----------------+----------------+
+%                  |
+%                  v Pass
+%+----------------------------------+
+%|     Facet Validation: R_facet    |
+%| If Clarify: measures string match|
+%| or exact parameter key matching  |
+%+-----------------+----------------+
+%                  |
+%                  v Pass
+%+----------------------------------+
+%|     Length Penalty: R_len        |
+%| Penalizes verbose outputs using  |
+%| a dynamic length scaling term    |
+%+----------------------------------+
+%\end{verbatim}
+%\caption{The Deterministic Programmatic Reward pipeline for GRPO.}
+%\end{center}
+%\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/grpo_reward_pipeline.pdf}
+\caption{Deterministic programmatic reward pipeline used in GRPO.}
+\label{fig:reward_pipeline}
 \end{figure}
 
 \section{Empirical Evaluation \& Pipeline Comparisons}
+For a detailed analysis of optimization stability, sample efficiency, and training/validation loss curves across our ablation suite, we direct the reader to Appendix \ref{sec:training_details}.
+
 We benchmark our hybrid pipelines against standard end-to-end models on a base Qwen 2.5 7B architecture using the AmbigNQ dataset. Our primary comparisons are between the classic $\text{SFT} \rightarrow \text{DPO}$ pipeline and our proposed $\text{GRPO} \rightarrow \text{DPO}$ approach.
 
 \subsection{Evaluation Metrics}
@@ -251,7 +338,8 @@ To fully capture the nuances of the clarify-or-act problem, we evaluate the mode
 \subsection{Main Alignment Results}
 Table \ref{tab:main_results} illustrates the structural dominance of the $\text{GRPO} \rightarrow \text{DPO}$ pipeline over classic behavioral cloning. The GRPO base builds an impenetrable structural foundation (near 100\% schema adherence and 96.8\% Facet Generation Rate), which allows the subsequent DPO stage to focus purely on stylistic preference alignment without degrading structural performance.
 
-\begin{table*}[t]
+\begin{table*}[!ht]
+%\begin{table*}[t]
   \caption{Main Alignment Results: Structural Dominance of the GRPO $\rightarrow$ DPO Pipeline.}
   \label{tab:main_results}
   \begin{center}
@@ -322,7 +410,30 @@ This paper presents work whose goal is to advance the field of Machine Learning 
 \newpage
 \appendix
 \onecolumn
+\section{Appendix: Training Details}
+\label{sec:training_details}
+
+In this section, we report the training dynamics to demonstrate optimization stability, convergence speed, and generalization without overfitting. The following plots are critical for evaluating the efficiency and safety of our proposed $\text{GRPO} \rightarrow \text{DPO}$ pipeline compared to the baselines:
+
+\begin{itemize}
+    \item \textbf{Training Loss Comparison:} Demonstrates the convergence speed and stability of the training loss for SFT, standard GRPO, and DPO stages (\texttt{figures/train\_loss\_comparison.png}).
+    \item \textbf{Evaluation Loss Comparison:} Validates that the models are not overfitting the training set and are generalizing well to unseen data (\texttt{figures/eval\_loss\_comparison.png}).
+    \item \textbf{Reward Component Convergence:} Specifically for the GRPO stage, tracks the individual programmatic rewards ($\mathcal{R}_{\text{format}}$, $\mathcal{R}_{\text{routing}}$, etc.) as they increase over training steps (\texttt{figures/reward\_convergence.png}).
+    \item \textbf{KL Divergence:} Tracks the KL divergence from the reference model during GRPO and DPO training to verify that the policy is not collapsing or drifting excessively (\texttt{figures/kl\_divergence.png}).
+\end{itemize}
+
+% TODO: When the plots are finalized, uncomment the following block to include them in the document.
+% \begin{figure}[htbp]
+% \centering
+% \includegraphics[width=0.48\textwidth]{figures/train_loss_comparison.png}
+% \hfill
+% \includegraphics[width=0.48\textwidth]{figures/eval_loss_comparison.png}
+% \caption{Training (left) and Evaluation (right) loss comparisons across our ablation suite.}
+% \label{fig:loss_comparisons}
+% \end{figure}
+
 \section{Appendix: Prompts and Reward Functions}
+\raggedbottom
 
 \subsection{System Prompt Schema}
 The following system prompt was used to enforce the structured generation scheme during GRPO training and inference:
