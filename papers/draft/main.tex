@@ -171,6 +171,66 @@ $$\mathcal{L}_{\text{DPO}}(\theta; \pi_{\text{ref}}) = -\mathbb{E}_{(x, y_w, y_l
 $$\mathcal{L}_{\text{ORPO}}(\theta) = \mathcal{L}_{\text{SFT}}(\theta) - \lambda \cdot \mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}} \left[ \log \sigma \left( \log \frac{\pi_\theta(y_w \mid x)}{1 - \pi_\theta(y_w \mid x)} - \log \frac{\pi_\theta(y_l \mid x)}{1 - \pi_\theta(y_l \mid x)} \right) \right]$$
 
 
+\section{Methodology: The Clarify-or-Act Ablation Suite}
+Our core contribution evaluates online, critic-free reinforcement learning using Group Relative Policy Optimization (GRPO) as a direct substitute or prelude to preference optimization stages.
+
+\subsection{Group Relative Policy Optimization (GRPO) Base}
+For each prompt $x$, we sample a group of outputs $\{y_1, y_2, \dots, y_G\}$ from the current policy $\pi_\theta$. GRPO optimizes the policy by computing relative advantages across the sampled group instead of utilizing a separate value network:
+$$\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{G} \sum_{i=1}^G \left[ \min \left( \frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)} A_i, \text{clip}\left(\frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)}, 1-\epsilon, 1+\epsilon\right) A_i \right) - \beta \mathbb{D}_{\text{KL}}(\pi_\theta \parallel \pi_{\text{ref}}) \right]$$ 
+The group relative advantage $A_i$ is computed by standardizing the programmatic rewards:
+$$A_i = \frac{\mathcal{R}(x, y_i) - \frac{1}{G}\sum_{j=1}^G \mathcal{R}(x, y_j)}{\text{std}(\mathcal{R}(x, y_1), \dots, \mathcal{R}(x, y_G))}$$ 
+
+\subsection{Alternative Loss Formulations}
+To systematically test distribution robustness and sample efficiency, our suite implements configuration switches for two advanced modifications:
+\begin{itemize}
+\item \textbf{DAPO:} Modifies GRPO by decoupling the clipping mechanics between token-level probabilities and value expectations, while dynamically altering sample size $G$ based on training iteration variance to speed up convergence. 
+\item \textbf{Dr. GRPO (Distributionally Robust GRPO):} Adapts the framework of Distributionally Robust Optimization (DRO) to manage heterogeneous prompt distributions. Rather than maximizing average group performance, Dr. GRPO constructs an ambiguity set $\mathcal{P}$ around the nominal prompt distribution and optimizes against the worst-case difficulty stratum:
+$$\min_\theta \max_{P \in \mathcal{P}} \mathbb{E}_{x \sim P} \left[ \mathcal{L}_{\text{GRPO}}(\theta; x) \right]$$ 
+\end{itemize}
+
+\subsection{Deterministic Programmatic Reward Function}
+The reward function $\mathcal{R}(x, y)$ is calculated entirely via deterministic Python validation scripts. It is a linear combination of four sub-rewards:
+$$\mathcal{R}(x, y) = \omega_1 \mathcal{R}_{\text{format}}(y) + \omega_2 \mathcal{R}_{\text{routing}}(x, a) + \omega_3 \mathcal{R}_{\text{facet}}(x, f) + \omega_4 \mathcal{R}_{\text{len}}(y)$$ 
+
+\begin{figure}[ht]
+\begin{center}
+\begin{verbatim}
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Reward Execution Engine                         │
+└────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+       ┌──────────────────────────────────────────────────────────┐
+       │             Format Check: R_format(y)                   │
+       │    Validates schema blocks via regex/JSON parser         │
+       └────────────────────────────┬─────────────────────────────┘
+                                    │
+                  ┌─────────────────┴─────────────────┐
+                  ▼ Pass                              ▼ Fail (-1.0)
+┌──────────────────────────────────┐        ┌────────────────────────────┐
+│    Routing Check: R_routing      │        │ Terminate Early            │
+│ Compares action 'a' with ground  │        │ Skip downstream processing │
+│ truth data annotation            │        └────────────────────────────┘
+└─────────────────┬────────────────┘
+                  │
+                  ▼ Pass
+┌──────────────────────────────────┐
+│     Facet Validation: R_facet    │
+│ If Clarify: measures string overlap│
+│ or exact parameter key matching  │
+└─────────────────┬────────────────┘
+                  │
+                  ▼ Pass
+┌──────────────────────────────────┐
+│     Length Penalty: R_len        │
+│ Penalizes verbose outputs using  │
+│ a dynamic length scaling term    │
+└──────────────────────────────────┘
+\end{verbatim}
+\caption{The Deterministic Programmatic Reward pipeline for GRPO.}
+\end{center}
+\end{figure}
+
 \subsection{Citations and References}
 
 Please use APA reference format regardless of your formatter or word processor.
