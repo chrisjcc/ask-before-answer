@@ -127,129 +127,23 @@
 While large language models (LLMs) demonstrate impressive reasoning capabilities, they frequently struggle with ambiguous or underspecified queries, often hallucinating answers or guessing user intent. A robust conversational agent must reliably navigate the ``clarify-or-act'' decision boundary, detecting ambiguity and asking targeted clarification questions before proceeding. In this work, we introduce AskBeforeAnswer, a novel training framework that aligns LLMs to a clarification-first behavior. Rather than relying on standard Supervised Fine-Tuning (SFT) which is prone to imitation errors, we propose a two-stage hybrid pipeline: Group Relative Policy Optimization (GRPO) followed by Direct Preference Optimization (DPO). Our methodology uses purely programmatic, deterministic reward functions during the GRPO stage to strictly enforce a four-tiered structural schema and logical action routing, building an impenetrable structural foundation. DPO is subsequently applied to refine the subjective stylistic nuance of the generated clarifications. Empirical evaluations demonstrate that our GRPO$\rightarrow$DPO pipeline significantly outperforms traditional SFT baselines, achieving near 100\% schema adherence and establishing a new state-of-the-art on the clarify-or-act ambiguity resolution task.
 \end{abstract}
 
-\section{Electronic Submission}
+\section{Introduction}
 
-Submission to ICML 2026 will be entirely electronic, via a web site
-(not email). Information about the submission process and \LaTeX\ templates
-are available on the conference web site at:
-\begin{center}
-  \texttt{http://icml.cc/}
-\end{center}
+The widespread deployment of large language models (LLMs) in conversational and instruction-following contexts has revolutionized human-computer interaction. While these models demonstrate impressive linguistic fluency and reasoning capabilities, they fundamentally struggle with a critical human-like skill: handling ambiguous or underspecified instructions. Current systems often assume perfect input and are poorly equipped to deal with the inherent uncertainty present in real-world human communication. 
 
-The guidelines below will be enforced for initial submissions and
-camera-ready copies. Here is a brief summary:
-\begin{itemize}
-  \item Submissions must be in PDF\@.
-  \item If your paper has appendices, submit the appendix together with the
-        main body and the references \textbf{as a single file}. Reviewers will not
-        look for appendices as a separate PDF file. So if you submit such an extra
-        file, reviewers will very likely miss it.
-  \item Page limit: The main body of the paper has to be fitted to 8 pages,
-        excluding references and appendices; the space for the latter two is not
-        limited in pages, but the total file size may not exceed 10MB. For the
-        final version of the paper, authors can add one extra page to the main
-        body.
-  \item \textbf{Do not include author information or acknowledgements} in your
-        initial submission.
-  \item Your paper should be in \textbf{10 point Times font}.
-  \item Make sure your PDF file only uses Type-1 fonts.
-  \item Place figure captions \emph{under} the figure (and omit titles from
-        inside the graphic file itself). Place table captions \emph{over} the
-        table.
-  \item References must include page numbers whenever possible and be as
-        complete as possible. Place multiple citations in chronological order.
-  \item Do not alter the style template; in particular, do not compress the
-        paper format by reducing the vertical spaces.
-  \item Keep your abstract brief and self-contained, one paragraph and roughly
-        4--6 sentences. Gross violations will require correction at the
-        camera-ready phase. The title should have content words capitalized.
-\end{itemize}
+The core technical problem we address is the agent's inability to strategically and reliably navigate the ``clarify-or-act'' decision boundary. When a user request is ambiguous, an agent must determine whether it has sufficient information to act or whether clarification is necessary to avoid incorrect or suboptimal actions. An agent that consistently acts on incorrect assumptions erodes user trust, while one that over-clarifies introduces unnecessary friction.
 
-\subsection{Submitting Papers}
+Prior approaches have primarily relied on Supervised Fine-Tuning (SFT) to teach clarification behaviors. However, SFT suffers from imitation errors; models learn to mimic the surface-level structure of training data without causally understanding the underlying rules. In this work, we introduce a novel alignment framework that replaces the standard SFT foundation with Group Relative Policy Optimization (GRPO). By utilizing purely programmatic, deterministic reward functions to penalize structural and logical errors during online rollouts, our GRPO stage builds a robust, impenetrable structural foundation. We then follow this with Direct Preference Optimization (DPO) to refine the stylistic nuance of the clarifications. Our hybrid GRPO$\rightarrow$DPO pipeline establishes a new state-of-the-art for the clarify-or-act problem.
 
-\textbf{Anonymous Submission:} ICML uses double-blind review: no identifying
-author information may appear on the title page or in the paper
-itself. \cref{author info} gives further details.
+\section{Related Work}
 
-\medskip
+Prior work on ambiguity handling in language agents spans several directions, including clarification question generation, ambiguity prediction, multi-turn reasoning, and uncertainty-aware decision making. 
 
-Authors must provide their manuscripts in \textbf{PDF} format.
-Furthermore, please make sure that files contain only embedded Type-1 fonts
-(e.g.,~using the program \texttt{pdffonts} in linux or using
-File/DocumentProperties/Fonts in Acrobat). Other fonts (like Type-3)
-might come from graphics files imported into the document.
+\textbf{Supervised Clarification:} Recent frameworks, such as \emph{Learning to Clarify}, propose contrastive self-training pipelines where models learn to ask clarification questions that improve downstream performance. While these works demonstrate that LLMs can learn helpful clarification behaviors, they typically treat ambiguity as a single undifferentiated phenomenon and rely purely on behavioral cloning, making them brittle to out-of-distribution formatting failures.
 
-Authors using \textbf{Word} must convert their document to PDF\@. Most
-of the latest versions of Word have the facility to do this
-automatically. Submissions will not be accepted in Word format or any
-format other than PDF\@. Really. We're not joking. Don't send Word.
+\textbf{Reinforcement Learning for Ambiguity:} Another closely related line of research is SWEET-RL, which studies the clarify-or-act decision as a reinforcement learning problem over multi-turn interactions. Although effective, SWEET-RL relies heavily on reward shaping and emergent behaviors, which do not provide an interpretable grounding of \emph{why} a query is ambiguous. STaR-GATE similarly examines taxonomy-guided prompting but does not integrate ambiguity classification with strategy selection using direct policy optimization.
 
-Those who use \textbf{\LaTeX} should avoid including Type-3 fonts.
-Those using \texttt{latex} and \texttt{dvips} may need the following
-two commands:
-
-{\footnotesize
-\begin{verbatim}
-dvips -Ppdf -tletter -G0 -o paper.ps paper.dvi
-ps2pdf paper.ps
-\end{verbatim}}
-It is a zero following the ``-G'', which tells dvips to use
-the config.pdf file. Newer \TeX\ distributions don't always need this
-option.
-
-Using \texttt{pdflatex} rather than \texttt{latex}, often gives better
-results. This program avoids the Type-3 font problem, and supports more
-advanced features in the \texttt{microtype} package.
-
-\textbf{Graphics files} should be a reasonable size, and included from
-an appropriate format. Use vector formats (.eps/.pdf) for plots,
-lossless bitmap formats (.png) for raster graphics with sharp lines, and
-jpeg for photo-like images.
-
-The style file uses the \texttt{hyperref} package to make clickable
-links in documents. If this causes problems for you, add
-\texttt{nohyperref} as one of the options to the \texttt{icml2026}
-usepackage statement.
-
-\subsection{Submitting Final Camera-Ready Copy}
-
-The final versions of papers accepted for publication should follow the
-same format and naming convention as initial submissions, except that
-author information (names and affiliations) should be given. See
-\cref{final author} for formatting instructions.
-
-The footnote, ``Preliminary work. Under review by the International
-Conference on Machine Learning (ICML). Do not distribute.'' must be
-modified to ``\textit{Proceedings of the
-  $\mathit{43}^{rd}$ International Conference on Machine Learning},
-Seoul, South Korea, PMLR 306, 2026.
-Copyright 2026 by the author(s).''
-
-For those using the \textbf{\LaTeX} style file, this change (and others) is
-handled automatically by simply changing
-$\mathtt{\backslash usepackage\{icml2026\}}$ to
-$$\mathtt{\backslash usepackage[accepted]\{icml2026\}}$$
-Authors using \textbf{Word} must edit the
-footnote on the first page of the document themselves.
-
-Camera-ready copies should have the title of the paper as running head
-on each page except the first one. The running title consists of a
-single line centered above a horizontal rule which is $1$~point thick.
-The running head should be centered, bold and in $9$~point type. The
-rule should be $10$~points above the main text. For those using the
-\textbf{\LaTeX} style file, the original title is automatically set as running
-head using the \texttt{fancyhdr} package which is included in the ICML
-2026 style file package. In case that the original title exceeds the
-size restrictions, a shorter form can be supplied by using
-
-\verb|\icmltitlerunning{...}|
-
-just before $\mathtt{\backslash begin\{document\}}$.
-Authors using \textbf{Word} must edit the header of the document themselves.
-
-\section{Format of the Paper}
-
-All submissions must follow the specified format.
+Our approach differs fundamentally by anchoring the clarify-or-act decision directly to extracted \emph{facets} (missing informational parameters) and enforcing strict structural adherence through programmatic GRPO reward functions, effectively eliminating the need for an LLM-as-a-judge during the initial structural alignment phase.
 
 \subsection{Dimensions}
 
