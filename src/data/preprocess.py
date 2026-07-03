@@ -95,13 +95,16 @@ Follow the format STRICTLY for every response.
 
     def __init__(self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256):
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tf_logging
+
+        tf_logging.set_verbosity_error()
 
         logger.info(f"Loading synthetic generator model: {model_id}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-        # Handle pad token for batched generation
+        # Handle pad token and left-padding for batched generation
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = "left"
 
         kwargs = {"device_map": "auto"}
         if torch.cuda.is_available():
@@ -175,6 +178,9 @@ Follow the format STRICTLY for every response.
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
                 do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
