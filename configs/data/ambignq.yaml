@@ -8,6 +8,6 @@ max_samples: null
 
 synthetic_generation:
   enabled: true
-  model_id: "Qwen/Qwen2.5-3B-Instruct"
+  model_id: "Qwen/Qwen2.5-7B-Instruct"
   max_new_tokens: 256
   batch_size: 8
