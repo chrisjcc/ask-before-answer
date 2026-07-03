@@ -1,0 +1,18 @@
+output_dir: ${models_dir}/grpo
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+num_train_epochs: 1
+learning_rate: 5e-6
+warmup_ratio: 0.1
+bf16: true
+logging_steps: 10
+save_steps: 200
+save_total_limit: 2
+optim: adamw_torch
+report_to: wandb
+remove_unused_columns: false
+max_prompt_length: 512
+max_completion_length: 512
+num_generations: 8
+beta: 0.1
+loss_type: "grpo" # Options: "grpo", "dapo", "dr_grpo"

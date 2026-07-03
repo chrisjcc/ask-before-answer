@@ -18,6 +18,8 @@ help:
 	@echo "  make train-sft-only     Run SFT-only baseline"
 	@echo "  make train-dpo-only     Run DPO-only baseline"
 	@echo "  make train-orpo         Run ORPO baseline"
+	@echo "  make train-grpo         Run GRPO baseline"
+	@echo "  make train-grpo-dpo     Run GRPO->DPO pipeline"
 	@echo "  make ablation-suite     Run all experimental variants"
 	@echo ""
 	@echo "Utils:"
@@ -69,9 +71,15 @@ train-dpo-only:
 train-orpo:
 	dvc repro train_orpo
 
+train-grpo:
+	dvc repro train_grpo
+
+train-grpo-dpo:
+	dvc repro train_grpo_dpo
+
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train_sft_only train_dpo_only train_orpo train_sft train_dpo
+	dvc repro train_sft_only train_dpo_only train_orpo train_grpo train_grpo_dpo train_sft train_dpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
