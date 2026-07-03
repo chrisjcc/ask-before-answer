@@ -293,7 +293,8 @@ def extract_qa_data(
             for j, res in enumerate(batch_results):
                 idx = i + j
                 # Overwrite placeholder fields with LLM-generated high-quality data
-                # We enforce the ground-truth action from AmbigNQ to ensure correct labels
+                # We enforce the ground-truth action from AmbigNQ
+                # to ensure correct labels
                 is_amb = df.at[idx, "is_ambiguous"]
 
                 df.at[idx, "reasoning"] = res["reasoning"]

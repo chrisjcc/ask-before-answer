@@ -109,11 +109,11 @@ def plot_grpo_specifics(grpo_metrics: dict):
     log_history = grpo_metrics.get("log_history", [])
 
     # Track metrics like format_reward, routing_reward, kl, etc.
-    metrics_to_plot = {
-        "KL Divergence": "objective/kl",
-        "Format Reward": "objective/scores_margin",  # Adjust based on actual TRL logs
-        "Routing Reward": "objective/scores",
-    }
+    #metrics_to_plot = {
+    #    "KL Divergence": "objective/kl",
+    #    "Format Reward": "objective/scores_margin",  # Adjust based on actual TRL logs
+    #    "Routing Reward": "objective/scores",
+    #}
 
     # In HuggingFace TRL GRPO, custom rewards are typically logged as env/reward_name
     # We will search for common keys
