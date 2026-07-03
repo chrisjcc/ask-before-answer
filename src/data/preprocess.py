@@ -118,16 +118,11 @@ Follow the format STRICTLY for every response.
 
     def _parse_output(self, text: str) -> Dict[str, Any]:
         """Parses the generated text into structured fields."""
-        action_match = re.search(
-            r"Action:\s*(Clarify|Answer)",
-            text, re.IGNORECASE
-        )
+        action_match = re.search(r"Action:\s*(Clarify|Answer)", text, re.IGNORECASE)
         action = action_match.group(1).title() if action_match else "Answer"
 
         reasoning_match = re.search(
-            r"Reasoning:\s*(.*?)(?=\nFacets:|\Z)",
-            text,
-            re.DOTALL | re.IGNORECASE
+            r"Reasoning:\s*(.*?)(?=\nFacets:|\Z)", text, re.DOTALL | re.IGNORECASE
         )
         reasoning = (
             reasoning_match.group(1).strip()
@@ -145,10 +140,7 @@ Follow the format STRICTLY for every response.
             except (SyntaxError, ValueError):
                 pass
 
-        response_match = re.search(
-            r"Response:\s*(.*)",
-            text, re.DOTALL | re.IGNORECASE
-        )
+        response_match = re.search(r"Response:\s*(.*)", text, re.DOTALL | re.IGNORECASE)
         response = response_match.group(1).strip() if response_match else ""
 
         return {
@@ -174,11 +166,7 @@ Follow the format STRICTLY for every response.
             for q in questions
         ]
 
-        inputs = self.tokenizer(
-            prompts,
-            return_tensors="pt",
-            padding=True
-        ).to(
+        inputs = self.tokenizer(prompts, return_tensors="pt", padding=True).to(
             self.model.device
         )
 
@@ -377,8 +365,7 @@ def prepare_dpo_dataset(df: pd.DataFrame, output_path: str) -> None:
             "Reasoning: Incorrect reasoning: the model misunderstood the question.\n"
             'Facets: ["Incorrect Interpretation"]\n'
             "Response: "
-            + ("I don't know." if action == "Clarify" else "Could you clarify?"
-              )
+            + ("I don't know." if action == "Clarify" else "Could you clarify?")
         )
 
         records.append(

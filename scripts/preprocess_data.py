@@ -30,7 +30,7 @@ def main(cfg: DictConfig) -> None:
         dataset_name=cfg.data.name,
         split="train",
         max_samples=cfg.data.max_samples,
-        synthetic_cfg=cfg.data.get("synthetic_generation", None)
+        synthetic_cfg=cfg.data.get("synthetic_generation", None),
     )
     prepare_sft_dataset(df_train, cfg.data.output_sft_train_file)
     prepare_dpo_dataset(df_train, cfg.data.output_dpo_train_file)
@@ -39,7 +39,7 @@ def main(cfg: DictConfig) -> None:
         dataset_name=cfg.data.name,
         split="validation",
         max_samples=cfg.data.max_samples,
-        synthetic_cfg=cfg.data.get("synthetic_generation", None)
+        synthetic_cfg=cfg.data.get("synthetic_generation", None),
     )
     prepare_sft_dataset(df_val, cfg.data.output_sft_val_file)
     prepare_dpo_dataset(df_val, cfg.data.output_dpo_val_file)
