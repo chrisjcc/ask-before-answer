@@ -157,7 +157,8 @@ def main():
 
     results = {}
     for model_name, model_dir in MODEL_DIRS.items():
-        # trainer_state.json can be in the root of the model dir or inside checkpoint dirs
+        # trainer_state.json can be in the root of the model dir
+        # or inside checkpoint dirs
         state_path = os.path.join(model_dir, "trainer_state.json")
         if not os.path.exists(state_path):
             # Check for the latest checkpoint
