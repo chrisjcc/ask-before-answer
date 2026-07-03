@@ -71,7 +71,11 @@ class ActionScorer(weave.Scorer):
         )
         pred_action = pred_action_match.group(1).title() if pred_action_match else None
 
-        pred_response_match = re.search(r"Response:\s*(.*)", output_str, re.DOTALL | re.IGNORECASE)
+        pred_response_match = re.search(
+            r"Response:\s*(.*)",
+            output_str,
+            re.DOTALL | re.IGNORECASE
+        )
         pred_response = (
             pred_response_match.group(1).strip() if pred_response_match else ""
         )
