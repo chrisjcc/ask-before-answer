@@ -97,3 +97,25 @@ stages:
     metrics:
       - results/dpo_only_metrics.json:
           cache: false
+
+  # ----------------------------
+  # ABLATION: ORPO ONLY
+  # ----------------------------
+  train_orpo:
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_orpo.py training=orpo
+    deps:
+      - data/dpo_train.jsonl
+      - data/dpo_val.jsonl
+      - configs/training/orpo.yaml
+      - configs/model/qwen2_5_7b.yaml
+    outs:
+      - models/orpo/final
+
+  evaluate_orpo:
+    cmd: python scripts/evaluate.py model_name=orpo
+    deps:
+      - models/orpo/final
+    metrics:
+      - results/orpo_metrics.json:
+          cache: false
+

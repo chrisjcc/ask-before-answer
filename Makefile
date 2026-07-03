@@ -17,6 +17,7 @@ help:
 	@echo "  make train-dpo          Run DPO stage (requires SFT)"
 	@echo "  make train-sft-only     Run SFT-only baseline"
 	@echo "  make train-dpo-only     Run DPO-only baseline"
+	@echo "  make train-orpo         Run ORPO baseline"
 	@echo "  make ablation-suite     Run all experimental variants"
 	@echo ""
 	@echo "Utils:"
@@ -65,9 +66,12 @@ train-sft-only:
 train-dpo-only:
 	dvc repro train_dpo_only
 
+train-orpo:
+	dvc repro train_orpo
+
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train_sft_only train_dpo_only train_sft train_dpo
+	dvc repro train_sft_only train_dpo_only train_orpo train_sft train_dpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."

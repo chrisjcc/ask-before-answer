@@ -14,7 +14,7 @@ from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
-from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
+from trl import DPOConfig, DPOTrainer, ORPOConfig, ORPOTrainer, SFTConfig, SFTTrainer
 
 logger = logging.getLogger(__name__)
 
@@ -313,3 +313,97 @@ def run_dpo_training(cfg: DictConfig):
     trainer.save_model(f"{cfg.training.output_dir}/final")
     tokenizer.save_pretrained(f"{cfg.training.output_dir}/final")
     logger.info("DPO Training complete and model saved.")
+
+
+def run_orpo_training(cfg: DictConfig):
+    """Run Odds Ratio Preference Optimization."""
+    logger.info("Initializing ORPO Training...")
+
+    # Load model (NO reference model needed for ORPO)
+    model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+
+    logger.info(
+        f"Loading ORPO training dataset from {cfg.data.output_dpo_train_file}..."
+    )
+    dataset_train = load_dataset("json", data_files=cfg.data.output_dpo_train_file)[
+        "train"
+    ]
+
+    logger.info(
+        f"Loading ORPO validation dataset from {cfg.data.output_dpo_val_file}..."
+    )
+    dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
+
+    # Wrap DPO dataset with ChatML to match SFT
+    def format_dpo(example):
+        system_prompt = (
+            "You are a helpful assistant. "
+            "Given a question, you must decide whether it is ambiguous or not. "
+            "Output MUST follow this format:\n"
+            "Action: Clarify|Answer\n"
+            "Reasoning: <your reasoning>\n"
+            "Facets: <list of facets if ambiguous, else empty>\n"
+            "Response: <clarifying question or direct answer>"
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": example["prompt"]},
+        ]
+
+        prompt_str = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        return {
+            "prompt": prompt_str,
+            "chosen": example["chosen"] + tokenizer.eos_token,
+            "rejected": example["rejected"] + tokenizer.eos_token,
+        }
+
+    dataset_train = dataset_train.map(format_dpo)
+    dataset_val = dataset_val.map(format_dpo)
+
+    training_args = ORPOConfig(
+        output_dir=cfg.training.output_dir,
+        per_device_train_batch_size=cfg.training.per_device_train_batch_size,
+        gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
+        num_train_epochs=cfg.training.num_train_epochs,
+        learning_rate=cfg.training.learning_rate,
+        warmup_ratio=cfg.training.warmup_ratio,
+        bf16=cfg.training.bf16,
+        eval_strategy="steps",
+        eval_steps=cfg.training.logging_steps,
+        logging_steps=cfg.training.logging_steps,
+        save_steps=cfg.training.save_steps,
+        save_total_limit=cfg.training.save_total_limit,
+        optim=cfg.training.optim,
+        report_to=cfg.training.report_to,
+        run_name="orpo_training",
+        beta=cfg.training.beta,
+        max_prompt_length=cfg.training.max_prompt_length,
+        max_length=cfg.training.max_length,
+        remove_unused_columns=cfg.training.get("remove_unused_columns", False),
+    )
+
+    trainer = ORPOTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=dataset_train,
+        eval_dataset=dataset_val,
+        tokenizer=tokenizer,
+    )
+
+    logger.info("Starting ORPO Training...")
+    last_checkpoint = None
+    if cfg.training.get("resume_from_checkpoint", False) and os.path.isdir(
+        cfg.training.output_dir
+    ):
+        last_checkpoint = get_last_checkpoint(cfg.training.output_dir)
+        if last_checkpoint is not None:
+            logger.info(f"Resuming ORPO training from {last_checkpoint}")
+
+    trainer.train(resume_from_checkpoint=last_checkpoint)
+
+    trainer.save_model(f"{cfg.training.output_dir}/final")
+    tokenizer.save_pretrained(f"{cfg.training.output_dir}/final")
+    logger.info("ORPO Training complete and model saved.")
