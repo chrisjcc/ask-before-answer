@@ -95,7 +95,11 @@ Follow the format STRICTLY for every response.
 
     def __init__(self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256):
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tf_logging
+        from transformers import (
+            AutoModelForCausalLM,
+            AutoTokenizer,
+            logging as tf_logging,
+        )
 
         tf_logging.set_verbosity_error()
 
