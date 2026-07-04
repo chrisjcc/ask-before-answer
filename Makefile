@@ -119,10 +119,12 @@ sweep-dpo:
 # Dev tools
 # -------------------------
 format:
+	isort src scripts tests app
 	black src scripts tests app
 	ruff check --fix src scripts tests app
 
 lint:
+	isort --check-only src scripts tests app
 	black --check src scripts tests app
 	ruff check src scripts tests app
 

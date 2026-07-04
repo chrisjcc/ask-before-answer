@@ -32,5 +32,6 @@ streamlit>=1.30.0
 # Dev & Quality
 pytest>=7.4.0
 black>=24.1.0
+isort>=5.13.0
 ruff>=0.1.14
 dvc>=3.0.0
