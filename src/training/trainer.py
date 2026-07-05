@@ -53,6 +53,7 @@ def load_model_and_tokenizer(
     if use_unsloth:
         try:
             from unsloth import FastLanguageModel
+
             logger.info("Unsloth is enabled. Loading via FastLanguageModel...")
             model, tokenizer = FastLanguageModel.from_pretrained(
                 model_name=model_cfg.name,
@@ -65,7 +66,7 @@ def load_model_and_tokenizer(
                 load_in_4bit=load_in_4bit,
                 trust_remote_code=model_cfg.get("trust_remote_code", False),
             )
-            
+
             if is_train and "lora" in model_cfg:
                 lora_cfg = model_cfg.lora
                 logger.info("Applying Unsloth optimized LoRA adapters...")
@@ -79,9 +80,9 @@ def load_model_and_tokenizer(
                     use_gradient_checkpointing="unsloth",
                     random_state=3407,
                 )
-            
+
             return model, tokenizer
-            
+
         except ImportError:
             logger.warning(
                 "unsloth is not installed but `use_unsloth: true` "
