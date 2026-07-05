@@ -57,7 +57,11 @@ def load_model_and_tokenizer(
             model, tokenizer = FastLanguageModel.from_pretrained(
                 model_name=model_cfg.name,
                 max_seq_length=model_cfg.get("max_seq_length", 2048),
-                dtype=getattr(torch, model_cfg.torch_dtype) if hasattr(model_cfg, "torch_dtype") else None,
+                dtype=(
+                    getattr(torch, model_cfg.torch_dtype)
+                    if hasattr(model_cfg, "torch_dtype")
+                    else None,
+                )
                 load_in_4bit=load_in_4bit,
                 trust_remote_code=model_cfg.get("trust_remote_code", False),
             )
@@ -79,7 +83,11 @@ def load_model_and_tokenizer(
             return model, tokenizer
             
         except ImportError:
-            logger.warning("unsloth is not installed but `use_unsloth: true` was requested. Falling back to native HuggingFace transformers.")
+            logger.warning(
+                "unsloth is not installed but `use_unsloth: true` "
+                "was requested. Falling back to native HuggingFace "
+                "transformers."
+            )
 
     # Native HuggingFace Fallback / Standard loading
     tokenizer = AutoTokenizer.from_pretrained(
