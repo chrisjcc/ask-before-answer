@@ -60,8 +60,8 @@ def load_model_and_tokenizer(
                 dtype=(
                     getattr(torch, model_cfg.torch_dtype)
                     if hasattr(model_cfg, "torch_dtype")
-                    else None,
-                )
+                    else None
+                ),
                 load_in_4bit=load_in_4bit,
                 trust_remote_code=model_cfg.get("trust_remote_code", False),
             )
