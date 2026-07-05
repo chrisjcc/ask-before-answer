@@ -1,4 +1,6 @@
 name: "Qwen/Qwen2.5-7B-Instruct"
+use_unsloth: true
+max_seq_length: 2048
 use_flash_attention: false
 load_in_8bit: false
 load_in_4bit: true

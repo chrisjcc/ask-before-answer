@@ -45,6 +45,43 @@ def load_model_and_tokenizer(
     """
     logger.info(f"Loading model {model_cfg.name}...")
 
+    # Optional Unsloth integration for high-performance memory-efficient training
+    use_unsloth = model_cfg.get("use_unsloth", False)
+    load_in_8bit = model_cfg.get("load_in_8bit", False)
+    load_in_4bit = model_cfg.get("load_in_4bit", False)
+
+    if use_unsloth:
+        try:
+            from unsloth import FastLanguageModel
+            logger.info("Unsloth is enabled. Loading via FastLanguageModel...")
+            model, tokenizer = FastLanguageModel.from_pretrained(
+                model_name=model_cfg.name,
+                max_seq_length=model_cfg.get("max_seq_length", 2048),
+                dtype=getattr(torch, model_cfg.torch_dtype) if hasattr(model_cfg, "torch_dtype") else None,
+                load_in_4bit=load_in_4bit,
+                trust_remote_code=model_cfg.get("trust_remote_code", False),
+            )
+            
+            if is_train and "lora" in model_cfg:
+                lora_cfg = model_cfg.lora
+                logger.info("Applying Unsloth optimized LoRA adapters...")
+                model = FastLanguageModel.get_peft_model(
+                    model,
+                    r=lora_cfg.r,
+                    target_modules=list(lora_cfg.target_modules),
+                    lora_alpha=lora_cfg.lora_alpha,
+                    lora_dropout=lora_cfg.lora_dropout,
+                    bias=lora_cfg.bias,
+                    use_gradient_checkpointing="unsloth",
+                    random_state=3407,
+                )
+            
+            return model, tokenizer
+            
+        except ImportError:
+            logger.warning("unsloth is not installed but `use_unsloth: true` was requested. Falling back to native HuggingFace transformers.")
+
+    # Native HuggingFace Fallback / Standard loading
     tokenizer = AutoTokenizer.from_pretrained(
         model_cfg.name, trust_remote_code=model_cfg.trust_remote_code
     )
@@ -57,9 +94,6 @@ def load_model_and_tokenizer(
         "torch_dtype": getattr(torch, model_cfg.torch_dtype),
         "trust_remote_code": model_cfg.trust_remote_code,
     }
-
-    load_in_8bit = model_cfg.get("load_in_8bit", False)
-    load_in_4bit = model_cfg.get("load_in_4bit", False)
 
     if torch.cuda.is_available():
         if model_cfg.device_map == "auto" and (load_in_8bit or load_in_4bit):
@@ -132,7 +166,7 @@ def load_model_and_tokenizer(
                     target_modules=list(lora_cfg.target_modules),
                 )
                 model = get_peft_model(model, config)
-                logger.info("Applied LoRA configuration.")
+                logger.info("Applied native LoRA configuration.")
 
     return model, tokenizer
 

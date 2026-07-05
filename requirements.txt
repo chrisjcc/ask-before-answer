@@ -13,6 +13,8 @@ protobuf
 einops
 wandb>=0.27.2
 weave>=0.52.43
+unsloth
+xformers
 
 # Data processing & Utils
 pandas
