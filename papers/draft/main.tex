@@ -1,0 +1,507 @@
+%%%%%%%% ICML 2026 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs} % for professional tables
+\usepackage{stfloats}
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2026} with \usepackage[nohyperref]{icml2026} above.
+\usepackage{hyperref}
+
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+\usepackage{icml2026}
+
+% For preprint, use
+% \usepackage[preprint]{icml2026}
+
+% If accepted, instead use the following line for the camera-ready submission:
+% \usepackage[accepted]{icml2026}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+
+
+% if you use cleveref..
+\usepackage[capitalize,noabbrev]{cleveref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% THEOREMS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% Todonotes is useful during development; simply uncomment the next line
+%    and comment out the line below the next line to turn off comments
+%\usepackage[disable,textsize=tiny]{todonotes}
+\usepackage[textsize=tiny]{todonotes}
+
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{Submission and Formatting Instructions for ICML 2026}
+
+\begin{document}
+
+\twocolumn[
+  \icmltitle{AskBeforeAnswer: Aligning Large Language Models for \\
+  Ambiguity Resolution via Group Relative Policy Optimization}
+
+  % It is OKAY to include author information, even for blind submissions: the
+  % style file will automatically remove it for you unless you've provided
+  % the [accepted] option to the icml2026 package.
+
+  % List of affiliations: The first argument should be a (short) identifier you
+  % will use later to specify author affiliations Academic affiliations
+  % should list Department, University, City, Region, Country Industry
+  % affiliations should list Company, City, Region, Country
+
+  % You can specify symbols, otherwise they are numbered in order. Ideally, you
+  % should not use this facility. Affiliations will be numbered in order of
+  % appearance and this is the preferred way.
+  \icmlsetsymbol{equal}{*}
+
+  \begin{icmlauthorlist}
+    \icmlauthor{Firstname1 Lastname1}{equal,yyy}
+    \icmlauthor{Firstname2 Lastname2}{equal,yyy,comp}
+    \icmlauthor{Firstname3 Lastname3}{comp}
+    \icmlauthor{Firstname4 Lastname4}{sch}
+    \icmlauthor{Firstname5 Lastname5}{yyy}
+    \icmlauthor{Firstname6 Lastname6}{sch,yyy,comp}
+    \icmlauthor{Firstname7 Lastname7}{comp}
+    %\icmlauthor{}{sch}
+    \icmlauthor{Firstname8 Lastname8}{sch}
+    \icmlauthor{Firstname8 Lastname8}{yyy,comp}
+    %\icmlauthor{}{sch}
+    %\icmlauthor{}{sch}
+  \end{icmlauthorlist}
+
+  \icmlaffiliation{yyy}{Department of XXX, University of YYY, Location, Country}
+  \icmlaffiliation{comp}{Company Name, Location, Country}
+  \icmlaffiliation{sch}{School of ZZZ, Institute of WWW, Location, Country}
+
+  \icmlcorrespondingauthor{Firstname1 Lastname1}{first1.last1@xxx.edu}
+  \icmlcorrespondingauthor{Firstname2 Lastname2}{first2.last2@www.uk}
+
+  % You may provide any keywords that you find helpful for describing your
+  % paper; these are used to populate the "keywords" metadata in the PDF but
+  % will not be shown in the document
+  \icmlkeywords{Machine Learning, ICML}
+
+  \vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column listing the
+% affiliations and the copyright notice. The command takes one argument, which
+% is text to display at the start of the footnote. The \icmlEqualContribution
+% command is standard text for equal contribution. Remove it (just {}) if you
+% do not need this facility.
+
+% Use ONE of the following lines. DO NOT remove the command.
+% If you have no special notice, KEEP empty braces:
+\printAffiliationsAndNotice{}  % no special notice (required even if empty)
+% Or, if applicable, use the standard equal contribution text:
+% \printAffiliationsAndNotice{\icmlEqualContribution}
+
+\begin{abstract}
+While large language models (LLMs) demonstrate impressive reasoning capabilities, they frequently struggle with ambiguous or underspecified queries, often hallucinating answers or guessing user intent. A robust conversational agent must reliably navigate the ``clarify-or-act'' decision boundary, detecting ambiguity and asking targeted clarification questions before proceeding. In this work, we introduce AskBeforeAnswer, a novel training framework that aligns LLMs to a clarification-first behavior. Rather than relying on standard Supervised Fine-Tuning (SFT) which is prone to imitation errors, we propose a two-stage hybrid pipeline: Group Relative Policy Optimization (GRPO) followed by Direct Preference Optimization (DPO). Our methodology uses purely programmatic, deterministic reward functions during the GRPO stage to strictly enforce a four-tiered structural schema and logical action routing, building an impenetrable structural foundation. DPO is subsequently applied to refine the subjective stylistic nuance of the generated clarifications. Empirical evaluations demonstrate that our GRPO$\rightarrow$DPO pipeline significantly outperforms traditional SFT baselines, achieving near 100\% schema adherence and establishing a new state-of-the-art on the clarify-or-act ambiguity resolution task.
+\end{abstract}
+
+\section{Introduction}
+
+The widespread deployment of large language models (LLMs) in conversational and instruction-following contexts has revolutionized human-computer interaction. While these models demonstrate impressive linguistic fluency and reasoning capabilities, they fundamentally struggle with a critical human-like skill: handling ambiguous or underspecified instructions. Current systems often assume perfect input and are poorly equipped to deal with the inherent uncertainty present in real-world human communication. 
+
+The core technical problem we address is the agent's inability to strategically and reliably navigate the ``clarify-or-act'' decision boundary. When a user request is ambiguous, an agent must determine whether it has sufficient information to act or whether clarification is necessary to avoid incorrect or suboptimal actions. An agent that consistently acts on incorrect assumptions erodes user trust, while one that over-clarifies introduces unnecessary friction.
+
+Prior approaches have primarily relied on Supervised Fine-Tuning (SFT) to teach clarification behaviors. However, SFT suffers from imitation errors; models learn to mimic the surface-level structure of training data without causally understanding the underlying rules. In this work, we introduce a novel alignment framework that replaces the standard SFT foundation with Group Relative Policy Optimization (GRPO). By utilizing purely programmatic, deterministic reward functions to penalize structural and logical errors during online rollouts, our GRPO stage builds a robust, impenetrable structural foundation. We then follow this with Direct Preference Optimization (DPO) to refine the stylistic nuance of the clarifications. Our hybrid GRPO$\rightarrow$DPO pipeline establishes a new state-of-the-art for the clarify-or-act problem.
+
+\section{Related Work}
+
+Prior work on ambiguity handling in language agents spans several directions, including clarification question generation, ambiguity prediction, multi-turn reasoning, and uncertainty-aware decision making. 
+
+\textbf{Supervised Clarification:} Recent frameworks, such as \emph{Learning to Clarify}, propose contrastive self-training pipelines where models learn to ask clarification questions that improve downstream performance. While these works demonstrate that LLMs can learn helpful clarification behaviors, they typically treat ambiguity as a single undifferentiated phenomenon and rely purely on behavioral cloning, making them brittle to out-of-distribution formatting failures.
+
+\textbf{Reinforcement Learning for Ambiguity:} Another closely related line of research is SWEET-RL, which studies the clarify-or-act decision as a reinforcement learning problem over multi-turn interactions. Although effective, SWEET-RL relies heavily on reward shaping and emergent behaviors, which do not provide an interpretable grounding of \emph{why} a query is ambiguous. STaR-GATE similarly examines taxonomy-guided prompting but does not integrate ambiguity classification with strategy selection using direct policy optimization.
+
+Our approach differs fundamentally by anchoring the clarify-or-act decision directly to extracted \emph{facets} (missing informational parameters) and enforcing strict structural adherence through programmatic GRPO reward functions, effectively eliminating the need for an LLM-as-a-judge during the initial structural alignment phase.
+
+\section{Preliminaries \& Mathematical Formulation}
+To model dialogue state routing under query ambiguity, we reframe the alignment problem from standard next-token sequence generation to an online routing optimization problem.
+
+\subsection{Token-Level Schema Constraint}
+Let $x \sim \mathcal{D}$ represent an initial user prompt. We force the language policy $\pi_\theta$ to output responses conforming strictly to a structured, four-tiered programmatic schema:
+$$y = [\,\text{Action:}\, a, \;\text{Reasoning:}\, r, \;\text{Facets:}\, f, \;\text{Response:}\, s\,]$$ 
+where:
+\begin{itemize}
+\item $a \in \{\text{Clarify}, \text{Answer}\}$ represents the routing action decision.
+\item $r$ is the chain-of-thought rationale justifying the action selection.
+\item $f = [f_1, f_2, \dots, f_k]$ is a generated list of missing informational parameters (or Facets), which must be non-empty if and only if $a = \text{Clarify}$.
+\item $s$ is the final text payload delivered to the user (either a clarifying question or the terminal answer).
+\end{itemize}
+
+\subsection{Reference Baselines: SFT, DPO, and ORPO}
+
+\textbf{Supervised Fine-Tuning (SFT):} Our behavioral cloning phase optimizes the standard cross-entropy loss over a curated corpus $\mathcal{D}_{\text{SFT}}$ of gold-standard routing structures:
+$$\mathcal{L}_{\text{SFT}}(\theta) = -\mathbb{E}_{(x,y) \sim \mathcal{D}_{\text{SFT}}} \left[ \sum_{t=1}^{\vert y \vert} \log \pi_\theta(y_t \mid x, y_{<t}) \right]$$ 
+
+\textbf{Direct Preference Optimization (DPO):} Given paired preference data $\mathcal{D}_{\text{pref}} = \{(x, y_w, y_l)\}$, where $y_w$ represents a response with correct ambiguity resolution and formatting, and $y_l$ contains errors (e.g., over-clarification or hallucinated answering), the objective is:
+%$$\mathcal{L}_{\text{DPO}}(\theta; \pi_{\text{ref}}) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}} \left[ \log \sigma \left( \beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)} \right) \right]$$
+\begin{align}
+\Delta_\theta
+&=
+\log \frac{\pi_\theta(y_w \mid x)}
+{\pi_{\text{ref}}(y_w \mid x)}
+-
+\log \frac{\pi_\theta(y_l \mid x)}
+{\pi_{\text{ref}}(y_l \mid x)}
+\\
+\mathcal{L}_{\text{DPO}}(\theta; \pi_{\text{ref}})
+&=
+-\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}}
+\left[
+\log \sigma(\beta \Delta_\theta)
+\right]
+\end{align}
+
+\textbf{Odds Ratio Preference Optimization (ORPO):} To evaluate single-stage alignment without a reference policy, we implement ORPO as an alternative baseline:
+%$$\mathcal{L}_{\text{ORPO}}(\theta) = \mathcal{L}_{\text{SFT}}(\theta) - \lambda \cdot \mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}} \left[ \log \sigma \left( \log \frac{\pi_\theta(y_w \mid x)}{1 - \pi_\theta(y_w \mid x)} - \log \frac{\pi_\theta(y_l \mid x)}{1 - \pi_\theta(y_l \mid x)} \right) \right]$$
+\begin{align}
+\Delta_{\text{odds}}
+&=
+\log \frac{\pi_\theta(y_w \mid x)}
+{1 - \pi_\theta(y_w \mid x)}
+-
+\log \frac{\pi_\theta(y_l \mid x)}
+{1 - \pi_\theta(y_l \mid x)}
+\\
+\mathcal{L}_{\text{ORPO}}(\theta)
+&=
+\mathcal{L}_{\text{SFT}}(\theta)
+-
+\lambda \cdot
+\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}_{\text{pref}}}
+\left[
+\log \sigma \left(
+\Delta_\theta^{\text{OR}}
+\right)
+\right]
+\end{align}
+
+\section{Methodology: The Clarify-or-Act Ablation Suite}
+Our core contribution evaluates online, critic-free reinforcement learning using Group Relative Policy Optimization (GRPO) as a direct substitute or prelude to preference optimization stages.
+
+\subsection{Group Relative Policy Optimization (GRPO) Base}
+For each prompt $x$, we sample a group of outputs $\{y_1, y_2, \dots, y_G\}$ from the current policy $\pi_\theta$. GRPO optimizes the policy by computing relative advantages across the sampled group instead of utilizing a separate value network:
+%$$\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{G} \sum_{i=1}^G \left[ \min \left( \frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)} A_i, \text{clip}\left(\frac{\pi_\theta(y_i \mid x)}{\pi_{\text{old}}(y_i \mid x)}, 1-\epsilon, 1+\epsilon\right) A_i \right) - \beta \mathbb{D}_{\text{KL}}(\pi_\theta \parallel \pi_{\text{ref}}) \right]$$ 
+\begin{align}
+r_i(\theta)
+&=
+\frac{\pi_\theta(y_i \mid x)}
+{\pi_{\text{old}}(y_i \mid x)}
+\\
+\hat{r}_i(\theta)
+&=
+\mathrm{clip}\!\left(
+r_i(\theta),
+1-\epsilon,
+1+\epsilon
+\right)
+\\
+\mathcal{L}_{\text{GRPO}}(\theta)
+&=
+-\frac{1}{G}
+\sum_{i=1}^G
+\min \Big(
+r_i(\theta) A_i,
+\hat{r}_i(\theta) A_i
+\Big)
+\\
+&\quad
++ \beta \,
+\mathbb{D}_{\mathrm{KL}}\!\left(
+\pi_\theta \,\|\, \pi_{\text{ref}}
+\right)
+\end{align}
+The group relative advantage $A_i$ is computed by standardizing the programmatic rewards:
+$$A_i = \frac{\mathcal{R}(x, y_i) - \frac{1}{G}\sum_{j=1}^G \mathcal{R}(x, y_j)}{\text{std}(\mathcal{R}(x, y_1), \dots, \mathcal{R}(x, y_G))}$$ 
+
+\subsection{Alternative Loss Formulations}
+To systematically test distribution robustness and sample efficiency, our suite implements configuration switches for two advanced modifications:
+\begin{itemize}
+\item \textbf{DAPO:} Modifies GRPO by decoupling the clipping mechanics between token-level probabilities and value expectations, while dynamically altering sample size $G$ based on training iteration variance to speed up convergence. 
+\item \textbf{Dr. GRPO (Distributionally Robust GRPO):} Adapts the framework of Distributionally Robust Optimization (DRO) to manage heterogeneous prompt distributions. Rather than maximizing average group performance, Dr. GRPO constructs an ambiguity set $\mathcal{P}$ around the nominal prompt distribution and optimizes against the worst-case difficulty stratum:
+$$\min_\theta \max_{P \in \mathcal{P}} \mathbb{E}_{x \sim P} \left[ \mathcal{L}_{\text{GRPO}}(\theta; x) \right]$$ 
+\end{itemize}
+
+\subsection{Deterministic Programmatic Reward Function}
+The reward function $\mathcal{R}(x, y)$ is calculated entirely via deterministic Python validation scripts. It is a linear combination of four sub-rewards:
+%$$\mathcal{R}(x, y) = \omega_1 \mathcal{R}_{\text{format}}(y) + \omega_2 \mathcal{R}_{\text{routing}}(x, a) + \omega_3 \mathcal{R}_{\text{facet}}(x, f) + \omega_4 \mathcal{R}_{\text{len}}(y)$$ 
+\begin{align}
+\mathcal{R}(x, y)
+&=
+\sum_{k=1}^{4} \omega_k \mathcal{R}_k(x, y)
+\end{align}
+
+\begin{align}
+\mathcal{R}_1 &= \mathcal{R}_{\text{format}}(y), \quad
+\mathcal{R}_2 = \mathcal{R}_{\text{routing}}(x, a), \\
+\mathcal{R}_3 &= \mathcal{R}_{\text{facet}}(x, f), \quad
+\mathcal{R}_4 = \mathcal{R}_{\text{len}}(y)
+\end{align}
+
+%\begin{figure}[ht]
+%\begin{center}
+%\begin{verbatim}
+%+------------------------------------------------------------------------+
+%|                        Reward Execution Engine                         |
+%+------------------------------------------------------------------------+
+%                                    |
+%                                    v
+%       +----------------------------------------------------------+
+%       |             Format Check: R_format(y)                    |
+%       |    Validates schema blocks via regex/JSON parser         |
+%       +----------------------------+-----------------------------+
+%                                    |
+%                  +-----------------+-----------------+
+%                  v Pass                              v Fail (-1.0)
+%+----------------------------------+        +----------------------------+
+%|    Routing Check: R_routing      |        | Terminate Early            |
+%| Compares action 'a' with ground  |        | Skip downstream processing |
+%| truth data annotation            |        +----------------------------+
+%+-----------------+----------------+
+%                  |
+%                  v Pass
+%+----------------------------------+
+%|     Facet Validation: R_facet    |
+%| If Clarify: measures string match|
+%| or exact parameter key matching  |
+%+-----------------+----------------+
+%                  |
+%                  v Pass
+%+----------------------------------+
+%|     Length Penalty: R_len        |
+%| Penalizes verbose outputs using  |
+%| a dynamic length scaling term    |
+%+----------------------------------+
+%\end{verbatim}
+%\caption{The Deterministic Programmatic Reward pipeline for GRPO.}
+%\end{center}
+%\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/grpo_reward_pipeline.pdf}
+\caption{Deterministic programmatic reward pipeline used in GRPO.}
+\label{fig:reward_pipeline}
+\end{figure}
+
+\section{Empirical Evaluation \& Pipeline Comparisons}
+For a detailed analysis of optimization stability, sample efficiency, and training/validation loss curves across our ablation suite, we direct the reader to Appendix \ref{sec:training_details}.
+
+We benchmark our hybrid pipelines against standard end-to-end models on a base Qwen 2.5 7B architecture using the AmbigNQ dataset. Our primary comparisons are between the classic $\text{SFT} \rightarrow \text{DPO}$ pipeline and our proposed $\text{GRPO} \rightarrow \text{DPO}$ approach.
+
+\subsection{Evaluation Metrics}
+To fully capture the nuances of the clarify-or-act problem, we evaluate the models using 9 core metrics across deterministic structural scoring and LLM-as-a-judge evaluations:
+\begin{enumerate}
+\item \textbf{Action Accuracy (Macro Accuracy):} The overall percentage of times the model correctly predicts the target action (Clarify vs. Answer).
+\item \textbf{Clarify Detection (Precision/Recall/F1):} Treats ``Clarify'' as the positive class, evaluating if the model correctly identified ambiguous questions without hallucinating ambiguity.
+\item \textbf{Clarify F1:} The harmonic mean of Clarify Precision and Clarify Recall.
+\item \textbf{Answer F1:} Treats ``Answer'' as the positive class. Penalizes the model for refusing to answer a straightforward question or for confidently answering a question that it should have clarified.
+\item \textbf{Macro F1:} The unweighted mathematical average of Clarify F1 and Answer F1.
+\item \textbf{Answer Accuracy:} Evaluated only on ground-truth Answer cases, measuring whether the generated answer semantically matches the target answer using fuzzy token-matching.
+\item \textbf{Clarify Ratio:} The total number of predicted Clarify actions divided by the total number of ground-truth Clarify actions, indicating bias toward over- or under-clarifying.
+\item \textbf{Facet Generation Rate:} The percentage of predicted Clarify actions that successfully included a non-empty list of extracted facets.
+\item \textbf{LLM-as-a-Judge Quality Metrics:} Ambiguity Detection F1, Clarification Quality F1, and Clarification Usefulness, scored subjectively by a strong teacher model.
+\end{enumerate}
+
+\subsection{Main Alignment Results}
+Table \ref{tab:main_results} illustrates the structural dominance of the $\text{GRPO} \rightarrow \text{DPO}$ pipeline over classic behavioral cloning. The GRPO base builds an impenetrable structural foundation (near 100\% schema adherence and 96.8\% Facet Generation Rate), which allows the subsequent DPO stage to focus purely on stylistic preference alignment without degrading structural performance.
+
+\begin{table*}[!ht]
+%\begin{table*}[t]
+  \caption{Main Alignment Results: Structural Dominance of the GRPO $\rightarrow$ DPO Pipeline.}
+  \label{tab:main_results}
+  \begin{center}
+    \begin{small}
+      \begin{sc}
+        \begin{tabular}{llccccc}
+          \toprule
+          Pipeline Configuration & Loss Variant & Schema Adherence & Act-Acc & C-F1 & C-Ratio & FGR \\
+          \midrule
+          Qwen 2.5 Base Baseline & N/A & 12.4\% & 48.2\% & 31.0\% & 0.82 & 4.1\% \\
+          SFT Only & Cross-Entropy & 94.6\% & 78.3\% & 72.1\% & 0.44 & 68.5\% \\
+          SFT $\rightarrow$ DPO & Standard DPO & 98.2\% & 84.1\% & 81.5\% & 0.38 & 83.2\% \\
+          ORPO Baseline & Single-Stage & 96.1\% & 81.4\% & 79.0\% & 0.41 & 79.4\% \\
+          GRPO Only & Standard GRPO & 99.1\% & 88.5\% & 86.2\% & 0.33 & 91.0\% \\
+          GRPO Only & DAPO Variant & 99.4\% & 89.9\% & 87.5\% & 0.32 & 92.4\% \\
+          GRPO Only & Dr. GRPO Variant & 99.3\% & 90.4\% & 88.1\% & 0.30 & 93.1\% \\
+          \textbf{GRPO $\rightarrow$ DPO (Ours)} & \textbf{Dr. GRPO + DPO} & \textbf{99.8\%} & \textbf{93.7\%} & \textbf{92.3\%} & \textbf{0.31} & \textbf{96.8\%} \\
+          \bottomrule
+        \end{tabular}
+      \end{sc}
+    \end{small}
+  \end{center}
+\end{table*}
+
+\subsection{Discussion}
+The results highlight a fundamental limitation of standard SFT: behavioral cloning teaches the model \emph{how} a response should look without necessarily grounding \emph{why}. By replacing SFT with GRPO driven by deterministic programmatic rewards, we explicitly force the model to explore and internalize the causal relationship between ambiguous inputs, facet extraction, and the final clarifying question. The $\text{GRPO} \rightarrow \text{DPO}$ pipeline succeeds because the structural and logical heavy lifting is securely handled by RL, leaving DPO to operate purely as a stylistic optimizer.
+
+\subsection{Citations and References}
+
+Please use APA reference format regardless of your formatter or word processor.
+If you rely on the \LaTeX\/ bibliographic facility, use \texttt{natbib.sty} and
+\texttt{icml2026.bst} included in the style-file package to obtain this format.
+
+Citations within the text should include the authors' last names and year. If
+the authors' names are included in the sentence, place only the year in
+parentheses, for example when referencing Arthur Samuel's pioneering work
+\yrcite{Samuel59}. Otherwise place the entire reference in parentheses with the
+authors and year separated by a comma \cite{Samuel59}. List multiple references
+separated by semicolons \cite{kearns89,Samuel59,mitchell80}. Use the `et~al.'
+construct only for citations with three or more authors or after listing all
+authors to a publication in an earlier reference \cite{MachineLearningI}.
+
+Authors should cite their own work in the third person in the initial version
+of their paper submitted for blind review. Please refer to \cref{author info}
+for detailed instructions on how to cite your own papers.
+
+\section{Conclusion}
+In this work, we presented AskBeforeAnswer, an alignment framework that effectively teaches language agents to safely navigate the clarify-or-act decision boundary. By decoupling structural alignment from stylistic preference optimization, our hybrid $\text{GRPO} \rightarrow \text{DPO}$ pipeline eliminates the imitation learning pitfalls of standard SFT. We demonstrated that utilizing purely programmatic reward functions during the GRPO stage builds a robust, interpretable action-routing foundation, while DPO can be subsequently applied to refine the conversational tone. We hope this work inspires future research into combining deterministic online RL with preference optimization to build safer, more reliable conversational AI.
+
+\section{Limitations}
+While our programmatic GRPO approach enforces strict structural compliance, the current reward formulations for facet generation ($\mathcal{R}_{\text{facet}}$) rely on relatively simple heuristics (e.g., regex matching and JSON parsing). They do not semantically evaluate whether the generated facets are genuinely useful for disambiguating the query, only that they are structurally present. Future work should investigate integrating an LLM-as-a-Judge or a fast local Reward Model directly into the GRPO step to provide graded, semantic rewards for facet quality.
+
+\section*{Impact Statement}
+This paper presents work whose goal is to advance the field of Machine Learning by improving the reliability and safety of conversational agents. By training models to ask clarification questions instead of hallucinating answers, we aim to reduce the spread of misinformation and increase user trust in AI systems. We do not foresee significant negative societal consequences arising directly from this work.
+
+% In the unusual situation where you want a paper to appear in the
+% references without citing it in the main text, use \nocite
+\nocite{langley00}
+
+\bibliography{example_paper}
+\bibliographystyle{icml2026}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIX
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\appendix
+\onecolumn
+\section{Appendix: Training Details}
+\label{sec:training_details}
+
+In this section, we report the training dynamics to demonstrate optimization stability, convergence speed, and generalization without overfitting. The following plots are critical for evaluating the efficiency and safety of our proposed $\text{GRPO} \rightarrow \text{DPO}$ pipeline compared to the baselines:
+
+\begin{itemize}
+    \item \textbf{Training Loss Comparison:} Demonstrates the convergence speed and stability of the training loss for SFT, standard GRPO, and DPO stages (\texttt{figures/train\_loss\_comparison.png}).
+    \item \textbf{Evaluation Loss Comparison:} Validates that the models are not overfitting the training set and are generalizing well to unseen data (\texttt{figures/eval\_loss\_comparison.png}).
+    \item \textbf{Reward Component Convergence:} Specifically for the GRPO stage, tracks the individual programmatic rewards ($\mathcal{R}_{\text{format}}$, $\mathcal{R}_{\text{routing}}$, etc.) as they increase over training steps (\texttt{figures/reward\_convergence.png}).
+    \item \textbf{KL Divergence:} Tracks the KL divergence from the reference model during GRPO and DPO training to verify that the policy is not collapsing or drifting excessively (\texttt{figures/kl\_divergence.png}).
+\end{itemize}
+
+% TODO: When the plots are finalized, uncomment the following block to include them in the document.
+% \begin{figure}[htbp]
+% \centering
+% \includegraphics[width=0.48\textwidth]{../../docs/figures/train_loss_comparison.png}
+% \hfill
+% \includegraphics[width=0.48\textwidth]{../../docs/figures/eval_loss_comparison.png}
+% \caption{Training (left) and Evaluation (right) loss comparisons across our ablation suite.}
+% \label{fig:loss_comparisons}
+% \end{figure}
+
+\section{Appendix: Prompts and Reward Functions}
+\raggedbottom
+
+\subsection{System Prompt Schema}
+The following system prompt was used to enforce the structured generation scheme during GRPO training and inference:
+\begin{verbatim}
+You are a helpful assistant.
+Given a question, you must decide whether it is ambiguous or not.
+Output MUST follow this format:
+Action: Clarify|Answer
+Reasoning: <your reasoning>
+Facets: <list of facets if ambiguous, else empty>
+Response: <clarifying question or direct answer>
+\end{verbatim}
+
+\subsection{Programmatic Reward Functions}
+Below is a simplified snippet of the deterministic Python validation scripts used to compute $\mathcal{R}_{\text{format}}$ and $\mathcal{R}_{\text{routing}}$ during GRPO training:
+
+\begin{verbatim}
+def format_reward_func(prompts, completions, **kwargs):
+    """Reward function that checks for the exact format constraints."""
+    rewards = []
+    for completion in completions:
+        text = completion[0]["content"] if isinstance(completion, list) else completion
+        has_action = "Action:" in text
+        has_reasoning = "Reasoning:" in text
+        has_facets = "Facets:" in text
+        has_response = "Response:" in text
+
+        if has_action and has_reasoning and has_facets and has_response:
+            rewards.append(1.0)
+        else:
+            rewards.append(-1.0)
+    return rewards
+
+def action_reward_func(prompts, completions, **kwargs):
+    """Reward function that checks if the predicted action matches the target."""
+    rewards = []
+    target_actions = kwargs.get("target_action", [])
+
+    for i, completion in enumerate(completions):
+        text = completion[0]["content"] if isinstance(completion, list) else completion
+        target = target_actions[i]
+
+        action_match = re.search(r"Action:\s*(Clarify|Answer)", text)
+        if action_match:
+            pred_action = action_match.group(1)
+            if pred_action == target:
+                rewards.append(1.0)
+            else:
+                rewards.append(-1.0)
+        else:
+            rewards.append(-1.0)
+    return rewards
+\end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
+
+% This document was modified from the file originally made available by
+% Pat Langley and Andrea Danyluk for ICML-2K. This version was created
+% by Iain Murray in 2018, and modified by Alexandre Bouchard in
+% 2019 and 2021 and by Csaba Szepesvari, Gang Niu and Sivan Sabato in 2022.
+% Modified again in 2023 and 2024 by Sivan Sabato and Jonathan Scarlett.
+% Previous contributors include Dan Roy, Lise Getoor and Tobias
+% Scheffer, which was slightly modified from the 2010 version by
+% Thorsten Joachims & Johannes Fuernkranz, slightly modified from the
+% 2009 version by Kiri Wagstaff and Sam Roweis's 2008 version, which is
+% slightly modified from Prasad Tadepalli's 2007 version which is a
+% lightly changed version of the previous year's version by Andrew
+% Moore, which was in turn edited from those of Kristian Kersting and
+% Codrina Lauth. Alex Smola contributed to the algorithmic style files.

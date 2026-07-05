@@ -5,3 +5,9 @@ output_sft_val_file: "${data_dir}/sft_val.jsonl"
 output_dpo_train_file: "${data_dir}/dpo_train.jsonl"
 output_dpo_val_file: "${data_dir}/dpo_val.jsonl"
 max_samples: null
+
+synthetic_generation:
+  enabled: true
+  model_id: "Qwen/Qwen2.5-7B-Instruct"
+  max_new_tokens: 256
+  batch_size: 8

@@ -69,8 +69,8 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 
 The training pipeline is modular and configured via [Hydra](https://hydra.cc/). It supports full ablation testing to measure the impact of different training stages.
 
-### 1. Data Preprocessing
-Prepares the AmbigNQ dataset for SFT and DPO stages.
+### 1. Data Preprocessing & LLM Synthetic Generation
+Prepares the AmbigNQ dataset for SFT and DPO stages. The pipeline features a built-in LLM Synthetic Generation engine (configurable in `configs/data/ambignq.yaml`) that dynamically prompts a lightweight instructor model (e.g., `Qwen/Qwen2.5-3B-Instruct`) to generate rich `Reasoning`, missing `Facets`, and contrastive pairs (`chosen` vs `rejected`) for DPO training.
 ```bash
 python scripts/preprocess_data.py
 ```
@@ -140,6 +140,13 @@ Because DVC tracked the exact YAML config state for every single sweep trial, yo
 dvc exp apply sweep_<Run ID>
 ```
 3. `git commit` the newly updated config files as your new defaults!
+
+### Plotting Training & Evaluation Performance
+You can generate convergence plots for your training runs (Train Loss, Eval Loss, Reward Components, KL Divergence) directly from your local Hugging Face training logs (`trainer_state.json`), completely offline and independent of W&B.
+```bash
+python scripts/plot_metrics.py
+```
+This script recursively scans `models/sft`, `models/dpo`, and `models/grpo`, extracting the `log_history` and exporting the comparison curves as PNGs into `docs/figures/`.
 
 ---
 

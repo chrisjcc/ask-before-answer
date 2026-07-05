@@ -24,6 +24,7 @@ help:
 	@echo ""
 	@echo "Utils:"
 	@echo "  make evaluate           Run evaluation scripts"
+	@echo "  make plot-metrics       Generate training loss/eval plots"
 	@echo "  make infer              Run inference"
 	@echo ""
 
@@ -82,6 +83,8 @@ ablation-suite:
 	dvc repro train_sft_only train_dpo_only train_orpo train_grpo train_grpo_dpo train_sft train_dpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
+	@echo "Generating training convergence plots..."
+	python scripts/plot_metrics.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
 	python scripts/generate_report.py
 
@@ -91,9 +94,15 @@ ablation-suite:
 evaluate:
 	python scripts/evaluate.py
 
+plot-metrics:
+	python scripts/plot_metrics.py
+
 infer:
 	python scripts/infer.py
 
+# -------------------------
+# Hyperparameter Optimization (Sweeps)
+# -------------------------
 sweep-sft:
 	@echo "Initializing SFT W&B Sweep..."
 	wandb sweep sweeps/sft.yaml
@@ -110,10 +119,12 @@ sweep-dpo:
 # Dev tools
 # -------------------------
 format:
+	isort src scripts tests app
 	black src scripts tests app
 	ruff check --fix src scripts tests app
 
 lint:
+	isort --check-only src scripts tests app
 	black --check src scripts tests app
 	ruff check src scripts tests app
 

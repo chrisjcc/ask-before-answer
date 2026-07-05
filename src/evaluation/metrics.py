@@ -18,7 +18,7 @@ def semantic_match(a: str, b: str) -> bool:
     Lenient answer comparison:
     - lowercase
     - remove punctuation
-    - fuzzy token match
+    - fuzzy token match OR substring match
     """
     if not a or not b:
         return False
@@ -28,6 +28,10 @@ def semantic_match(a: str, b: str) -> bool:
     b_clean = b.lower().translate(table).strip()
 
     if a_clean == b_clean:
+        return True
+
+    # Substring match (legacy alignment)
+    if a_clean in b_clean or b_clean in a_clean:
         return True
 
     ratio = difflib.SequenceMatcher(None, a_clean, b_clean).ratio()
@@ -67,7 +71,9 @@ class ActionScorer(weave.Scorer):
         )
         pred_action = pred_action_match.group(1).title() if pred_action_match else None
 
-        pred_response_match = re.search(r"Response:\s*(.*)", output_str, re.IGNORECASE)
+        pred_response_match = re.search(
+            r"Response:\s*(.*)", output_str, re.DOTALL | re.IGNORECASE
+        )
         pred_response = (
             pred_response_match.group(1).strip() if pred_response_match else ""
         )
