@@ -83,11 +83,10 @@ def load_model_and_tokenizer(
 
             return model, tokenizer
 
-        except ImportError:
+        except ImportError as e:
             logger.warning(
-                "unsloth is not installed but `use_unsloth: true` "
-                "was requested. Falling back to native HuggingFace "
-                "transformers."
+                f"unsloth import failed: {e}\n"
+                "Falling back to native HuggingFace transformers."
             )
 
     # Native HuggingFace Fallback / Standard loading
@@ -249,7 +248,7 @@ def run_sft_training(cfg: DictConfig):
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=formatted_train,
         eval_dataset=formatted_val,
         args=training_args,
@@ -350,7 +349,7 @@ def run_dpo_training(cfg: DictConfig):
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     logger.info("Starting DPO Training...")
@@ -444,7 +443,7 @@ def run_orpo_training(cfg: DictConfig):
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     logger.info("Starting ORPO Training...")
