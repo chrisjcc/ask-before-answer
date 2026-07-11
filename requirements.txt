@@ -19,7 +19,7 @@ einops
 wandb>=0.27.2
 weave>=0.52.43
 unsloth
-xformers==0.0.26.post1
+xformers
 
 # Data processing & Utils
 pandas
