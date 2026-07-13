@@ -19,6 +19,7 @@ einops
 wandb>=0.27.2
 weave>=0.52.43
 unsloth @ git+https://github.com/unslothai/unsloth.git
+unsloth-zoo
 xformers
 
 # Data processing & Utils
