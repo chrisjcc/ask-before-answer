@@ -18,7 +18,7 @@ protobuf
 einops
 wandb>=0.27.2
 weave>=0.52.43
-unsloth
+unsloth @ git+https://github.com/unslothai/unsloth.git
 xformers
 
 # Data processing & Utils
