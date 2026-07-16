@@ -241,7 +241,7 @@ def run_sft_training(cfg: DictConfig):
         report_to=cfg.training.report_to,
         run_name="sft_training",
         dataset_text_field="text",
-        max_seq_length=cfg.training.max_seq_length,
+        max_length=cfg.training.max_seq_length,
         packing=cfg.training.packing,
         remove_unused_columns=cfg.training.get("remove_unused_columns", True),
     )
