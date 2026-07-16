@@ -33,6 +33,8 @@ jobs:
         black --check src scripts tests app
         
     - name: Run tests
+      env:
+        USE_TF: "0"
       run: |
         pytest tests/
 
