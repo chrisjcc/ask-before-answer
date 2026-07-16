@@ -11,7 +11,7 @@ import re
 from typing import Any, Tuple
 
 try:
-    import unsloth
+    import unsloth  # noqa: F401
 except ImportError:
     pass
 
