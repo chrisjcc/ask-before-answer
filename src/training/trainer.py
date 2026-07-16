@@ -10,6 +10,11 @@ import os
 import re
 from typing import Any, Tuple
 
+try:
+    import unsloth
+except ImportError:
+    pass
+
 import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
