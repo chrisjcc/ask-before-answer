@@ -40,6 +40,7 @@ jobs:
       env:
         USE_TF: "0"
       run: |
+        python -c "import traceback; try: import transformers.modeling_utils; print('transformers OK') except Exception as e: traceback.print_exc()"
         pytest tests/
 
   deploy-to-hf:
