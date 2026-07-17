@@ -22,11 +22,11 @@ logger = logging.getLogger(__name__)
 def clean_facets(facets: Any) -> List[str]:
     """Clean and parse facet lists."""
     if isinstance(facets, list):
-        return facets
+        return [str(x) for x in facets]
     if isinstance(facets, str):
         try:
             val = ast.literal_eval(facets)
-            return val if isinstance(val, list) else []
+            return [str(x) for x in val] if isinstance(val, list) else []
         except Exception:
             return []
     return []
