@@ -183,17 +183,32 @@ def run_sft_training(cfg: DictConfig):
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
     from trl import SFTConfig, SFTTrainer
 
+    from datasets import Features, Value, Sequence
+
+    sft_features = Features({
+        "instruction": Value("string"),
+        "input": Value("string"),
+        "output": Features({
+            "action": Value("string"),
+            "reasoning": Value("string"),
+            "facets": Sequence(Value("string")),
+            "response": Value("string"),
+        })
+    })
+
     logger.info(
         f"Loading SFT training dataset from {cfg.data.output_sft_train_file}..."
     )
-    dataset_train = load_dataset("json", data_files=cfg.data.output_sft_train_file)[
-        "train"
-    ]
+    dataset_train = load_dataset(
+        "json", data_files=cfg.data.output_sft_train_file, features=sft_features
+    )["train"]
 
     logger.info(
         f"Loading SFT validation dataset from {cfg.data.output_sft_val_file}..."
     )
-    dataset_val = load_dataset("json", data_files=cfg.data.output_sft_val_file)["train"]
+    dataset_val = load_dataset(
+        "json", data_files=cfg.data.output_sft_val_file, features=sft_features
+    )["train"]
 
     # Format text for training
     def format_chat(example):
