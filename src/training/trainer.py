@@ -183,7 +183,8 @@ def run_sft_training(cfg: DictConfig):
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
     from trl import SFTConfig, SFTTrainer
 
-    from datasets import Features, Value, Sequence
+    import json
+    from datasets import Dataset, Features, Value, Sequence
 
     sft_features = Features({
         "instruction": Value("string"),
@@ -196,19 +197,30 @@ def run_sft_training(cfg: DictConfig):
         })
     })
 
+    def load_jsonl_safe(filepath):
+        data = []
+        with open(filepath, 'r', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip(): continue
+                obj = json.loads(line)
+                if "output" in obj and "facets" in obj["output"]:
+                    obj["output"]["facets"] = [str(x) for x in obj["output"]["facets"]]
+                data.append(obj)
+        return data
+
     logger.info(
         f"Loading SFT training dataset from {cfg.data.output_sft_train_file}..."
     )
-    dataset_train = load_dataset(
-        "json", data_files=cfg.data.output_sft_train_file, features=sft_features
-    )["train"]
+    dataset_train = Dataset.from_list(
+        load_jsonl_safe(cfg.data.output_sft_train_file), features=sft_features
+    )
 
     logger.info(
         f"Loading SFT validation dataset from {cfg.data.output_sft_val_file}..."
     )
-    dataset_val = load_dataset(
-        "json", data_files=cfg.data.output_sft_val_file, features=sft_features
-    )["train"]
+    dataset_val = Dataset.from_list(
+        load_jsonl_safe(cfg.data.output_sft_val_file), features=sft_features
+    )
 
     # Format text for training
     def format_chat(example):
