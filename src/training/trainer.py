@@ -11,6 +11,7 @@ import re
 from typing import Any, Tuple
 
 try:
+    import torch._inductor.config  # noqa: F401
     import unsloth  # noqa: F401
 except ImportError:
     pass
