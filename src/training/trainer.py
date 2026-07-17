@@ -21,16 +21,7 @@ from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
-from trl import (
-    DPOConfig,
-    DPOTrainer,
-    GRPOConfig,
-    GRPOTrainer,
-    ORPOConfig,
-    ORPOTrainer,
-    SFTConfig,
-    SFTTrainer,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +180,7 @@ def run_sft_training(cfg: DictConfig):
     logger.info("Initializing SFT Training...")
 
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    from trl import SFTConfig, SFTTrainer
 
     logger.info(
         f"Loading SFT training dataset from {cfg.data.output_sft_train_file}..."
@@ -285,6 +277,8 @@ def run_dpo_training(cfg: DictConfig):
         cfg.model, is_train=False
     )  # Ref model without LoRA adapters trainable
 
+    from trl import DPOConfig, DPOTrainer
+
     logger.info(
         f"Loading DPO training dataset from {cfg.data.output_dpo_train_file}..."
     )
@@ -379,6 +373,7 @@ def run_orpo_training(cfg: DictConfig):
 
     # Load model (NO reference model needed for ORPO)
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    from trl import ORPOConfig, ORPOTrainer
 
     logger.info(
         f"Loading ORPO training dataset from {cfg.data.output_dpo_train_file}..."
@@ -548,6 +543,7 @@ def run_grpo_training(cfg: DictConfig):
     logger.info("Initializing GRPO Training...")
 
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    from trl import GRPOConfig, GRPOTrainer
 
     logger.info(
         f"Loading GRPO training dataset from {cfg.data.output_dpo_train_file}..."
