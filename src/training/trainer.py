@@ -23,7 +23,6 @@ from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -181,20 +180,23 @@ def run_sft_training(cfg: DictConfig):
     logger.info("Initializing SFT Training...")
 
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    from datasets import Features, Sequence, Value
     from trl import SFTConfig, SFTTrainer
 
-    from datasets import Features, Value, Sequence
-
-    sft_features = Features({
-        "instruction": Value("string"),
-        "input": Value("string"),
-        "output": Features({
-            "action": Value("string"),
-            "reasoning": Value("string"),
-            "facets": Sequence(Value("string")),
-            "response": Value("string"),
-        })
-    })
+    sft_features = Features(
+        {
+            "instruction": Value("string"),
+            "input": Value("string"),
+            "output": Features(
+                {
+                    "action": Value("string"),
+                    "reasoning": Value("string"),
+                    "facets": Sequence(Value("string")),
+                    "response": Value("string"),
+                }
+            ),
+        }
+    )
 
     logger.info(
         f"Loading SFT training dataset from {cfg.data.output_sft_train_file}..."
