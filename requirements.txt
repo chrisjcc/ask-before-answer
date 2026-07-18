@@ -18,8 +18,8 @@ protobuf
 einops
 wandb>=0.27.2
 weave>=0.52.43
-unsloth
-unsloth-zoo
+unsloth==2026.7.3
+unsloth-zoo==2026.7.1
 xformers==0.0.28.post3
 
 # Data processing & Utils
