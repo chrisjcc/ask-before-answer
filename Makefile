@@ -34,7 +34,6 @@ help:
 install:
 	pip install -r requirements.txt
 	pip install -e .
-	pip uninstall -y torchao || true
 
 install-dvc:
 	@echo "Installing DVC..."
