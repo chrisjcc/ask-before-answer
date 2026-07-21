@@ -86,8 +86,13 @@ def main(cfg: DictConfig) -> None:
     # Load and publish dataset
     dataset_name = cfg.evaluation.dataset_name
     split_name = cfg.evaluation.split
+    # Patch datasets library to support legacy "List" feature type used by sewon/ambig_qa
+    import datasets.features.features
+    if "List" not in datasets.features.features._FEATURE_TYPES:
+        datasets.features.features._FEATURE_TYPES["List"] = datasets.features.features.Sequence
+
     logger.info(f"Loading evaluation dataset: {dataset_name} ({split_name} split)")
-    dataset = load_dataset(dataset_name, split=split_name)
+    dataset = load_dataset(dataset_name, split=split_name, trust_remote_code=True)
 
     max_samples = cfg.evaluation.get("max_samples", 50)
     dataset = dataset.select(range(min(max_samples, len(dataset))))
