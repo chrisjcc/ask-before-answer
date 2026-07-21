@@ -92,7 +92,8 @@ def main(cfg: DictConfig) -> None:
         datasets.features.features._FEATURE_TYPES["List"] = datasets.features.features.Sequence
 
     logger.info(f"Loading evaluation dataset: {dataset_name} ({split_name} split)")
-    dataset = load_dataset(dataset_name, split=split_name, trust_remote_code=True, verification_mode="no_checks")
+    v_mode = cfg.evaluation.get("verification_mode", "all_checks")
+    dataset = load_dataset(dataset_name, split=split_name, trust_remote_code=True, verification_mode=v_mode)
 
     max_samples = cfg.evaluation.get("max_samples", 50)
     dataset = dataset.select(range(min(max_samples, len(dataset))))
