@@ -83,17 +83,12 @@ def main(cfg: DictConfig) -> None:
     logger.info("Starting systematic evaluation pipeline...")
     weave.init(os.environ.get("WANDB_PROJECT", "ask-before-answer"))
 
-    # Load and publish dataset
     dataset_name = cfg.evaluation.dataset_name
+    config_name = cfg.evaluation.get("config_name", "light")
     split_name = cfg.evaluation.split
-    # Patch datasets library to support legacy "List" feature type used by sewon/ambig_qa
-    import datasets.features.features
-    if "List" not in datasets.features.features._FEATURE_TYPES:
-        datasets.features.features._FEATURE_TYPES["List"] = datasets.features.features.Sequence
 
     logger.info(f"Loading evaluation dataset: {dataset_name} ({split_name} split)")
-    v_mode = cfg.evaluation.get("verification_mode", "all_checks")
-    dataset = load_dataset(dataset_name, split=split_name, trust_remote_code=True, verification_mode=v_mode)
+    dataset = load_dataset(dataset_name, config_name, split=split_name, trust_remote_code=False)
 
     max_samples = cfg.evaluation.get("max_samples", 50)
     dataset = dataset.select(range(min(max_samples, len(dataset))))
