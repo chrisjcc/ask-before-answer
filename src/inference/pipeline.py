@@ -10,7 +10,6 @@ from typing import List, Optional
 
 import torch
 import weave
-from peft import AutoPeftModelForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logger = logging.getLogger(__name__)
@@ -39,9 +38,12 @@ class ClarifyOrActPipeline:
             self.tokenizer.chat_template = base_tokenizer.chat_template
 
         if is_peft:
-            self.model = AutoPeftModelForCausalLM.from_pretrained(
-                model_path, torch_dtype=torch.bfloat16, device_map="auto"
+            from peft import PeftModel
+            base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+            base_model = AutoModelForCausalLM.from_pretrained(
+                base_model_id, torch_dtype=torch.bfloat16, device_map="auto"
             )
+            self.model = PeftModel.from_pretrained(base_model, model_path)
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_path, torch_dtype=torch.bfloat16, device_map="auto"
