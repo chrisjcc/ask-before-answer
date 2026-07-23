@@ -73,7 +73,7 @@ Response: <clarifying question OR direct answer>
         tf_logging.set_verbosity_error()
 
         logger.info(f"Loading synthetic generator model: {model_id}")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         # Handle pad token and left-padding for batched generation
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -86,7 +86,7 @@ Response: <clarifying question OR direct answer>
             kwargs["torch_dtype"] = torch.float16
 
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_id, trust_remote_code=True, **kwargs
+            model_id, **kwargs
         )
         self.model.eval()
         self.batch_size = batch_size
