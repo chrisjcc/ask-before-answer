@@ -1,5 +1,6 @@
 dataset_name: "sewon/ambig_qa"
 split: "validation"
+config_name: "light"
 max_samples: 50
 judge_model: "google/gemma-2-2b-it"
 models_to_evaluate:

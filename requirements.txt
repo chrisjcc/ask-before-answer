@@ -1,9 +1,9 @@
---extra-index-url https://download.pytorch.org/whl/cu121
+--extra-index-url https://download.pytorch.org/whl/cu126
 
 # ML & Model
-torch==2.5.1
-torchvision==0.20.1
-torchaudio==2.5.1
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
 # Hard-pinned to known working versions that bypass BloomPreTrainedModel import bugs
 transformers==4.57.6
 datasets<4.4.0,>=3.4.1
@@ -20,7 +20,8 @@ wandb>=0.27.2
 weave>=0.52.43
 unsloth==2026.7.3
 unsloth-zoo==2026.7.3
-xformers==0.0.28.post3
+xformers==0.0.29.post2
+https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1%2Bcu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
 
 # Data processing & Utils
 pandas
