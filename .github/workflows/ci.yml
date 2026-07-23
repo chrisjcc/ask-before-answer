@@ -20,7 +20,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        sed -i 's/cu121/cpu/g' requirements.txt
+        sed -i 's/torch==2.5.1/torch==2.5.1+cpu/g' requirements.txt
+        sed -i 's/torchvision==0.20.1/torchvision==0.20.1+cpu/g' requirements.txt
+        sed -i 's/torchaudio==2.5.1/torchaudio==2.5.1+cpu/g' requirements.txt
         pip install -r requirements.txt
+        pip uninstall -y torchao || true
         pip install black ruff pytest
         pip install -e .
         
@@ -33,6 +38,8 @@ jobs:
         black --check src scripts tests app
         
     - name: Run tests
+      env:
+        USE_TF: "0"
       run: |
         pytest tests/
 

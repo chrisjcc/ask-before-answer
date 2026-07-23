@@ -10,22 +10,18 @@ import os
 import re
 from typing import Any, Tuple
 
+try:
+    import torch._inductor.config  # noqa: F401
+    import unsloth  # noqa: F401
+except ImportError:
+    pass
+
 import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
-from trl import (
-    DPOConfig,
-    DPOTrainer,
-    GRPOConfig,
-    GRPOTrainer,
-    ORPOConfig,
-    ORPOTrainer,
-    SFTConfig,
-    SFTTrainer,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +41,51 @@ def load_model_and_tokenizer(
     """
     logger.info(f"Loading model {model_cfg.name}...")
 
+    # Optional Unsloth integration for high-performance memory-efficient training
+    use_unsloth = model_cfg.get("use_unsloth", False)
+    load_in_8bit = model_cfg.get("load_in_8bit", False)
+    load_in_4bit = model_cfg.get("load_in_4bit", False)
+
+    if use_unsloth:
+        try:
+            from unsloth import FastLanguageModel
+
+            logger.info("Unsloth is enabled. Loading via FastLanguageModel...")
+            model, tokenizer = FastLanguageModel.from_pretrained(
+                model_name=model_cfg.name,
+                max_seq_length=model_cfg.get("max_seq_length", 2048),
+                dtype=(
+                    getattr(torch, model_cfg.torch_dtype)
+                    if hasattr(model_cfg, "torch_dtype")
+                    else None
+                ),
+                load_in_4bit=load_in_4bit,
+                trust_remote_code=model_cfg.get("trust_remote_code", False),
+            )
+
+            if is_train and "lora" in model_cfg:
+                lora_cfg = model_cfg.lora
+                logger.info("Applying Unsloth optimized LoRA adapters...")
+                model = FastLanguageModel.get_peft_model(
+                    model,
+                    r=lora_cfg.r,
+                    target_modules=list(lora_cfg.target_modules),
+                    lora_alpha=lora_cfg.lora_alpha,
+                    lora_dropout=lora_cfg.lora_dropout,
+                    bias=lora_cfg.bias,
+                    use_gradient_checkpointing="unsloth",
+                    random_state=3407,
+                )
+
+            return model, tokenizer
+
+        except ImportError as e:
+            logger.warning(
+                f"unsloth import failed: {e}\n"
+                "Falling back to native HuggingFace transformers."
+            )
+
+    # Native HuggingFace Fallback / Standard loading
     tokenizer = AutoTokenizer.from_pretrained(
         model_cfg.name, trust_remote_code=model_cfg.trust_remote_code
     )
@@ -57,9 +98,6 @@ def load_model_and_tokenizer(
         "torch_dtype": getattr(torch, model_cfg.torch_dtype),
         "trust_remote_code": model_cfg.trust_remote_code,
     }
-
-    load_in_8bit = model_cfg.get("load_in_8bit", False)
-    load_in_4bit = model_cfg.get("load_in_4bit", False)
 
     if torch.cuda.is_available():
         if model_cfg.device_map == "auto" and (load_in_8bit or load_in_4bit):
@@ -132,7 +170,7 @@ def load_model_and_tokenizer(
                     target_modules=list(lora_cfg.target_modules),
                 )
                 model = get_peft_model(model, config)
-                logger.info("Applied LoRA configuration.")
+                logger.info("Applied native LoRA configuration.")
 
     return model, tokenizer
 
@@ -142,18 +180,37 @@ def run_sft_training(cfg: DictConfig):
     logger.info("Initializing SFT Training...")
 
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    from datasets import Features, Sequence, Value
+    from trl import SFTConfig, SFTTrainer
+
+    sft_features = Features(
+        {
+            "instruction": Value("string"),
+            "input": Value("string"),
+            "output": Features(
+                {
+                    "action": Value("string"),
+                    "reasoning": Value("string"),
+                    "facets": Sequence(Value("string")),
+                    "response": Value("string"),
+                }
+            ),
+        }
+    )
 
     logger.info(
         f"Loading SFT training dataset from {cfg.data.output_sft_train_file}..."
     )
-    dataset_train = load_dataset("json", data_files=cfg.data.output_sft_train_file)[
-        "train"
-    ]
+    dataset_train = load_dataset(
+        "json", data_files=cfg.data.output_sft_train_file, features=sft_features
+    )["train"]
 
     logger.info(
         f"Loading SFT validation dataset from {cfg.data.output_sft_val_file}..."
     )
-    dataset_val = load_dataset("json", data_files=cfg.data.output_sft_val_file)["train"]
+    dataset_val = load_dataset(
+        "json", data_files=cfg.data.output_sft_val_file, features=sft_features
+    )["train"]
 
     # Format text for training
     def format_chat(example):
@@ -199,14 +256,14 @@ def run_sft_training(cfg: DictConfig):
         report_to=cfg.training.report_to,
         run_name="sft_training",
         dataset_text_field="text",
-        max_seq_length=cfg.training.max_seq_length,
+        max_length=cfg.training.max_seq_length,
         packing=cfg.training.packing,
         remove_unused_columns=cfg.training.get("remove_unused_columns", True),
     )
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=formatted_train,
         eval_dataset=formatted_val,
         args=training_args,
@@ -237,6 +294,8 @@ def run_dpo_training(cfg: DictConfig):
     ref_model, _ = load_model_and_tokenizer(
         cfg.model, is_train=False
     )  # Ref model without LoRA adapters trainable
+
+    from trl import DPOConfig, DPOTrainer
 
     logger.info(
         f"Loading DPO training dataset from {cfg.data.output_dpo_train_file}..."
@@ -307,7 +366,7 @@ def run_dpo_training(cfg: DictConfig):
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     logger.info("Starting DPO Training...")
@@ -332,6 +391,7 @@ def run_orpo_training(cfg: DictConfig):
 
     # Load model (NO reference model needed for ORPO)
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    from trl import ORPOConfig, ORPOTrainer
 
     logger.info(
         f"Loading ORPO training dataset from {cfg.data.output_dpo_train_file}..."
@@ -401,7 +461,7 @@ def run_orpo_training(cfg: DictConfig):
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     logger.info("Starting ORPO Training...")
@@ -501,6 +561,7 @@ def run_grpo_training(cfg: DictConfig):
     logger.info("Initializing GRPO Training...")
 
     model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    from trl import GRPOConfig, GRPOTrainer
 
     logger.info(
         f"Loading GRPO training dataset from {cfg.data.output_dpo_train_file}..."

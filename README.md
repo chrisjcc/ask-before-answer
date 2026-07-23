@@ -40,6 +40,10 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 - **Inference (GPU):** 1x NVIDIA T4/L4/RTX 3060 (minimum 8-12GB VRAM using 4-bit/8-bit precision).
 - **Inference (CPU):** Possible via `bitsandbytes` or `llama.cpp` quantization, but significantly slower. Not recommended for production.
 
+**Hardware Acceleration Stack:**
+To prevent OOM errors and maximize throughput during SFT, DPO, and GRPO training, this project supports a fully integrated acceleration stack combining **Flash Attention**, **xFormers**, and **Unsloth**. 
+For a detailed breakdown of how these technologies interact and optimize memory, please read our [Hardware Acceleration Stack Documentation](docs/acceleration_stack.md).
+
 ---
 
 ## 🛠️ Installation
