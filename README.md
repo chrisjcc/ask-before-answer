@@ -74,7 +74,14 @@ For a detailed breakdown of how these technologies interact and optimize memory,
 The training pipeline is modular and configured via [Hydra](https://hydra.cc/). It supports full ablation testing to measure the impact of different training stages.
 
 ### 1. Data Preprocessing & LLM Synthetic Generation
-Prepares the AmbigNQ dataset for SFT and DPO stages. The pipeline features a built-in LLM Synthetic Generation engine (configurable in `configs/data/ambignq.yaml`) that dynamically prompts a lightweight instructor model (e.g., `Qwen/Qwen2.5-3B-Instruct`) to generate rich `Reasoning`, missing `Facets`, and contrastive pairs (`chosen` vs `rejected`) for DPO training.
+Prepares the AmbigNQ dataset for SFT and DPO stages. The pipeline features a built-in LLM Synthetic Generation engine (configurable in `configs/data/ambignq.yaml`) that dynamically prompts a lightweight instructor model (e.g., `unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit`) to generate rich `Reasoning`, missing `Facets`, and contrastive pairs (`chosen` vs `rejected`) for DPO training.
+
+**Rigorous Data Curation Strategy:**
+To prevent catastrophic "mode collapse" (where an SFT model simply learns to always answer and forgets how to clarify), the preprocessing pipeline enforces strict data curation techniques inspired by robust alignment research:
+- **Strict Row Filtering:** Discards generated rows where the synthetic LLM hallucinated conflicting labels (e.g., classifying a question as an "Answer" while simultaneously generating disambiguating facets).
+- **Class Balancing:** Dynamically undersamples the majority class to guarantee a perfect 50/50 split between `Clarify` and `Answer` actions, ensuring the SFT model learns a balanced policy.
+- **Hard Negatives (DPO):** Replaces trivial rejected responses (like "I don't know") with highly plausible synthetic Hard Negatives. For example, if the ground truth is to clarify, the rejected response is an un-disambiguated direct answer. This forces the DPO algorithm to learn true semantic ambiguity rather than just memorizing trivial rejection templates.
+
 ```bash
 python scripts/preprocess_data.py
 ```
