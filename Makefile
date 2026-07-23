@@ -34,7 +34,6 @@ help:
 install:
 	pip install -r requirements.txt
 	pip install -e .
-	pip uninstall -y torchao || true
 
 install-dvc:
 	@echo "Installing DVC..."
@@ -84,8 +83,6 @@ ablation-suite:
 	dvc repro train_sft_only train_dpo_only train_orpo train_grpo train_grpo_dpo train_sft train_dpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
-	@echo "Generating training convergence plots..."
-	python scripts/plot_metrics.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
 	python scripts/generate_report.py
 
