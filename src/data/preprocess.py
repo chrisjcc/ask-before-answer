@@ -67,27 +67,26 @@ Response: <clarifying question OR direct answer>
 
     def __init__(self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256):
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from unsloth import FastLanguageModel
         from transformers import logging as tf_logging
 
         tf_logging.set_verbosity_error()
 
-        logger.info(f"Loading synthetic generator model: {model_id}")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        logger.info(f"Loading synthetic generator model: {model_id} via Unsloth")
+        
+        self.model, self.tokenizer = FastLanguageModel.from_pretrained(
+            model_name=model_id,
+            max_seq_length=2048,
+            dtype=None,
+            load_in_4bit=True,
+        )
+        FastLanguageModel.for_inference(self.model)
+
         # Handle pad token and left-padding for batched generation
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "left"
 
-        kwargs = {"device_map": "auto"}
-        if torch.cuda.is_available():
-            kwargs["torch_dtype"] = torch.bfloat16
-        elif torch.backends.mps.is_available():
-            kwargs["torch_dtype"] = torch.float16
-
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_id, **kwargs
-        )
         self.model.eval()
         self.batch_size = batch_size
         self.max_new_tokens = max_new_tokens
