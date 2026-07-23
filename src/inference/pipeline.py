@@ -39,6 +39,7 @@ class ClarifyOrActPipeline:
 
         if is_peft:
             from peft import PeftModel
+
             base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_model_id, torch_dtype=torch.bfloat16, device_map="auto"
