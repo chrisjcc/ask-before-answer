@@ -33,6 +33,7 @@ help:
 # -------------------------
 install:
 	pip install -r requirements.txt
+	pip uninstall -y torchao
 	pip install -e .
 
 install-dvc:
