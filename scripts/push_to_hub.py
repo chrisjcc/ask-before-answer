@@ -36,22 +36,27 @@ def main(cfg: DictConfig):
 
         logger.info(f"Querying W&B Model Registry for alias: '{registry_alias}'...")
         try:
-            api = wandb.Api()
+            wandb_api = wandb.Api()
             # The artifact is stored in the Model Registry portfolio
             artifact_path = (
                 f"{wandb_entity}/{wandb_project}/AskBeforeAnswer-Models:"
                 f"{registry_alias}"
             )
-            artifact = api.artifact(artifact_path)
+            artifact = wandb_api.artifact(artifact_path)
 
-            # The artifact name format is Clarifier-{model_name}
-            artifact_basename = artifact.name.split(":")[0]  # e.g. Clarifier-sft_only
+            # For linked portfolio artifacts, the original name
+            # is preserved in source_name
+            target_name = getattr(artifact, "source_name", artifact.name)
+            if target_name is None:
+                target_name = artifact.name
+
+            artifact_basename = target_name.split(":")[0]  # e.g. Clarifier-sft_only
             if artifact_basename.startswith("Clarifier-"):
                 winning_model_name = artifact_basename.replace("Clarifier-", "")
                 logger.info(f"🏆 W&B resolved winning model: '{winning_model_name}'!")
             else:
                 logger.warning(
-                    f"Unexpected artifact name format: {artifact.name}. "
+                    f"Unexpected artifact name format: {target_name}. "
                     "Falling back to 'dpo'."
                 )
 
@@ -72,6 +77,7 @@ def main(cfg: DictConfig):
         "dpo_only": "models/dpo_only/final",
         "sft": "models/sft/final",
         "dpo": "models/dpo/final",
+        "sft_dpo": "models/dpo/final",
         "base": "Qwen/Qwen2.5-7B-Instruct",
     }
 

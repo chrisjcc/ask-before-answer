@@ -11,3 +11,6 @@ synthetic_generation:
   model_id: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
   max_new_tokens: 256
   batch_size: 8
+  filter_bad_rows: true
+  balance_classes: true
+  generate_hard_negatives: true

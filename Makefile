@@ -22,10 +22,28 @@ help:
 	@echo "  make train-grpo-dpo     Run GRPO->DPO pipeline"
 	@echo "  make ablation-suite     Run all experimental variants"
 	@echo ""
-	@echo "Utils:"
+	@echo "Evaluation & Inference:"
 	@echo "  make evaluate           Run evaluation scripts"
-	@echo "  make plot-metrics       Generate training loss/eval plots"
 	@echo "  make infer              Run inference"
+	@echo ""
+	@echo "Deployment:"
+	@echo "  make deploy-hf          Push final datasets and best model to Hugging Face"
+	@echo ""
+	@echo "Hyperparameter Optimization (Sweeps):"
+	@echo "  make sweep-sft          Run hyperparameter sweep for SFT stage"
+	@echo "  make sweep-dpo          Run hyperparameter sweep for DPO stage"
+	@echo ""
+	@echo "Dev tools:"
+	@echo "  make format             Format code with isort and black"
+	@echo "  make lint               Check code style and linting"
+	@echo "  make test               Run pytest test suite"
+	@echo ""
+	@echo "App & Docker:"
+	@echo "  make run-app            Launch the Streamlit demo application"
+	@echo "  make docker-build       Build the Docker container image"
+	@echo ""
+	@echo "Cleanup:"
+	@echo "  make clean              Remove all outputs, models, and W&B cache"
 	@echo ""
 
 # -------------------------
@@ -33,6 +51,7 @@ help:
 # -------------------------
 install:
 	pip install -r requirements.txt
+	pip uninstall -y torchao
 	pip install -e .
 
 install-dvc:
@@ -91,9 +110,6 @@ ablation-suite:
 # -------------------------
 evaluate:
 	python scripts/evaluate.py
-
-plot-metrics:
-	python scripts/plot_metrics.py
 
 infer:
 	python scripts/infer.py
