@@ -27,6 +27,13 @@ help:
 	@echo "  make plot-metrics       Generate training loss/eval plots"
 	@echo "  make infer              Run inference"
 	@echo ""
+	@echo "Deployment:"
+	@echo "  make deploy-hf          Push final datasets and best model to Hugging Face"
+	@echo ""
+	@echo "Hyperparameter Optimization (Sweeps):"
+	@echo "  make sweep-sft          Run hyperparameter sweep for SFT stage"
+	@echo "  make sweep-dpo          Run hyperparameter sweep for DPO stage"
+	@echo ""
 
 # -------------------------
 # Setup
