@@ -44,7 +44,8 @@ def main(cfg: DictConfig):
             )
             artifact = wandb_api.artifact(artifact_path)
 
-            # For linked portfolio artifacts, the original name is preserved in source_name
+            # For linked portfolio artifacts, the original name
+            # is preserved in source_name
             target_name = getattr(artifact, "source_name", artifact.name)
             if target_name is None:
                 target_name = artifact.name
