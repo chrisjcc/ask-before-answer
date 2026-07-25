@@ -34,6 +34,18 @@ help:
 	@echo "  make sweep-sft          Run hyperparameter sweep for SFT stage"
 	@echo "  make sweep-dpo          Run hyperparameter sweep for DPO stage"
 	@echo ""
+	@echo "Dev tools:"
+	@echo "  make format             Format code with isort and black"
+	@echo "  make lint               Check code style and linting"
+	@echo "  make test               Run pytest test suite"
+	@echo ""
+	@echo "App & Docker:"
+	@echo "  make run-app            Launch the Streamlit demo application"
+	@echo "  make docker-build       Build the Docker container image"
+	@echo ""
+	@echo "Cleanup:"
+	@echo "  make clean              Remove all outputs, models, and W&B cache"
+	@echo ""
 
 # -------------------------
 # Setup
