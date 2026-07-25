@@ -351,9 +351,7 @@ def prepare_sft_dataset(df: pd.DataFrame, output_path: str) -> None:
 
 
 def prepare_dpo_dataset(
-    df: pd.DataFrame,
-    output_path: str,
-    synthetic_cfg: Optional[DictConfig] = None
+    df: pd.DataFrame, output_path: str, synthetic_cfg: Optional[DictConfig] = None
 ) -> None:
     """Format DataFrame into DPO JSONL format and save to disk."""
     logger.info(f"Preparing DPO dataset to {output_path}...")
@@ -404,11 +402,11 @@ def prepare_dpo_dataset(
             rejected_action = "Answer" if action == "Clarify" else "Clarify"
             rejected = (
                 f"Action: {rejected_action}\n"
-               "Reasoning: Incorrect reasoning: the model misunderstood "
-               "the question.\n"
-              'Facets: ["Incorrect Interpretation"]\n'
-              "Response: "
-              + ("I don't know." if action == "Clarify" else "Could you clarify?")
+                "Reasoning: Incorrect reasoning: the model misunderstood "
+                "the question.\n"
+                'Facets: ["Incorrect Interpretation"]\n'
+                "Response: "
+                + ("I don't know." if action == "Clarify" else "Could you clarify?")
             )
 
         records.append(

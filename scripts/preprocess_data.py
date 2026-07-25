@@ -36,7 +36,7 @@ def main(cfg: DictConfig) -> None:
     prepare_dpo_dataset(
         df_train,
         cfg.data.output_dpo_train_file,
-        cfg.data.get("synthetic_generation", None)
+        cfg.data.get("synthetic_generation", None),
     )
 
     df_val = extract_qa_data(
@@ -47,9 +47,7 @@ def main(cfg: DictConfig) -> None:
     )
     prepare_sft_dataset(df_val, cfg.data.output_sft_val_file)
     prepare_dpo_dataset(
-        df_val,
-        cfg.data.output_dpo_val_file,
-        cfg.data.get("synthetic_generation", None)
+        df_val, cfg.data.output_dpo_val_file, cfg.data.get("synthetic_generation", None)
     )
 
     logger.info("Data preprocessing complete.")
