@@ -68,7 +68,6 @@ Response: <clarifying question OR direct answer>
 """
 
     def __init__(self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256):
-        import torch
         from transformers import logging as tf_logging
         from unsloth import FastLanguageModel
 
@@ -405,10 +404,11 @@ def prepare_dpo_dataset(
             rejected_action = "Answer" if action == "Clarify" else "Clarify"
             rejected = (
                 f"Action: {rejected_action}\n"
-                "Reasoning: Incorrect reasoning: the model misunderstood the question.\n"
-                'Facets: ["Incorrect Interpretation"]\n'
-                "Response: "
-                + ("I don't know." if action == "Clarify" else "Could you clarify?")
+               "Reasoning: Incorrect reasoning: the model misunderstood "
+               "the question.\n"
+              'Facets: ["Incorrect Interpretation"]\n'
+              "Response: "
+              + ("I don't know." if action == "Clarify" else "Could you clarify?")
             )
 
         records.append(
