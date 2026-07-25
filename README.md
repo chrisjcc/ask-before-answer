@@ -36,7 +36,7 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 - CUDA: `12.1+` or `13.0` for training/GPU inference (Required for PyTorch 2.6+)
 
 **Hardware:**
-- **Training (SFT/DPO):** Minimum 1x NVIDIA A100/H100 (40GB/80GB) or RTX 3090/4090 (24GB VRAM) using 8-bit quantization and LoRA.
+- **Training (SFT/DPO):** Minimum 1x NVIDIA RTX A6000 / A100 (40GB/48GB/80GB) or RTX 3090/4090 (24GB VRAM) using 8-bit quantization and LoRA.
 - **Inference (GPU):** 1x NVIDIA T4/L4/RTX 3060 (minimum 8-12GB VRAM using 4-bit/8-bit precision).
 - **Inference (CPU):** Possible via `bitsandbytes` or `llama.cpp` quantization, but significantly slower. Not recommended for production.
 
