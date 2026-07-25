@@ -22,7 +22,7 @@ help:
 	@echo "  make train-grpo-dpo     Run GRPO->DPO pipeline"
 	@echo "  make ablation-suite     Run all experimental variants"
 	@echo ""
-	@echo "Utils:"
+	@echo "Evaluation & Inference:"
 	@echo "  make evaluate           Run evaluation scripts"
 	@echo "  make infer              Run inference"
 	@echo ""
