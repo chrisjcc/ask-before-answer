@@ -36,13 +36,13 @@ def main(cfg: DictConfig):
 
         logger.info(f"Querying W&B Model Registry for alias: '{registry_alias}'...")
         try:
-            api = wandb.Api()
+            wandb_api = wandb.Api()
             # The artifact is stored in the Model Registry portfolio
             artifact_path = (
                 f"{wandb_entity}/{wandb_project}/AskBeforeAnswer-Models:"
                 f"{registry_alias}"
             )
-            artifact = api.artifact(artifact_path)
+            artifact = wandb_api.artifact(artifact_path)
 
             # The artifact name format is Clarifier-{model_name}
             artifact_basename = artifact.name.split(":")[0]  # e.g. Clarifier-sft_only
