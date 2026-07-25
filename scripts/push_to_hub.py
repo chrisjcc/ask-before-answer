@@ -76,6 +76,7 @@ def main(cfg: DictConfig):
         "dpo_only": "models/dpo_only/final",
         "sft": "models/sft/final",
         "dpo": "models/dpo/final",
+        "sft_dpo": "models/dpo/final",
         "base": "Qwen/Qwen2.5-7B-Instruct",
     }
 
