@@ -44,14 +44,18 @@ def main(cfg: DictConfig):
             )
             artifact = wandb_api.artifact(artifact_path)
 
-            # The artifact name format is Clarifier-{model_name}
-            artifact_basename = artifact.name.split(":")[0]  # e.g. Clarifier-sft_only
+            # For linked portfolio artifacts, the original name is preserved in source_name
+            target_name = getattr(artifact, "source_name", artifact.name)
+            if target_name is None:
+                target_name = artifact.name
+
+            artifact_basename = target_name.split(":")[0]  # e.g. Clarifier-sft_only
             if artifact_basename.startswith("Clarifier-"):
                 winning_model_name = artifact_basename.replace("Clarifier-", "")
                 logger.info(f"🏆 W&B resolved winning model: '{winning_model_name}'!")
             else:
                 logger.warning(
-                    f"Unexpected artifact name format: {artifact.name}. "
+                    f"Unexpected artifact name format: {target_name}. "
                     "Falling back to 'dpo'."
                 )
 
