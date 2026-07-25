@@ -24,7 +24,6 @@ help:
 	@echo ""
 	@echo "Utils:"
 	@echo "  make evaluate           Run evaluation scripts"
-	@echo "  make plot-metrics       Generate training loss/eval plots"
 	@echo "  make infer              Run inference"
 	@echo ""
 	@echo "Deployment:"
@@ -111,9 +110,6 @@ ablation-suite:
 # -------------------------
 evaluate:
 	python scripts/evaluate.py
-
-plot-metrics:
-	python scripts/plot_metrics.py
 
 infer:
 	python scripts/infer.py
