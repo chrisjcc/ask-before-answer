@@ -31,12 +31,12 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 ## 💻 System Requirements
 
 **Software:**
-- Python: `>= 3.9` (3.10 recommended)
+- Python: `3.10` recommended (>= 3.9 supported)
 - OS: Linux (Ubuntu 20.04/22.04 recommended) or macOS (for limited CPU-only inference)
-- CUDA: `11.8` or `12.1` for training/GPU inference
+- CUDA: `12.1+` or `13.0` for training/GPU inference (Required for PyTorch 2.6+)
 
 **Hardware:**
-- **Training (SFT/DPO):** Minimum 1x NVIDIA A100 (40GB/80GB) or RTX 3090/4090 (24GB VRAM) using 8-bit quantization and LoRA.
+- **Training (SFT/DPO):** Minimum 1x NVIDIA RTX A6000 / A100 (40GB/48GB/80GB) or RTX 3090/4090 (24GB VRAM) using 8-bit quantization and LoRA.
 - **Inference (GPU):** 1x NVIDIA T4/L4/RTX 3060 (minimum 8-12GB VRAM using 4-bit/8-bit precision).
 - **Inference (CPU):** Possible via `bitsandbytes` or `llama.cpp` quantization, but significantly slower. Not recommended for production.
 
@@ -152,14 +152,7 @@ dvc exp apply sweep_<Run ID>
 ```
 3. `git commit` the newly updated config files as your new defaults!
 
-### Plotting Training & Evaluation Performance
-You can generate convergence plots for your training runs (Train Loss, Eval Loss, Reward Components, KL Divergence) directly from your local Hugging Face training logs (`trainer_state.json`), completely offline and independent of W&B.
-```bash
-python scripts/plot_metrics.py
-```
-This script recursively scans `models/sft`, `models/dpo`, and `models/grpo`, extracting the `log_history` and exporting the comparison curves as PNGs into `docs/figures/`.
 
----
 
 ## 📊 Observability & Systematic Evaluation (W&B Weave)
 
@@ -213,7 +206,7 @@ During evaluation (`make evaluate`), every model (`sft_only`, `sft_dpo`, etc.) i
 ### Public Deployment (Hugging Face Hub)
 We use the W&B Model Registry as our single source of truth for public deployments!
 1. Review your `docs/ablation_report.md` or Weave Leaderboard to see which model variant won the suite.
-2. Go to the W&B Web UI and add the `production` alias to the winning model artifact (e.g., `Clarifier-sft_only`).
+2. Go to your W&B project's Artifacts tab, click the `AskBeforeAnswer-Models` portfolio collection, and add the `production` alias to the winning model version (e.g., `v2`).
 3. Run the deployment script from your server:
 ```bash
 make deploy-hf
@@ -269,6 +262,7 @@ ask-before-answer/
 ├── app/                  # Streamlit Hugging Face Space UI
 ├── configs/              # Hydra YAML configurations (model, data, training)
 ├── data/                 # Processed dataset files (ignored in git)
+├── docs/                 # Auto-generated markdown reports and analysis
 ├── models/               # Model checkpoints (ignored in git)
 ├── scripts/              # Executable CLI entry points
 ├── src/                  # Core Python modules
