@@ -5,6 +5,13 @@ into the structured JSONL formats required for Supervised Fine-Tuning (SFT)
 and Direct Preference Optimization (DPO).
 """
 
+# Unsloth MUST be imported before transformers/datasets to apply performance patches
+try:
+    import unsloth  # noqa: F401  # isort: skip
+    from unsloth import FastLanguageModel  # isort: skip
+except (ImportError, NotImplementedError):
+    # This allows pytest to run in CPU-only CI environments (like GitHub Actions)
+    pass
 import ast
 import json
 import logging
@@ -15,9 +22,6 @@ import pandas as pd
 from datasets import load_dataset
 from omegaconf import DictConfig
 from tqdm import tqdm
-
-# Unsloth MUST be imported before transformers/datasets to apply performance patches
-from unsloth import FastLanguageModel
 
 logger = logging.getLogger(__name__)
 
