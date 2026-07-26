@@ -11,6 +11,10 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
+# Unsloth MUST be imported before transformers/datasets to apply performance patches
+import unsloth
+from unsloth import FastLanguageModel
+
 import pandas as pd
 from datasets import load_dataset
 from omegaconf import DictConfig
@@ -69,7 +73,6 @@ Response: <clarifying question OR direct answer>
 
     def __init__(self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256):
         from transformers import logging as tf_logging
-        from unsloth import FastLanguageModel
 
         tf_logging.set_verbosity_error()
 
