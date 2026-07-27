@@ -36,6 +36,6 @@ Thanks to the new strict 50/50 class balancing algorithm implemented in the synt
 * **Observation:** This variant experienced complete, catastrophic mode collapse in the opposite direction. It achieved an `answer_f1` of **0.0**, meaning it refused to answer a single question directly, instead choosing to ask clarifying questions for every prompt (`clarify_recall = 1.0`, `clarify_ratio = 1.66`). 
 
 ## 4. Conclusion & Recommendations
-1. **Deployment Winner:** The **`sft` model** is currently the most robust and balanced variant in the suite. The deployment pipeline fell back to the local `dpo` weights because the `production` tag was missing in the W&B registry, but the metrics clearly indicate the `sft` checkpoint should be the primary production model.
+1. **Deployment Winner:** The **`sft` model** is currently the most robust and balanced variant in the suite. The metrics clearly indicate the `sft` checkpoint should be the primary production model.
 2. **DPO Tuning:** While the hard negatives proved highly effective for `dpo_only`, they appear too harsh when combined with SFT (`sft_dpo`). Future iterations should experiment with reducing the learning rate (Beta) during the DPO stage to prevent the model from becoming overly conservative and afraid to answer.
 3. **Data Curation Success:** The structural updates to `src/data/preprocess.py` were a resounding success. Maintain the strict `balance_classes` and `filter_bad_rows` flags for all future training runs.

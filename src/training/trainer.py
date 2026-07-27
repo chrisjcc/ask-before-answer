@@ -629,6 +629,24 @@ def run_grpo_training(cfg: DictConfig):
         loss_type=cfg.training.get("loss_type", "grpo"),
     )
 
+    # Bugfix for UnslothGRPOTrainer CPU/CUDA device mismatch during generation
+    original_generate = model.generate
+
+    def patched_generate(*args, **kwargs):
+        if len(args) > 0 and isinstance(args[0], torch.Tensor):
+            args = list(args)
+            args[0] = args[0].to(model.device)
+            args = tuple(args)
+        if "input_ids" in kwargs and isinstance(kwargs["input_ids"], torch.Tensor):
+            kwargs["input_ids"] = kwargs["input_ids"].to(model.device)
+        if "attention_mask" in kwargs and isinstance(
+            kwargs["attention_mask"], torch.Tensor
+        ):
+            kwargs["attention_mask"] = kwargs["attention_mask"].to(model.device)
+        return original_generate(*args, **kwargs)
+
+    model.generate = patched_generate
+
     trainer = GRPOTrainer(
         model=model,
         reward_funcs=[format_reward_func, action_reward_func, facet_logic_reward_func],
