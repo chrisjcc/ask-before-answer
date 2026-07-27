@@ -638,7 +638,10 @@ def run_grpo_training(cfg: DictConfig):
             args = tuple(args)
         if "input_ids" in kwargs and isinstance(kwargs["input_ids"], torch.Tensor):
             kwargs["input_ids"] = kwargs["input_ids"].to(model.device)
-        if "attention_mask" in kwargs and isinstance(kwargs["attention_mask"], torch.Tensor):
+        if (
+            "attention_mask" in kwargs
+            and isinstance(kwargs["attention_mask"], torch.Tensor)
+        ):
             kwargs["attention_mask"] = kwargs["attention_mask"].to(model.device)
         return original_generate(*args, **kwargs)
     model.generate = patched_generate
