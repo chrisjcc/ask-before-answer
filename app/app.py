@@ -4,12 +4,14 @@ import os
 import streamlit as st
 import weave
 import yaml
-from dotenv import load_dotenv
-
 from src.inference.pipeline import ClarifyOrActPipeline
 
-# Load environment variables for W&B authentication
-load_dotenv()
+# Load environment variables for W&B authentication (useful for local testing)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Initialize Weave to log all LLM traces to the project
 if os.environ.get("WANDB_API_KEY"):
