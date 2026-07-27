@@ -178,7 +178,8 @@ def main(cfg: DictConfig) -> None:
                 model_path = local_path
             elif model_path.startswith("models/") or model_path.startswith("./"):
                 logger.warning(
-                    f"Local model path {local_path} does not exist. Skipping {model_name}..."
+                    f"Local model path {local_path} does not exist. "
+                    f"Skipping {model_name}..."
                 )
                 continue
 
