@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# PATCH PEFT: HuggingFace hasn't fixed this bug yet. We manually remove the broken
+# BloomPreTrainedModel import directly from the installed PEFT source code.
+RUN sed -i 's/from transformers import BloomPreTrainedModel/BloomPreTrainedModel = type("BloomPreTrainedModel", (object,), {})/g' /usr/local/lib/python3.10/site-packages/peft/utils/constants.py || true
+
 # Copy source code
 COPY . .
 
