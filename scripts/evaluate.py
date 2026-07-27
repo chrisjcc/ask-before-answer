@@ -177,7 +177,9 @@ def main(cfg: DictConfig) -> None:
             if os.path.exists(local_path):
                 model_path = local_path
             elif model_path.startswith("models/") or model_path.startswith("./"):
-                logger.warning(f"Local model path {local_path} does not exist. Skipping {model_name}...")
+                logger.warning(
+                    f"Local model path {local_path} does not exist. Skipping {model_name}..."
+                )
                 continue
 
         logger.info(f"Evaluating model: {model_name} from {model_path}")
