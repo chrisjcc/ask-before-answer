@@ -208,6 +208,16 @@ $$\mathcal{L}_{\text{SFT}}(\theta) = -\mathbb{E}_{(x,y) \sim \mathcal{D}_{\text{
 \right]
 \end{align}
 
+\section{Dataset Construction and Curation}
+\label{sec:dataset}
+To train and evaluate the clarify-or-act policy, we construct a specialized dataset derived from the open-source AmbigNQ corpus \cite{min2020ambigqa}. The original dataset contains open-domain questions with multiple plausible interpretations, making it an ideal testbed for ambiguity resolution. However, standard supervised datasets often induce mode collapse during fine-tuning, where the model exploits the majority class (e.g., learning to answer everything and forgetting to ask for clarification). To prevent this, we developed a rigorous data curation and synthetic generation pipeline.
+
+\textbf{Synthetic Augmentation:} We employ a lightweight instructor model (Qwen 2.5 7B Instruct) to dynamically generate deep structural elements for each training example. The model generates a Chain-of-Thought \emph{Reasoning} block to justify its actions, and extracts missing informational \emph{Facets} when a question is ambiguous. 
+
+\textbf{Class Balancing and Strict Filtering:} To guarantee a balanced policy, the dataset is dynamically undersampled to enforce a strict 50/50 split between \emph{Clarify} and \emph{Answer} actions. Furthermore, we apply strict row filtering to discard generated examples where the synthetic LLM hallucinated conflicting labels (e.g., classifying a query as an ``Answer'' while simultaneously generating disambiguating facets).
+
+\textbf{Contrastive Hard Negatives:} For preference optimization (DPO), we require paired chosen and rejected responses. Instead of using trivial rejected responses (e.g., ``I don't know''), we synthesize highly plausible \emph{Hard Negatives}. For instance, if the ground truth action is to clarify, the rejected response is forced to be a confident, un-disambiguated direct answer. Conversely, clear questions are paired with rejected responses that unnecessarily ask for clarification. This forces the preference algorithm to learn true semantic boundaries rather than memorizing trivial rejection templates.
+
 \section{Methodology: The Clarify-or-Act Ablation Suite}
 Our core contribution evaluates online, critic-free reinforcement learning using Group Relative Policy Optimization (GRPO) as a direct substitute or prelude to preference optimization stages.
 
@@ -487,6 +497,52 @@ def action_reward_func(prompts, completions, **kwargs):
             rewards.append(-1.0)
     return rewards
 \end{verbatim}
+
+\section{Appendix: Training Hyperparameters}
+\label{sec:hyperparams}
+To ensure full reproducibility, we report the exact hyperparameters utilized during the Supervised Fine-Tuning (SFT) and Direct Preference Optimization (DPO) stages. Both stages utilized LoRA (Low-Rank Adaptation) injected into the attention and MLP modules. All experiments were conducted using the \texttt{transformers} and \texttt{trl} libraries, utilizing the Unsloth framework for efficient hardware acceleration via Triton kernels and Flash Attention. Models were trained on NVIDIA RTX A6000 and A100 GPUs using \texttt{bfloat16} precision.
+
+\begin{table}[h]
+\centering
+\caption{Hyperparameters for Supervised Fine-Tuning (SFT)}
+\begin{tabular}{lll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} & \textbf{Description} \\
+\midrule
+Learning Rate & $2 \times 10^{-5}$ & Peak learning rate for the AdamW optimizer \\
+Optimizer & AdamW & Using PyTorch's \texttt{adamw\_torch} implementation \\
+Epochs & 3 & Number of passes over the training dataset \\
+Per-Device Batch Size & 1 & Number of samples per forward pass per GPU \\
+Gradient Accumulation & 8 & Steps to accumulate gradients before backward pass \\
+Warmup Ratio & 0.05 & Fraction of steps used to linearly warmup the learning rate \\
+Max Sequence Length & 2048 & Maximum context length in tokens \\
+Precision & \texttt{bfloat16} & Used for both training and inference \\
+\bottomrule
+\end{tabular}
+\label{tab:sft_hyperparams}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Hyperparameters for Direct Preference Optimization (DPO)}
+\begin{tabular}{lll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} & \textbf{Description} \\
+\midrule
+Learning Rate & $5 \times 10^{-7}$ & Drastically lowered to prevent SFT regression \\
+KL Penalty ($\beta$) & 0.1 & Controls the constraint to the reference model \\
+Optimizer & AdamW & Using PyTorch's \texttt{adamw\_torch} implementation \\
+Epochs & 1 & Single pass over the preference dataset \\
+Per-Device Batch Size & 1 & Number of samples per forward pass per GPU \\
+Gradient Accumulation & 8 & Steps to accumulate gradients before backward pass \\
+Warmup Ratio & 0.1 & Fraction of steps used to linearly warmup the learning rate \\
+Max Prompt Length & 1024 & Maximum length for the input context \\
+Max Sequence Length & 2048 & Maximum overall sequence length \\
+Precision & \texttt{bfloat16} & Used for both training and inference \\
+\bottomrule
+\end{tabular}
+\label{tab:dpo_hyperparams}
+\end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

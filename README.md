@@ -264,14 +264,17 @@ ask-before-answer/
 ├── data/                 # Processed dataset files (ignored in git)
 ├── docs/                 # Auto-generated markdown reports and analysis
 ├── models/               # Model checkpoints (ignored in git)
-├── scripts/              # Executable CLI entry points
+├── scripts/              # Executable CLI entry points (e.g., train_sft.py, evaluate.py)
 ├── src/                  # Core Python modules
 │   ├── data/             # Preprocessing logic
+│   │   └── preprocess.py # Data curation, synthetic generation, and DPO pairing
 │   ├── evaluation/       # Evaluation logic
 │   │   ├── judge.py      # Stochastic, LLM-as-a-judge scorers (GeminiJudge)
 │   │   └── metrics.py    # Deterministic, rule/regex-based scorers (ActionScorer)
 │   ├── inference/        # Generation pipeline
-│   └── training/         # SFT and DPO LoRA trainers
+│   │   └── pipeline.py   # HuggingFace pipeline wrappers for clarify-or-act routing
+│   └── training/         # Training orchestrators
+│       └── trainer.py    # SFT, DPO, and GRPO training logic and reward functions
 ├── sweeps/               # W&B sweep orchestration configurations
 ├── tests/                # Pytest unit tests
 ├── .env.example          # Environment secrets template

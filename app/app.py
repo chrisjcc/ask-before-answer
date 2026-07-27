@@ -37,7 +37,7 @@ if "pipeline" not in st.session_state:
 def get_available_models():
     models = {
         "AskBeforeAnswer (SFT+DPO Qwen2.5-7B)": {
-            "path": "models/dpo/final",
+            "path": "chrisjcc/ask-before-answer",
             "is_peft": True,
         }
     }
