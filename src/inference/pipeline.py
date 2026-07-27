@@ -41,7 +41,9 @@ class ClarifyOrActPipeline:
             import transformers
             # Monkey-patch to bypass PEFT import error with transformers 4.45+
             if not hasattr(transformers, "BloomPreTrainedModel"):
-                transformers.BloomPreTrainedModel = type("BloomPreTrainedModel", (object,), {})
+                transformers.BloomPreTrainedModel = type(
+                    "BloomPreTrainedModel", (object,), {}
+                )
             from peft import PeftModel
 
             base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
