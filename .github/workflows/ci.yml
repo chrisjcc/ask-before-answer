@@ -68,6 +68,13 @@ jobs:
         # Copy essential runtime files from the GitHub repo
         cp ../Dockerfile .
         cp ../requirements.txt .
+        
+        # FIX FOR HF SPACES PEFT COMPATIBILITY:
+        # Downgrade transformers and remove unsloth for the inference container
+        sed -i 's/transformers==4.57.6/transformers==4.44.2/g' requirements.txt
+        sed -i 's|git+https://github.com/huggingface/peft.git|peft==0.12.0|g' requirements.txt
+        sed -i '/unsloth/d' requirements.txt
+        
         cp ../pyproject.toml .
         cp -r ../app .
         cp -r ../src .
