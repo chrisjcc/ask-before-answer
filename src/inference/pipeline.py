@@ -10,6 +10,16 @@ from typing import List, Optional
 
 import torch
 import weave
+
+# =====================================================================
+# EMERGENCY HOTFIX: Patch missing BloomPreTrainedModel for Transformers 4.57+
+# =====================================================================
+import transformers
+if not hasattr(transformers, "BloomPreTrainedModel"):
+    class MockBloom: pass
+    transformers.BloomPreTrainedModel = MockBloom
+# =====================================================================
+
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logger = logging.getLogger(__name__)
