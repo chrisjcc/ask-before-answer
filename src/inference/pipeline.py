@@ -17,8 +17,10 @@ import weave
 # =====================================================================
 
 if not hasattr(transformers, "BloomPreTrainedModel"):
+
     class MockBloom:
         pass
+
     transformers.BloomPreTrainedModel = MockBloom
 
 # =====================================================================
