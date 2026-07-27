@@ -39,6 +39,7 @@ class ClarifyOrActPipeline:
 
         if is_peft:
             import transformers
+
             # Monkey-patch to bypass PEFT import error with transformers 4.45+
             if not hasattr(transformers, "BloomPreTrainedModel"):
                 transformers.BloomPreTrainedModel = type(
