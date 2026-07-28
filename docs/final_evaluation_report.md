@@ -1,4 +1,3 @@
-```markdown
 # Comprehensive Analysis of Post-Training Model Evaluation Results
 
 ## 1. Executive Summary
@@ -159,4 +158,3 @@ The central takeaway from this evaluation is that **post-training for clarificat
 The evaluation conclusively proves that Supervised Fine-Tuning (SFT) is mandatory for injecting structural behaviors (facets), while preference optimization (DPO) is the ideal follow-up to rein in the model's clarification aggression. 
 
 For general deployment, **`sft_dpo`** is the undeniable model of choice due to its superior `macro_f1` and decisiveness. However, the globally poor `answer_accuracy` scores across all models highlight a critical area for future work: while we have successfully taught these models how to ask great questions, their ability to deliver direct answers to unambiguous prompts requires significant enhancement.
-```
