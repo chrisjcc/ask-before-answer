@@ -31,88 +31,99 @@ def get_run_history(api, project_path, run_name):
         return None
 
 def plot_loss_comparison(sft_hist, dpo_hist, out_dir):
-    """Plot Training and Evaluation Loss for SFT and DPO."""
-    if sft_hist is None and dpo_hist is None:
-        return
-        
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    
-    # Plot SFT
+    """Plot Training and Evaluation Loss for SFT and DPO as separate files."""
+    # Plot SFT Loss
     if sft_hist is not None:
+        plt.figure(figsize=(6, 4))
         if 'train/loss' in sft_hist.columns:
             sft_train = sft_hist.dropna(subset=['train/loss'])
-            axes[0].plot(sft_train['_step'], sft_train['train/loss'], label='SFT Train Loss', color='blue', alpha=0.7)
+            plt.plot(sft_train['_step'], sft_train['train/loss'], label='SFT Train Loss', color='blue', alpha=0.7)
         if 'eval/loss' in sft_hist.columns:
             sft_eval = sft_hist.dropna(subset=['eval/loss'])
-            axes[0].plot(sft_eval['_step'], sft_eval['eval/loss'], label='SFT Eval Loss', color='orange', marker='o')
+            plt.plot(sft_eval['_step'], sft_eval['eval/loss'], label='SFT Eval Loss', color='orange', marker='o')
         
-        axes[0].set_title("SFT Loss Convergence")
-        axes[0].set_xlabel("Training Step")
-        axes[0].set_ylabel("Cross Entropy Loss")
-        axes[0].legend()
+        plt.title("SFT Loss Convergence")
+        plt.xlabel("Training Step")
+        plt.ylabel("Cross Entropy Loss")
+        plt.legend()
+        plt.tight_layout()
+        out_path = os.path.join(out_dir, "sft_loss.png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {out_path}")
+        plt.close()
         
-    # Plot DPO
+    # Plot DPO Loss
     if dpo_hist is not None:
+        plt.figure(figsize=(6, 4))
         if 'train/loss' in dpo_hist.columns:
             dpo_train = dpo_hist.dropna(subset=['train/loss'])
-            axes[1].plot(dpo_train['_step'], dpo_train['train/loss'], label='DPO Train Loss', color='green', alpha=0.7)
+            plt.plot(dpo_train['_step'], dpo_train['train/loss'], label='DPO Train Loss', color='green', alpha=0.7)
         if 'eval/loss' in dpo_hist.columns:
             dpo_eval = dpo_hist.dropna(subset=['eval/loss'])
-            axes[1].plot(dpo_eval['_step'], dpo_eval['eval/loss'], label='DPO Eval Loss', color='red', marker='o')
+            plt.plot(dpo_eval['_step'], dpo_eval['eval/loss'], label='DPO Eval Loss', color='red', marker='o')
             
-        axes[1].set_title("DPO Loss Convergence")
-        axes[1].set_xlabel("Training Step")
-        axes[1].set_ylabel("DPO Loss")
-        axes[1].legend()
-
-    plt.tight_layout()
-    out_path = os.path.join(out_dir, "loss_comparison.png")
-    plt.savefig(out_path, dpi=300, bbox_inches="tight")
-    print(f"Saved {out_path}")
-    plt.close()
+        plt.title("DPO Loss Convergence")
+        plt.xlabel("Training Step")
+        plt.ylabel("DPO Loss")
+        plt.legend()
+        plt.tight_layout()
+        out_path = os.path.join(out_dir, "dpo_loss.png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {out_path}")
+        plt.close()
 
 def plot_dpo_metrics(dpo_hist, out_dir):
-    """Plot DPO specific metrics: Rewards and Logprobs."""
+    """Plot DPO specific metrics: Rewards and Logprobs as separate files."""
     if dpo_hist is None:
         return
         
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    
     # Plot 1: Reward Margins
     if 'eval/rewards/margins' in dpo_hist.columns:
+        plt.figure(figsize=(6, 4))
         df = dpo_hist.dropna(subset=['eval/rewards/margins'])
-        axes[0].plot(df['_step'], df['eval/rewards/margins'], label='Margin', color='purple', marker='o')
-        axes[0].set_title("DPO Reward Margin (Chosen - Rejected)")
-        axes[0].set_xlabel("Training Step")
-        axes[0].set_ylabel("Margin")
-        axes[0].legend()
+        plt.plot(df['_step'], df['eval/rewards/margins'], label='Margin', color='purple', marker='o')
+        plt.title("DPO Reward Margin (Chosen - Rejected)")
+        plt.xlabel("Training Step")
+        plt.ylabel("Margin")
+        plt.legend()
+        plt.tight_layout()
+        out_path = os.path.join(out_dir, "dpo_margin.png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {out_path}")
+        plt.close()
         
     # Plot 2: Chosen vs Rejected Rewards
     has_chosen = 'eval/rewards/chosen' in dpo_hist.columns
     has_rejected = 'eval/rewards/rejected' in dpo_hist.columns
     if has_chosen and has_rejected:
+        plt.figure(figsize=(6, 4))
         df = dpo_hist.dropna(subset=['eval/rewards/chosen', 'eval/rewards/rejected'])
-        axes[1].plot(df['_step'], df['eval/rewards/chosen'], label='Chosen Reward', color='green', marker='o')
-        axes[1].plot(df['_step'], df['eval/rewards/rejected'], label='Rejected Reward', color='red', marker='x')
-        axes[1].set_title("DPO Implicit Rewards")
-        axes[1].set_xlabel("Training Step")
-        axes[1].set_ylabel("Reward")
-        axes[1].legend()
+        plt.plot(df['_step'], df['eval/rewards/chosen'], label='Chosen Reward', color='green', marker='o')
+        plt.plot(df['_step'], df['eval/rewards/rejected'], label='Rejected Reward', color='red', marker='x')
+        plt.title("DPO Implicit Rewards")
+        plt.xlabel("Training Step")
+        plt.ylabel("Reward")
+        plt.legend()
+        plt.tight_layout()
+        out_path = os.path.join(out_dir, "dpo_implicit_rewards.png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {out_path}")
+        plt.close()
         
     # Plot 3: Reward Accuracies
     if 'eval/rewards/accuracies' in dpo_hist.columns:
+        plt.figure(figsize=(6, 4))
         df = dpo_hist.dropna(subset=['eval/rewards/accuracies'])
-        axes[2].plot(df['_step'], df['eval/rewards/accuracies'], label='Accuracy', color='blue', marker='o')
-        axes[2].set_title("DPO Preference Accuracy")
-        axes[2].set_xlabel("Training Step")
-        axes[2].set_ylabel("Accuracy")
-        axes[2].legend()
-        
-    plt.tight_layout()
-    out_path = os.path.join(out_dir, "dpo_training_metrics.png")
-    plt.savefig(out_path, dpi=300, bbox_inches="tight")
-    print(f"Saved {out_path}")
-    plt.close()
+        plt.plot(df['_step'], df['eval/rewards/accuracies'], label='Accuracy', color='blue', marker='o')
+        plt.title("DPO Preference Accuracy")
+        plt.xlabel("Training Step")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.tight_layout()
+        out_path = os.path.join(out_dir, "dpo_accuracies.png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {out_path}")
+        plt.close()
     
     # Separate Plot for Logprobs
     has_lp_chosen = 'eval/logps/chosen' in dpo_hist.columns
