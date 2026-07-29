@@ -107,6 +107,13 @@ make run-pipeline
 
 By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, `models/grpo/`, and `models/grpo_dpo/`.
 
+### 🏆 GRPO Reward Shaping
+GRPO relies entirely on its reward functions to shape the model's behavior. We utilize four distinct reward functions to holistically enforce both formatting and factual accuracy:
+1. **`format_reward_func`**: Enforces strict structural adherence. The model receives a positive reward only if it outputs all required syntax headers (`Action:`, `Reasoning:`, `Facets:`, `Response:`).
+2. **`action_reward_func`**: Penalizes the model for choosing the wrong path (e.g. trying to answer an ambiguous question, or clarifying a clear question) by checking the predicted action against the dataset ground-truth.
+3. **`facet_logic_reward_func`**: Enforces logical consistency. If the action is `Clarify`, the facets list *must* be non-empty. If the action is `Answer`, the facets list *must* be empty.
+4. **`accuracy_reward_func`**: The most critical reward for mitigating hallucination. For direct answers, it calculates a Token F1 overlap between the model's generated response and the factual ground-truth answer. It heavily rewards exact factual retrieval while severely penalizing hallucinations, solving the "reward hacking" problem where a model learns perfect formatting but generates factually incorrect text.
+
 ### 🛠️ Emergency Recovery (Resuming Checkpoints)
 If your remote server crashes midway through a training run, you can resume from the latest Hugging Face checkpoint. 
 **Do NOT edit your `.yaml` configs to set `resume_from_checkpoint: true`.** Because DVC strictly tracks the YAML configs, modifying them will permanently alter the file hash and pollute your Git history with an "emergency recovery" flag, causing future runs on new datasets to fail.
