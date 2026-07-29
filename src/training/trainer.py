@@ -244,6 +244,7 @@ def run_sft_training(cfg: DictConfig):
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
         gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
         num_train_epochs=cfg.training.num_train_epochs,
+        max_steps=cfg.training.get("max_steps", -1),
         learning_rate=cfg.training.learning_rate,
         warmup_ratio=cfg.training.warmup_ratio,
         bf16=cfg.training.bf16,
@@ -343,6 +344,7 @@ def run_dpo_training(cfg: DictConfig):
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
         gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
         num_train_epochs=cfg.training.num_train_epochs,
+        max_steps=cfg.training.get("max_steps", -1),
         learning_rate=cfg.training.learning_rate,
         warmup_ratio=cfg.training.warmup_ratio,
         bf16=cfg.training.bf16,
@@ -439,6 +441,7 @@ def run_orpo_training(cfg: DictConfig):
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
         gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
         num_train_epochs=cfg.training.num_train_epochs,
+        max_steps=cfg.training.get("max_steps", -1),
         learning_rate=cfg.training.learning_rate,
         warmup_ratio=cfg.training.warmup_ratio,
         bf16=cfg.training.bf16,
@@ -557,7 +560,7 @@ def facet_logic_reward_func(prompts, completions, **kwargs):
 
 
 def accuracy_reward_func(prompts, completions, **kwargs):
-    """Reward function that checks for factual accuracy (word overlap) 
+    """Reward function that checks for factual accuracy (word overlap)
     for direct answers."""
     rewards = []
     target_responses = kwargs.get("target_response", [])
@@ -569,7 +572,7 @@ def accuracy_reward_func(prompts, completions, **kwargs):
         target_act = target_actions[i]
 
         # Only heavily shape accuracy for direct answers to prevent hallucination.
-        # Clarification questions are too linguistically diverse to strictly grade 
+        # Clarification questions are too linguistically diverse to strictly grade
         # with word overlap.
         if target_act != "Answer":
             rewards.append(0.0)
@@ -671,6 +674,7 @@ def run_grpo_training(cfg: DictConfig):
         per_device_train_batch_size=cfg.training.per_device_train_batch_size,
         gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
         num_train_epochs=cfg.training.num_train_epochs,
+        max_steps=cfg.training.get("max_steps", -1),
         learning_rate=cfg.training.learning_rate,
         warmup_ratio=cfg.training.warmup_ratio,
         bf16=cfg.training.bf16,
