@@ -80,7 +80,7 @@ Prepares the AmbigNQ dataset for SFT and DPO stages. The pipeline features a bui
 To prevent catastrophic "mode collapse" (where an SFT model simply learns to always answer and forgets how to clarify), the preprocessing pipeline enforces strict data curation techniques inspired by robust alignment research:
 - **Strict Row Filtering:** Discards generated rows where the synthetic LLM hallucinated conflicting labels (e.g., classifying a question as an "Answer" while simultaneously generating disambiguating facets).
 - **Class Balancing:** Dynamically undersamples the majority class to guarantee a perfect 50/50 split between `Clarify` and `Answer` actions, ensuring the SFT model learns a balanced policy.
-- **Hard Negatives (DPO):** Replaces trivial rejected responses (like "I don't know") with highly plausible synthetic Hard Negatives. For example, if the ground truth is to clarify, the rejected response is an un-disambiguated direct answer. This forces the DPO algorithm to learn true semantic ambiguity rather than just memorizing trivial rejection templates.
+- **Generative Hard Negatives (DPO):** Replaces trivial rejected responses with logically flawed but highly plausible synthetic Hard Negatives. Instead of blindly string-flipping the action, the local SyntheticGenerator is dynamically prompted to explicitly hallucinate an incorrect reasoning chain (e.g., confidently arguing that a clear question is actually ambiguous). This robust contrastive data forces the DPO algorithm to genuinely learn semantic ambiguity rather than exploiting simple reasoning shortcuts or formatting artifacts.
 
 ```bash
 python scripts/preprocess_data.py

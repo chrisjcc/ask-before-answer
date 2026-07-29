@@ -74,6 +74,16 @@ Facets: [list, of, facets]   # empty list [] if unambiguous
 Response: <clarifying question OR direct answer>
 """
 
+    NEGATIVE_SYSTEM_PROMPT = """You are a conversational AI assistant.
+Your task is to intentionally generate an INCORRECT, but plausible-sounding reasoning chain for a user question.
+
+Format MUST be exactly:
+Action: Clarify|Answer
+Reasoning: <plausible but incorrect reasoning explaining your wrong action>
+Facets: [list, of, facets]   # empty list [] if Action is Answer
+Response: <clarifying question OR direct answer>
+"""
+
     def __init__(self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256):
         from transformers import logging as tf_logging
 
@@ -160,6 +170,55 @@ Response: <clarifying question OR direct answer>
                 temperature=None,
                 top_p=None,
                 top_k=None,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+            )
+
+        results = []
+        for i, output in enumerate(outputs):
+            input_len = inputs.input_ids[i].shape[0]
+            generated_text = self.tokenizer.decode(
+                output[input_len:], skip_special_tokens=True
+            )
+            results.append(self._parse_output(generated_text))
+
+        return results
+
+    def generate_negative_batch(
+        self, questions: List[str], is_ambiguous_flags: List[bool]
+    ) -> List[Dict[str, Any]]:
+        """Generates deliberately incorrect structured outputs for hard negatives."""
+        import torch
+
+        prompts = []
+        for q, is_amb in zip(questions, is_ambiguous_flags):
+            instruction = (
+                "The question is naturally AMBIGUOUS. Argue that it is perfectly clear and generate Action: Answer."
+                if is_amb
+                else "The question is naturally UNAMBIGUOUS. Argue that it is ambiguous and generate Action: Clarify."
+            )
+            prompts.append(
+                self.tokenizer.apply_chat_template(
+                    [
+                        {"role": "system", "content": self.NEGATIVE_SYSTEM_PROMPT},
+                        {"role": "user", "content": f"Question: {q}\\n\\nInstruction: {instruction}"},
+                    ],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            )
+
+        inputs = self.tokenizer(prompts, return_tensors="pt", padding=True).to(
+            self.model.device
+        )
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
@@ -315,6 +374,23 @@ def extract_qa_data(
                     .reset_index(drop=True)
                 )
 
+        if synthetic_cfg.get("generate_hard_negatives", False):
+            logger.info(f"Generating synthetic hard negatives for {len(df)} examples...")
+            df_questions = df["question"].tolist()
+            df_ambiguous = df["is_ambiguous"].tolist()
+            
+            for i in tqdm(range(0, len(df), batch_size), desc="Hard Negatives Gen"):
+                batch_q = df_questions[i : i + batch_size]
+                batch_is_amb = df_ambiguous[i : i + batch_size]
+                
+                neg_results = generator.generate_negative_batch(batch_q, batch_is_amb)
+                for j, res in enumerate(neg_results):
+                    idx = df.index[i + j]
+                    df.at[idx, "neg_reasoning"] = res["reasoning"]
+                    df.at[idx, "neg_facets"] = str(res["facets"])
+                    if res["response"]:
+                        df.at[idx, "neg_response"] = res["response"]
+
     return df
 
 
@@ -389,20 +465,23 @@ def prepare_dpo_dataset(
             neg_resp = clean_response(
                 row.get("neg_response", "Could you please clarify?")
             )
+            neg_reasoning = row.get("neg_reasoning", reasoning)
+            neg_facets = row.get("neg_facets", "[]")
+
             if action == "Clarify":
                 rejected_action = "Answer"
                 rejected = (
                     f"Action: {rejected_action}\n"
-                    f"Reasoning: {reasoning}\n"
-                    f"Facets: []\n"
+                    f"Reasoning: {neg_reasoning}\n"
+                    f"Facets: {neg_facets}\n"
                     f"Response: {neg_resp}"
                 )
             else:
                 rejected_action = "Clarify"
                 rejected = (
                     f"Action: {rejected_action}\n"
-                    f"Reasoning: {reasoning}\n"
-                    f"Facets: ['General Context']\n"
+                    f"Reasoning: {neg_reasoning}\n"
+                    f"Facets: {neg_facets}\n"
                     f"Response: {neg_resp}"
                 )
         else:
