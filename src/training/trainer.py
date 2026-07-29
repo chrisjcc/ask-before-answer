@@ -556,6 +556,58 @@ def facet_logic_reward_func(prompts, completions, **kwargs):
     return rewards
 
 
+def accuracy_reward_func(prompts, completions, **kwargs):
+    """Reward function that checks for factual accuracy (word overlap) 
+    for direct answers."""
+    rewards = []
+    target_responses = kwargs.get("target_response", [])
+    target_actions = kwargs.get("target_action", [])
+
+    for i, completion in enumerate(completions):
+        text = completion[0]["content"] if isinstance(completion, list) else completion
+        target_resp = target_responses[i]
+        target_act = target_actions[i]
+
+        # Only heavily shape accuracy for direct answers to prevent hallucination.
+        # Clarification questions are too linguistically diverse to strictly grade 
+        # with word overlap.
+        if target_act != "Answer":
+            rewards.append(0.0)
+            continue
+
+        response_match = re.search(r"Response:\s*(.*)", text, re.DOTALL)
+        if not response_match or not target_resp:
+            rewards.append(-0.5)
+            continue
+
+        pred_resp = response_match.group(1).strip()
+
+        # Token overlap F1
+        pred_words = set(re.findall(r"\b\w+\b", pred_resp.lower()))
+        target_words = set(re.findall(r"\b\w+\b", target_resp.lower()))
+
+        if not target_words:
+            rewards.append(0.0)
+            continue
+
+        intersection = pred_words.intersection(target_words)
+
+        if not intersection:
+            rewards.append(-1.0)  # Totally missed the facts
+            continue
+
+        recall = len(intersection) / len(target_words)
+        precision = len(intersection) / len(pred_words)
+
+        f1 = 2 * (precision * recall) / (precision + recall)
+
+        # Map F1 to reward: low overlap is penalized, high overlap is heavily rewarded
+        reward = (f1 * 2.5) - 1.0
+        rewards.append(reward)
+
+    return rewards
+
+
 def run_grpo_training(cfg: DictConfig):
     """Run Group Relative Policy Optimization."""
     logger.info("Initializing GRPO Training...")
@@ -598,9 +650,15 @@ def run_grpo_training(cfg: DictConfig):
         if "Action: Clarify" in example["chosen"]:
             target_action = "Clarify"
 
+        target_response = ""
+        response_match = re.search(r"Response:\s*(.*)", example["chosen"], re.DOTALL)
+        if response_match:
+            target_response = response_match.group(1).strip()
+
         return {
             "prompt": prompt_str,
             "target_action": target_action,
+            "target_response": target_response,
         }
 
     dataset_train = dataset_train.map(
@@ -649,7 +707,12 @@ def run_grpo_training(cfg: DictConfig):
 
     trainer = GRPOTrainer(
         model=model,
-        reward_funcs=[format_reward_func, action_reward_func, facet_logic_reward_func],
+        reward_funcs=[
+            format_reward_func,
+            action_reward_func,
+            facet_logic_reward_func,
+            accuracy_reward_func,
+        ],
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
