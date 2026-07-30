@@ -74,8 +74,9 @@ Facets: [list, of, facets]   # empty list [] if unambiguous
 Response: <clarifying question OR direct answer>
 """
 
-    NEGATIVE_SYSTEM_PROMPT = """You are a conversational AI assistant.
-Your task is to intentionally generate an INCORRECT, but plausible-sounding reasoning chain for a user question.
+    NEGATIVE_SYSTEM_PROMPT = """You are a conversational AI assistant. 
+Your task is to intentionally generate an INCORRECT,
+but plausible-sounding reasoning chain for a user question.
 
 Format MUST be exactly:
 Action: Clarify|Answer
@@ -193,9 +194,15 @@ Response: <clarifying question OR direct answer>
         prompts = []
         for q, is_amb in zip(questions, is_ambiguous_flags):
             instruction = (
-                "The question is naturally AMBIGUOUS. Argue that it is perfectly clear and generate Action: Answer."
+                "The question is naturally AMBIGUOUS. "
+                "Argue that it is perfectly clear and "
+                "generate Action: Answer."
                 if is_amb
-                else "The question is naturally UNAMBIGUOUS. Argue that it is ambiguous and generate Action: Clarify."
+                else (
+                    "The question is naturally UNAMBIGUOUS. "
+                    "Argue that it is ambiguous and "
+                    "generate Action: Clarify."
+                )
             )
             prompts.append(
                 self.tokenizer.apply_chat_template(
