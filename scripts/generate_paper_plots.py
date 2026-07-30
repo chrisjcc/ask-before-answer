@@ -37,71 +37,62 @@ def get_run_history(api, project_path, run_name):
         return None
 
 
-def plot_loss_comparison(sft_hist, dpo_hist, out_dir):
-    """Plot Training and Evaluation Loss for SFT and DPO as separate files."""
-    # Plot SFT Loss
-    if sft_hist is not None:
-        plt.figure(figsize=(6, 4))
-        if "train/loss" in sft_hist.columns:
-            sft_train = sft_hist.dropna(subset=["train/loss"])
-            plt.plot(
-                sft_train["_step"],
-                sft_train["train/loss"],
-                label="SFT Train Loss",
-                color="blue",
-                alpha=0.7,
-            )
-        if "eval/loss" in sft_hist.columns:
-            sft_eval = sft_hist.dropna(subset=["eval/loss"])
-            plt.plot(
-                sft_eval["_step"],
-                sft_eval["eval/loss"],
-                label="SFT Eval Loss",
-                color="orange",
-                marker="o",
-            )
+def plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir):
+    """Plot Training and Evaluation Loss for SFT, DPO, and GRPO as combined files."""
+    
+    # --- Train Loss Comparison ---
+    plt.figure(figsize=(8, 5))
+    if sft_hist is not None and "train/loss" in sft_hist.columns:
+        sft_train = sft_hist.dropna(subset=["train/loss"])
+        plt.plot(sft_train["_step"], sft_train["train/loss"], label="SFT Train Loss", color="blue", alpha=0.7)
+        
+    if dpo_hist is not None and "train/loss" in dpo_hist.columns:
+        dpo_train = dpo_hist.dropna(subset=["train/loss"])
+        plt.plot(dpo_train["_step"], dpo_train["train/loss"], label="DPO Train Loss", color="green", alpha=0.7)
 
-        plt.title("SFT Loss Convergence")
+    if grpo_hist is not None and "train/loss" in grpo_hist.columns:
+        grpo_train = grpo_hist.dropna(subset=["train/loss"])
+        plt.plot(grpo_train["_step"], grpo_train["train/loss"], label="GRPO Train Loss", color="purple", alpha=0.7)
+
+    plt.title("Training Loss Comparison")
+    plt.xlabel("Training Step")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.tight_layout()
+    out_path = os.path.join(out_dir, "train_loss_comparison.png")
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+    print(f"Saved {out_path}")
+    plt.close()
+
+    # --- Eval Loss Comparison ---
+    plt.figure(figsize=(8, 5))
+    plotted_eval = False
+    if sft_hist is not None and "eval/loss" in sft_hist.columns:
+        sft_eval = sft_hist.dropna(subset=["eval/loss"])
+        plt.plot(sft_eval["_step"], sft_eval["eval/loss"], label="SFT Eval Loss", color="orange", marker="o")
+        plotted_eval = True
+
+    if dpo_hist is not None and "eval/loss" in dpo_hist.columns:
+        dpo_eval = dpo_hist.dropna(subset=["eval/loss"])
+        plt.plot(dpo_eval["_step"], dpo_eval["eval/loss"], label="DPO Eval Loss", color="red", marker="x")
+        plotted_eval = True
+
+    # Note: GRPO often doesn't have standard eval/loss like SFT/DPO because it evaluates rewards.
+    if grpo_hist is not None and "eval/loss" in grpo_hist.columns:
+        grpo_eval = grpo_hist.dropna(subset=["eval/loss"])
+        plt.plot(grpo_eval["_step"], grpo_eval["eval/loss"], label="GRPO Eval Loss", color="brown", marker="^")
+        plotted_eval = True
+
+    if plotted_eval:
+        plt.title("Evaluation Loss Comparison")
         plt.xlabel("Training Step")
-        plt.ylabel("Cross Entropy Loss")
+        plt.ylabel("Loss")
         plt.legend()
         plt.tight_layout()
-        out_path = os.path.join(out_dir, "sft_loss.png")
+        out_path = os.path.join(out_dir, "eval_loss_comparison.png")
         plt.savefig(out_path, dpi=300, bbox_inches="tight")
         print(f"Saved {out_path}")
-        plt.close()
-
-    # Plot DPO Loss
-    if dpo_hist is not None:
-        plt.figure(figsize=(6, 4))
-        if "train/loss" in dpo_hist.columns:
-            dpo_train = dpo_hist.dropna(subset=["train/loss"])
-            plt.plot(
-                dpo_train["_step"],
-                dpo_train["train/loss"],
-                label="DPO Train Loss",
-                color="green",
-                alpha=0.7,
-            )
-        if "eval/loss" in dpo_hist.columns:
-            dpo_eval = dpo_hist.dropna(subset=["eval/loss"])
-            plt.plot(
-                dpo_eval["_step"],
-                dpo_eval["eval/loss"],
-                label="DPO Eval Loss",
-                color="red",
-                marker="o",
-            )
-
-        plt.title("DPO Loss Convergence")
-        plt.xlabel("Training Step")
-        plt.ylabel("DPO Loss")
-        plt.legend()
-        plt.tight_layout()
-        out_path = os.path.join(out_dir, "dpo_loss.png")
-        plt.savefig(out_path, dpi=300, bbox_inches="tight")
-        print(f"Saved {out_path}")
-        plt.close()
+    plt.close()
 
 
 def plot_dpo_metrics(dpo_hist, out_dir):
@@ -214,7 +205,7 @@ def plot_dpo_metrics(dpo_hist, out_dir):
 
 
 def plot_grpo_metrics(grpo_hist, out_dir):
-    """Plot GRPO specific metrics (Placeholder)."""
+    """Plot GRPO specific metrics (Rewards and KL)."""
     if grpo_hist is None:
         print(
             "GRPO data not available. Skipping GRPO plots "
@@ -222,41 +213,39 @@ def plot_grpo_metrics(grpo_hist, out_dir):
         )
         return
 
-    # Example logic for when GRPO runs are available
     # Reward Convergence
-    reward_cols = [c for c in grpo_hist.columns if "reward" in c.lower()]
+    # Filter only for the mean rewards and the total train/reward
+    reward_cols = [c for c in grpo_hist.columns if ("reward" in c and "mean" in c) or c == "train/reward"]
     if reward_cols:
         plt.figure(figsize=(10, 6))
         for col in reward_cols:
             df = grpo_hist.dropna(subset=[col])
-            plt.plot(df["_step"], df[col], label=col)
+            # Clean up the label name for the legend
+            label = col.split('/')[-2] if "mean" in col else col
+            plt.plot(df["_step"], df[col], label=label)
         plt.title("GRPO Reward Component Convergence")
         plt.xlabel("Training Step")
         plt.ylabel("Reward Value")
         plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
         plt.tight_layout()
-        plt.savefig(
-            os.path.join(out_dir, "reward_convergence.png"),
-            dpi=300,
-            bbox_inches="tight",
-        )
+        out_path = os.path.join(out_dir, "reward_convergence.png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {out_path}")
         plt.close()
 
     # KL Divergence
-    kl_cols = [c for c in grpo_hist.columns if "kl" in c.lower()]
-    if kl_cols:
+    if "train/kl" in grpo_hist.columns:
         plt.figure(figsize=(8, 5))
-        for col in kl_cols:
-            df = grpo_hist.dropna(subset=[col])
-            plt.plot(df["_step"], df[col], label=col)
+        df = grpo_hist.dropna(subset=["train/kl"])
+        plt.plot(df["_step"], df["train/kl"], label="train/kl", color="red")
         plt.title("GRPO KL Divergence from Reference Policy")
         plt.xlabel("Training Step")
         plt.ylabel("KL Divergence")
         plt.legend()
         plt.tight_layout()
-        plt.savefig(
-            os.path.join(out_dir, "kl_divergence.png"), dpi=300, bbox_inches="tight"
-        )
+        out_path = os.path.join(out_dir, "kl_divergence.png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {out_path}")
         plt.close()
 
 
@@ -290,7 +279,7 @@ def main():
     dpo_hist = get_run_history(api, project_path, "dpo_training")
     grpo_hist = get_run_history(api, project_path, "grpo_training")
 
-    plot_loss_comparison(sft_hist, dpo_hist, out_dir)
+    plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir)
     plot_dpo_metrics(dpo_hist, out_dir)
     plot_grpo_metrics(grpo_hist, out_dir)
 
