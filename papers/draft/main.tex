@@ -423,24 +423,32 @@ This paper presents work whose goal is to advance the field of Machine Learning 
 \section{Appendix: Training Details}
 \label{sec:training_details}
 
-In this section, we report the training dynamics to demonstrate optimization stability, convergence speed, and generalization without overfitting. The following plots are critical for evaluating the efficiency and safety of our proposed $\text{GRPO} \rightarrow \text{DPO}$ pipeline compared to the baselines:
+In this section, we report the training dynamics to demonstrate optimization stability, convergence speed, and generalization without overfitting. The following plots are preliminary (as we plan to rerun the entire ablation suite) but illustrate the current training behavior for SFT and DPO:
 
 \begin{itemize}
-    \item \textbf{Training Loss Comparison:} Demonstrates the convergence speed and stability of the training loss for SFT, standard GRPO, and DPO stages (\texttt{figures/train\_loss\_comparison.png}).
-    \item \textbf{Evaluation Loss Comparison:} Validates that the models are not overfitting the training set and are generalizing well to unseen data (\texttt{figures/eval\_loss\_comparison.png}).
-    \item \textbf{Reward Component Convergence:} Specifically for the GRPO stage, tracks the individual programmatic rewards ($\mathcal{R}_{\text{format}}$, $\mathcal{R}_{\text{routing}}$, etc.) as they increase over training steps (\texttt{figures/reward\_convergence.png}).
-    \item \textbf{KL Divergence:} Tracks the KL divergence from the reference model during GRPO and DPO training to verify that the policy is not collapsing or drifting excessively (\texttt{figures/kl\_divergence.png}).
+    \item \textbf{SFT \& DPO Loss:} Demonstrates the convergence speed and stability of the training loss for the Supervised Fine-Tuning and Direct Preference Optimization stages (Figure \ref{fig:loss_comparisons}).
+    \item \textbf{DPO Training Metrics:} Detailed metrics from the DPO stage including reward margins, log probabilities for chosen versus rejected responses, and classification accuracies (Figure \ref{fig:dpo_details}).
 \end{itemize}
 
-% TODO: When the plots are finalized, uncomment the following block to include them in the document.
-% \begin{figure}[htbp]
-% \centering
-% \includegraphics[width=0.48\textwidth]{../../docs/figures/train_loss_comparison.png}
-% \hfill
-% \includegraphics[width=0.48\textwidth]{../../docs/figures/eval_loss_comparison.png}
-% \caption{Training (left) and Evaluation (right) loss comparisons across our ablation suite.}
-% \label{fig:loss_comparisons}
-% \end{figure}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/sft_loss.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{figures/dpo_loss.png}
+\caption{Preliminary training loss curves for Supervised Fine-Tuning (left) and Direct Preference Optimization (right).}
+\label{fig:loss_comparisons}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.32\textwidth]{figures/dpo_margin.png}
+\hfill
+\includegraphics[width=0.32\textwidth]{figures/dpo_logprobs.png}
+\hfill
+\includegraphics[width=0.32\textwidth]{figures/dpo_accuracies.png}
+\caption{Detailed DPO training metrics: Reward Margins (left), Log Probabilities (center), and Accuracies (right).}
+\label{fig:dpo_details}
+\end{figure}
 
 \section{Appendix: Prompts and Reward Functions}
 \raggedbottom

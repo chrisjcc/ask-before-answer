@@ -80,7 +80,7 @@ Prepares the AmbigNQ dataset for SFT and DPO stages. The pipeline features a bui
 To prevent catastrophic "mode collapse" (where an SFT model simply learns to always answer and forgets how to clarify), the preprocessing pipeline enforces strict data curation techniques inspired by robust alignment research:
 - **Strict Row Filtering:** Discards generated rows where the synthetic LLM hallucinated conflicting labels (e.g., classifying a question as an "Answer" while simultaneously generating disambiguating facets).
 - **Class Balancing:** Dynamically undersamples the majority class to guarantee a perfect 50/50 split between `Clarify` and `Answer` actions, ensuring the SFT model learns a balanced policy.
-- **Hard Negatives (DPO):** Replaces trivial rejected responses (like "I don't know") with highly plausible synthetic Hard Negatives. For example, if the ground truth is to clarify, the rejected response is an un-disambiguated direct answer. This forces the DPO algorithm to learn true semantic ambiguity rather than just memorizing trivial rejection templates.
+- **Generative Hard Negatives (DPO):** Replaces trivial rejected responses with logically flawed but highly plausible synthetic Hard Negatives. Instead of blindly string-flipping the action, the local SyntheticGenerator is dynamically prompted to explicitly hallucinate an incorrect reasoning chain (e.g., confidently arguing that a clear question is actually ambiguous). This robust contrastive data forces the DPO algorithm to genuinely learn semantic ambiguity rather than exploiting simple reasoning shortcuts or formatting artifacts.
 
 ```bash
 python scripts/preprocess_data.py
@@ -106,6 +106,13 @@ make run-pipeline
   - *Optimization:* A cutting-edge hybrid approach. GRPO replaces SFT as the Stage 1 structural foundation (using trial-and-error to learn robust formatting), and DPO acts as the Stage 2 stylistic polisher to align the nuance of the generated clarification questions.
 
 By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, `models/grpo/`, and `models/grpo_dpo/`.
+
+### 🏆 GRPO Reward Shaping
+GRPO relies entirely on its reward functions to shape the model's behavior. We utilize four distinct reward functions to holistically enforce both formatting and factual accuracy:
+1. **`format_reward_func`**: Enforces strict structural adherence. The model receives a positive reward only if it outputs all required syntax headers (`Action:`, `Reasoning:`, `Facets:`, `Response:`).
+2. **`action_reward_func`**: Penalizes the model for choosing the wrong path (e.g. trying to answer an ambiguous question, or clarifying a clear question) by checking the predicted action against the dataset ground-truth.
+3. **`facet_logic_reward_func`**: Enforces logical consistency. If the action is `Clarify`, the facets list *must* be non-empty. If the action is `Answer`, the facets list *must* be empty.
+4. **`accuracy_reward_func`**: The most critical reward for mitigating hallucination. For direct answers, it calculates a Token F1 overlap between the model's generated response and the factual ground-truth answer. It heavily rewards exact factual retrieval while severely penalizing hallucinations, solving the "reward hacking" problem where a model learns perfect formatting but generates factually incorrect text.
 
 ### 🛠️ Emergency Recovery (Resuming Checkpoints)
 If your remote server crashes midway through a training run, you can resume from the latest Hugging Face checkpoint. 
