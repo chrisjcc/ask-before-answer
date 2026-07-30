@@ -604,7 +604,8 @@ def accuracy_reward_func(prompts, completions, **kwargs):
 
         f1 = 2 * (precision * recall) / (precision + recall)
 
-        # Map F1 to reward: low overlap is penalized, high overlap is moderately rewarded
+        # Map F1 to reward: low overlap is penalized,
+        # high overlap is moderately rewarded
         reward = (f1 * 1.5) - 0.5
         rewards.append(reward)
 
