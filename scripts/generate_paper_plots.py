@@ -39,20 +39,38 @@ def get_run_history(api, project_path, run_name):
 
 def plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir):
     """Plot Training and Evaluation Loss for SFT, DPO, and GRPO as combined files."""
-    
+
     # --- Train Loss Comparison ---
     plt.figure(figsize=(8, 5))
     if sft_hist is not None and "train/loss" in sft_hist.columns:
         sft_train = sft_hist.dropna(subset=["train/loss"])
-        plt.plot(sft_train["_step"], sft_train["train/loss"], label="SFT Train Loss", color="blue", alpha=0.7)
-        
+        plt.plot(
+            sft_train["_step"],
+            sft_train["train/loss"],
+            label="SFT Train Loss",
+            color="blue",
+            alpha=0.7,
+        )
+
     if dpo_hist is not None and "train/loss" in dpo_hist.columns:
         dpo_train = dpo_hist.dropna(subset=["train/loss"])
-        plt.plot(dpo_train["_step"], dpo_train["train/loss"], label="DPO Train Loss", color="green", alpha=0.7)
+        plt.plot(
+            dpo_train["_step"],
+            dpo_train["train/loss"],
+            label="DPO Train Loss",
+            color="green",
+            alpha=0.7,
+        )
 
     if grpo_hist is not None and "train/loss" in grpo_hist.columns:
         grpo_train = grpo_hist.dropna(subset=["train/loss"])
-        plt.plot(grpo_train["_step"], grpo_train["train/loss"], label="GRPO Train Loss", color="purple", alpha=0.7)
+        plt.plot(
+            grpo_train["_step"],
+            grpo_train["train/loss"],
+            label="GRPO Train Loss",
+            color="purple",
+            alpha=0.7,
+        )
 
     plt.title("Training Loss Comparison")
     plt.xlabel("Training Step")
@@ -69,18 +87,36 @@ def plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir):
     plotted_eval = False
     if sft_hist is not None and "eval/loss" in sft_hist.columns:
         sft_eval = sft_hist.dropna(subset=["eval/loss"])
-        plt.plot(sft_eval["_step"], sft_eval["eval/loss"], label="SFT Eval Loss", color="orange", marker="o")
+        plt.plot(
+            sft_eval["_step"],
+            sft_eval["eval/loss"],
+            label="SFT Eval Loss",
+            color="orange",
+            marker="o",
+        )
         plotted_eval = True
 
     if dpo_hist is not None and "eval/loss" in dpo_hist.columns:
         dpo_eval = dpo_hist.dropna(subset=["eval/loss"])
-        plt.plot(dpo_eval["_step"], dpo_eval["eval/loss"], label="DPO Eval Loss", color="red", marker="x")
+        plt.plot(
+            dpo_eval["_step"],
+            dpo_eval["eval/loss"],
+            label="DPO Eval Loss",
+            color="red",
+            marker="x",
+        )
         plotted_eval = True
 
     # Note: GRPO often doesn't have standard eval/loss like SFT/DPO because it evaluates rewards.
     if grpo_hist is not None and "eval/loss" in grpo_hist.columns:
         grpo_eval = grpo_hist.dropna(subset=["eval/loss"])
-        plt.plot(grpo_eval["_step"], grpo_eval["eval/loss"], label="GRPO Eval Loss", color="brown", marker="^")
+        plt.plot(
+            grpo_eval["_step"],
+            grpo_eval["eval/loss"],
+            label="GRPO Eval Loss",
+            color="brown",
+            marker="^",
+        )
         plotted_eval = True
 
     if plotted_eval:
@@ -215,13 +251,17 @@ def plot_grpo_metrics(grpo_hist, out_dir):
 
     # Reward Convergence
     # Filter only for the mean rewards and the total train/reward
-    reward_cols = [c for c in grpo_hist.columns if ("reward" in c and "mean" in c) or c == "train/reward"]
+    reward_cols = [
+        c
+        for c in grpo_hist.columns
+        if ("reward" in c and "mean" in c) or c == "train/reward"
+    ]
     if reward_cols:
         plt.figure(figsize=(10, 6))
         for col in reward_cols:
             df = grpo_hist.dropna(subset=[col])
             # Clean up the label name for the legend
-            label = col.split('/')[-2] if "mean" in col else col
+            label = col.split("/")[-2] if "mean" in col else col
             plt.plot(df["_step"], df[col], label=label)
         plt.title("GRPO Reward Component Convergence")
         plt.xlabel("Training Step")
