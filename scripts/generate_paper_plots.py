@@ -107,7 +107,8 @@ def plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir):
         )
         plotted_eval = True
 
-    # Note: GRPO often doesn't have standard eval/loss like SFT/DPO because it evaluates rewards.
+    # Note: GRPO often doesn't have standard eval/loss like SFT/DPO
+    # because it evaluates rewards.
     if grpo_hist is not None and "eval/loss" in grpo_hist.columns:
         grpo_eval = grpo_hist.dropna(subset=["eval/loss"])
         plt.plot(
