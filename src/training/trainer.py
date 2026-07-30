@@ -497,7 +497,7 @@ def format_reward_func(prompts, completions, **kwargs):
         if has_action and has_reasoning and has_facets and has_response:
             rewards.append(1.0)
         else:
-            rewards.append(-1.0)
+            rewards.append(-2.0)
     return rewards
 
 
@@ -604,8 +604,8 @@ def accuracy_reward_func(prompts, completions, **kwargs):
 
         f1 = 2 * (precision * recall) / (precision + recall)
 
-        # Map F1 to reward: low overlap is penalized, high overlap is heavily rewarded
-        reward = (f1 * 2.5) - 1.0
+        # Map F1 to reward: low overlap is penalized, high overlap is moderately rewarded
+        reward = (f1 * 1.5) - 0.5
         rewards.append(reward)
 
     return rewards
