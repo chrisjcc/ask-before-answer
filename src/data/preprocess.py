@@ -201,7 +201,10 @@ Response: <clarifying question OR direct answer>
                 self.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": self.NEGATIVE_SYSTEM_PROMPT},
-                        {"role": "user", "content": f"Question: {q}\\n\\nInstruction: {instruction}"},
+                        {
+                            "role": "user",
+                            "content": f"Question: {q}\\n\\nInstruction: {instruction}",
+                        },
                     ],
                     tokenize=False,
                     add_generation_prompt=True,
@@ -375,14 +378,16 @@ def extract_qa_data(
                 )
 
         if synthetic_cfg.get("generate_hard_negatives", False):
-            logger.info(f"Generating synthetic hard negatives for {len(df)} examples...")
+            logger.info(
+                f"Generating synthetic hard negatives for {len(df)} examples..."
+            )
             df_questions = df["question"].tolist()
             df_ambiguous = df["is_ambiguous"].tolist()
-            
+
             for i in tqdm(range(0, len(df), batch_size), desc="Hard Negatives Gen"):
                 batch_q = df_questions[i : i + batch_size]
                 batch_is_amb = df_ambiguous[i : i + batch_size]
-                
+
                 neg_results = generator.generate_negative_batch(batch_q, batch_is_amb)
                 for j, res in enumerate(neg_results):
                     idx = df.index[i + j]
