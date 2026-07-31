@@ -31,7 +31,7 @@ with a Gemini-based judge scorer.
 | clarify_precision     | 0.617021  |  0.617021  | 0.657895 |  0.657143 |          0.6     | 0.622222 | 0.630435  |   0.630435 |
 | clarify_recall        | 0.966667  |  0.966667  | 0.833333 |  0.766667 |          1       | 0.933333 | 0.966667  |   0.966667 |
 | clarify_f1            | 0.753247  |  0.753247  | 0.735294 |  0.707692 |          0.75    | 0.746667 | 0.763158  |   0.763158 |
-| answer_f1             | 0.173913  |  0.173913  | 0.4375   |  0.457143 |          0       | 0.24     | 0.25      |   0.25     |
+| action_f1_answer      | 0.173913  |  0.173913  | 0.4375   |  0.457143 |          0       | 0.24     | 0.25      |   0.25     |
 | macro_f1              | 0.46358   |  0.46358   | 0.586397 |  0.582418 |          0.375   | 0.493333 | 0.506579  |   0.506579 |
 | answer_accuracy       | 0.05      |  0.05      | 0.05     |  0        |          0       | 0.05     | 0.05      |   0.05     |
 | facet_generation_rate | 0.0851064 |  0.0851064 | 1        |  1        |          0       | 0.955556 | 0.0434783 |   0.130435 |
@@ -39,5 +39,5 @@ with a Gemini-based judge scorer.
 
 ## Analysis of Latest Improvements
 
-1. **DPO Generative Hard Negatives (SUCCESS)**: The introduction of generative hard negatives for DPO successfully achieved our goal of reducing over-clarification! Comparing `sft_dpo` to `sft`, the `clarify_ratio` dropped from 1.26 to 1.16 (moving closer to the ideal 1.0). Furthermore, the model learned to answer more confidently, boosting `answer_f1` from 0.437 to 0.457.
+1. **DPO Generative Hard Negatives (SUCCESS)**: The introduction of generative hard negatives for DPO successfully achieved our goal of reducing over-clarification! Comparing `sft_dpo` to `sft`, the `clarify_ratio` dropped from 1.26 to 1.16 (moving closer to the ideal 1.0). Furthermore, the model learned to answer more confidently, boosting `action_f1_answer` from 0.437 to 0.457.
 2. **GRPO Accuracy Reward & Tuning (FAILURE / REGRESSION)**: The latest updates to GRPO (adding `accuracy_reward_func` and tuning hyperparameters based on DeepSeekMath) caused a catastrophic mode collapse in formatting. The `facet_generation_rate` for `grpo` plummeted from 100% (in the previous baseline) down to an abysmal 4.3%. This indicates that the new reward formulations or learning rate heavily destabilized the policy's structural adherence, causing it to output `Action: Clarify` without actually generating the required Facets list. The subsequent `grpo_dpo` stage was unable to fully recover this structural damage (only bumping the facet generation rate up to 13%).

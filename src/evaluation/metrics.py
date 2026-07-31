@@ -175,7 +175,7 @@ class ActionScorer(weave.Scorer):
             "clarify_precision": precision,
             "clarify_recall": recall,
             "clarify_f1": f1,
-            "answer_f1": ans_f1,
+            "action_f1_answer": ans_f1,
             "macro_f1": macro_f1,
             "answer_accuracy": answer_accuracy,
             "facet_generation_rate": facet_generation_rate,

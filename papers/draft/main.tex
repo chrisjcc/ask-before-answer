@@ -337,8 +337,8 @@ To fully capture the nuances of the clarify-or-act problem, we evaluate the mode
 \item \textbf{Action Accuracy (Macro Accuracy):} The overall percentage of times the model correctly predicts the target action (Clarify vs. Answer).
 \item \textbf{Clarify Detection (Precision/Recall/F1):} Treats ``Clarify'' as the positive class, evaluating if the model correctly identified ambiguous questions without hallucinating ambiguity.
 \item \textbf{Clarify F1:} The harmonic mean of Clarify Precision and Clarify Recall.
-\item \textbf{Answer F1:} Treats ``Answer'' as the positive class. Penalizes the model for refusing to answer a straightforward question or for confidently answering a question that it should have clarified.
-\item \textbf{Macro F1:} The unweighted mathematical average of Clarify F1 and Answer F1.
+\item \textbf{Action F1 (Answer Class):} Evaluates policy action selection rather than text quality. Treats ``Answer'' as the positive class. Penalizes the model for refusing to answer a straightforward question or for confidently answering a question that it should have clarified.
+\item \textbf{Macro F1:} The unweighted mathematical average of Clarify F1 and Action F1 (Answer Class).
 \item \textbf{Answer Accuracy:} Evaluated only on ground-truth Answer cases, measuring whether the generated answer semantically matches the target answer using fuzzy token-matching.
 \item \textbf{Clarify Ratio:} The total number of predicted Clarify actions divided by the total number of ground-truth Clarify actions, indicating bias toward over- or under-clarifying.
 \item \textbf{Facet Generation Rate:} The percentage of predicted Clarify actions that successfully included a non-empty list of extracted facets.
