@@ -28,6 +28,3 @@ models_to_evaluate:
   - name: "grpo"
     path: "models/grpo/final"
     is_peft: true
-  - name: "grpo_dpo"
-    path: "models/grpo_dpo/final"
-    is_peft: true

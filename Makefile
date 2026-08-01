@@ -94,12 +94,10 @@ train-orpo:
 train-grpo:
 	dvc repro train_grpo
 
-train-grpo-dpo:
-	dvc repro train_grpo_dpo
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train_sft_only train_dpo_only train_orpo train_grpo train_grpo_dpo train_sft train_dpo
+	dvc repro train_sft_only train_dpo_only train_orpo train_grpo train_sft train_dpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."

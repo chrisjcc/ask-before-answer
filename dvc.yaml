@@ -123,12 +123,12 @@ stages:
   # ABLATION: GRPO ONLY
   # ----------------------------
   train_grpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_grpo.py training=grpo
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_grpo.py training=grpo model.name=models/sft/final
     deps:
+      - models/sft/final
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
       - configs/training/grpo.yaml
-      - configs/model/qwen2_5_7b.yaml
     outs:
       - models/grpo/final:
           persist: false
@@ -141,25 +141,5 @@ stages:
       - results/grpo_metrics.json:
           cache: false
 
-  # ----------------------------
-  # ABLATION: GRPO -> DPO
-  # ----------------------------
-  train_grpo_dpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo model.name=models/grpo/final training.output_dir=models/grpo_dpo
-    deps:
-      - models/grpo/final
-      - data/dpo_train.jsonl
-      - data/dpo_val.jsonl
-      - configs/training/dpo.yaml
-    outs:
-      - models/grpo_dpo/final:
-          persist: false
 
-  evaluate_grpo_dpo:
-    cmd: python scripts/evaluate.py model_name=grpo_dpo
-    deps:
-      - models/grpo_dpo/final
-    metrics:
-      - results/grpo_dpo_metrics.json:
-          cache: false
 

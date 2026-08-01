@@ -101,11 +101,8 @@ make run-pipeline
 - **Odds Ratio Preference Optimization (ORPO):** `make train-orpo`
   - *Optimization:* Combines instruction tuning and preference alignment into a single objective. It uses an odds ratio penalty to suppress the generation of rejected paths without needing a frozen reference model in memory.
 - **Group Relative Policy Optimization (GRPO):** `make train-grpo`
-  - *Optimization:* A reinforcement learning algorithm that samples multiple rollouts per prompt, scores them using Python-based deterministic reward functions (checking for strict structural adherence and action logic), and optimizes the policy relative to the group average.
-- **GRPO + DPO Pipeline:** `make train-grpo-dpo`
-  - *Optimization:* A cutting-edge hybrid approach. GRPO replaces SFT as the Stage 1 structural foundation (using trial-and-error to learn robust formatting), and DPO acts as the Stage 2 stylistic polisher to align the nuance of the generated clarification questions.
-
-By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, `models/grpo/`, and `models/grpo_dpo/`.
+  - *Optimization:* A reinforcement learning algorithm that serves as a Stage 2 optimizer. It warm-starts from the Stage 1 SFT model (inheriting perfect structural formatting) and uses Python-based deterministic reward functions to optimize factual accuracy and action logic relative to the group average.
+By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, and `models/grpo/`.
 
 ### 🏆 GRPO Reward Shaping
 GRPO relies entirely on its reward functions to shape the model's behavior. We utilize four distinct reward functions to holistically enforce both formatting and factual accuracy:
@@ -197,8 +194,8 @@ To fully capture the nuances of the "clarify-or-act" problem, AskBeforeAnswer tr
 1. **Action Accuracy (Macro Accuracy)**: The overall percentage of times the model correctly predicts the target action (`Clarify` vs `Answer`). 
 2. **Clarify Detection (Precision/Recall/F1)**: Treats "Clarify" as the positive class. Evaluates if the model correctly identified ambiguous questions (Recall) without hallucinating ambiguity where there was none (Precision).
 3. **Clarify F1 (Class 1 F1)**: The harmonic mean of Clarify Precision and Clarify Recall. Penalizes the model for missing ambiguous questions or asking unnecessary questions.
-4. **Answer F1 (Class 2 F1)**: Treats "Answer" as the positive class. Penalizes the model for refusing to answer a straightforward question (False Negatives) or for confidently answering a question that it should have clarified (False Positives).
-5. **Macro F1**: The unweighted mathematical average of Clarify F1 and Answer F1. This is the ultimate balanced metric to prevent a model from scoring high simply by defaulting to the majority class.
+4. **Action F1 (Answer Class)**: Evaluates policy action selection rather than text quality. Treats "Answer" as the positive class. Penalizes the model for refusing to answer a straightforward question (False Negatives) or for confidently answering a question that it should have clarified (False Positives).
+5. **Macro F1**: The unweighted mathematical average of Clarify F1 and Action F1 (Answer Class). This is the ultimate balanced metric to prevent a model from scoring high simply by defaulting to the majority class.
 6. **Answer Accuracy**: Evaluated *only* on ground-truth `Answer` cases. It measures whether the model's generated answer semantically matches the target answer using a fuzzy token-matching algorithm (`difflib.SequenceMatcher`).
 7. **Clarify Ratio**: The total number of predicted `Clarify` actions divided by the total number of ground-truth `Clarify` actions. A ratio > 1.0 indicates a bias toward over-clarifying. A ratio < 1.0 indicates a bias toward under-clarifying.
 8. **Facet Generation Rate**: The percentage of predicted `Clarify` actions that successfully included a non-empty list of extracted facets. This ensures that when the model asks for clarification, it explicitly grounds its request in identified missing information, rather than asking a generic "What do you mean?" question.

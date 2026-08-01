@@ -219,7 +219,7 @@ def main(cfg: DictConfig) -> None:
             "clarify_precision": action_metrics.get("clarify_precision", 0.0),
             "clarify_recall": action_metrics.get("clarify_recall", 0.0),
             "clarify_f1": action_metrics.get("clarify_f1", 0.0),
-            "answer_f1": action_metrics.get("answer_f1", 0.0),
+            "action_f1_answer": action_metrics.get("action_f1_answer", 0.0),
             "macro_f1": action_metrics.get("macro_f1", 0.0),
             "answer_accuracy": action_metrics.get("answer_accuracy", 0.0),
             "facet_generation_rate": action_metrics.get("facet_generation_rate", 0.0),
@@ -360,7 +360,7 @@ def main(cfg: DictConfig) -> None:
                         leaderboard.LeaderboardColumn(
                             evaluation_object_ref=eval_ref,
                             scorer_name="ActionScorer",
-                            summary_metric_path="answer_f1",
+                            summary_metric_path="action_f1_answer",
                         ),
                         leaderboard.LeaderboardColumn(
                             evaluation_object_ref=eval_ref,
