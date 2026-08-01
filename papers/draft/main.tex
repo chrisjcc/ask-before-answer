@@ -425,16 +425,17 @@ This paper presents work whose goal is to advance the field of Machine Learning 
 In this section, we report the training dynamics to demonstrate optimization stability, convergence speed, and generalization without overfitting. The following plots are preliminary (as we plan to rerun the entire ablation suite) but illustrate the current training behavior for SFT and DPO:
 
 \begin{itemize}
-    \item \textbf{SFT \& DPO Loss:} Demonstrates the convergence speed and stability of the training loss for the Supervised Fine-Tuning and Direct Preference Optimization stages (Figure \ref{fig:loss_comparisons}).
+    \item \textbf{Training \& Evaluation Loss:} Demonstrates the convergence speed and stability of the loss across training stages (Figure \ref{fig:loss_comparisons}).
     \item \textbf{DPO Training Metrics:} Detailed metrics from the DPO stage including reward margins, log probabilities for chosen versus rejected responses, and classification accuracies (Figure \ref{fig:dpo_details}).
+    \item \textbf{GRPO Training Metrics:} Illustrates the convergence of the programmatic reward and the KL divergence penalty during the reinforcement learning stage (Figure \ref{fig:grpo_details}).
 \end{itemize}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.48\textwidth]{figures/sft_loss.png}
+\includegraphics[width=0.48\textwidth]{figures/train_loss_comparison.png}
 \hfill
-\includegraphics[width=0.48\textwidth]{figures/dpo_loss.png}
-\caption{Preliminary training loss curves for Supervised Fine-Tuning (left) and Direct Preference Optimization (right).}
+\includegraphics[width=0.48\textwidth]{figures/eval_loss_comparison.png}
+\caption{Training (left) and Evaluation (right) loss curves comparing the ablation variants.}
 \label{fig:loss_comparisons}
 \end{figure}
 
@@ -447,6 +448,15 @@ In this section, we report the training dynamics to demonstrate optimization sta
 \includegraphics[width=0.32\textwidth]{figures/dpo_accuracies.png}
 \caption{Detailed DPO training metrics: Reward Margins (left), Log Probabilities (center), and Accuracies (right).}
 \label{fig:dpo_details}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/reward_convergence.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{figures/kl_divergence.png}
+\caption{Detailed GRPO training metrics: Programmatic Reward Convergence (left) and KL Divergence from the reference policy (right).}
+\label{fig:grpo_details}
 \end{figure}
 
 \section{Appendix: Prompts and Reward Functions}
@@ -507,7 +517,7 @@ def action_reward_func(prompts, completions, **kwargs):
 
 \section{Appendix: Training Hyperparameters}
 \label{sec:hyperparams}
-To ensure full reproducibility, we report the exact hyperparameters utilized during the Supervised Fine-Tuning (SFT) and Direct Preference Optimization (DPO) stages. Both stages utilized LoRA (Low-Rank Adaptation) injected into the attention and MLP modules. All experiments were conducted using the \texttt{transformers} and \texttt{trl} libraries, utilizing the Unsloth framework for efficient hardware acceleration via Triton kernels and Flash Attention. Models were trained on NVIDIA RTX A6000 and A100 GPUs using \texttt{bfloat16} precision.
+To ensure full reproducibility, we report the exact hyperparameters utilized during the Supervised Fine-Tuning (SFT), Direct Preference Optimization (DPO), and Group Relative Policy Optimization (GRPO) stages. Both stages utilized LoRA (Low-Rank Adaptation) injected into the attention and MLP modules. All experiments were conducted using the \texttt{transformers} and \texttt{trl} libraries, utilizing the Unsloth framework for efficient hardware acceleration via Triton kernels and Flash Attention. Models were trained on NVIDIA RTX A6000 and A100 GPUs using \texttt{bfloat16} precision.
 
 \begin{table}[h]
 \centering
@@ -549,6 +559,29 @@ Precision & \texttt{bfloat16} & Used for both training and inference \\
 \bottomrule
 \end{tabular}
 \label{tab:dpo_hyperparams}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Hyperparameters for Group Relative Policy Optimization (GRPO)}
+\begin{tabular}{lll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} & \textbf{Description} \\
+\midrule
+Learning Rate & $5 \times 10^{-6}$ & Peak learning rate for RL optimization \\
+KL Penalty ($\beta$) & 0.1 & Controls the constraint to the SFT reference model \\
+Optimizer & AdamW & Using PyTorch's \texttt{adamw\_torch} implementation \\
+Epochs & 1 & Single pass over the training dataset \\
+Per-Device Batch Size & 1 & Number of samples per forward pass per GPU \\
+Gradient Accumulation & 8 & Steps to accumulate gradients before backward pass \\
+Warmup Ratio & 0.1 & Fraction of steps used to linearly warmup the learning rate \\
+Max Prompt Length & 512 & Maximum length for the input context \\
+Max Completion Length & 512 & Maximum length for the generated rollout \\
+Rollouts per Prompt ($G$) & 8 & Number of generations sampled per input for group advantage \\
+Precision & \texttt{bfloat16} & Used for both training and inference \\
+\bottomrule
+\end{tabular}
+\label{tab:grpo_hyperparams}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
