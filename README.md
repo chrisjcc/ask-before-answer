@@ -102,10 +102,7 @@ make run-pipeline
   - *Optimization:* Combines instruction tuning and preference alignment into a single objective. It uses an odds ratio penalty to suppress the generation of rejected paths without needing a frozen reference model in memory.
 - **Group Relative Policy Optimization (GRPO):** `make train-grpo`
   - *Optimization:* A reinforcement learning algorithm that samples multiple rollouts per prompt, scores them using Python-based deterministic reward functions (checking for strict structural adherence and action logic), and optimizes the policy relative to the group average.
-- **GRPO + DPO Pipeline:** `make train-grpo-dpo`
-  - *Optimization:* A cutting-edge hybrid approach. GRPO replaces SFT as the Stage 1 structural foundation (using trial-and-error to learn robust formatting), and DPO acts as the Stage 2 stylistic polisher to align the nuance of the generated clarification questions.
-
-By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, `models/grpo/`, and `models/grpo_dpo/`.
+By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, and `models/grpo/`.
 
 ### 🏆 GRPO Reward Shaping
 GRPO relies entirely on its reward functions to shape the model's behavior. We utilize four distinct reward functions to holistically enforce both formatting and factual accuracy:
