@@ -16,3 +16,15 @@ max_completion_length: 512
 num_generations: 8
 beta: 0.1
 loss_type: "grpo" # Options: "grpo", "dapo", "dr_grpo"
+
+reward_weights:
+  format_reward: 1.0
+  format_penalty: -2.0
+  action_reward: 1.0
+  action_penalty: -1.0
+  facet_logic_reward: 0.5
+  facet_logic_penalty: -0.5
+  accuracy_scale: 1.5
+  accuracy_shift: -0.5
+  accuracy_miss_penalty: -1.0
+  accuracy_format_penalty: -0.5

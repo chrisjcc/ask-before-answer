@@ -483,8 +483,12 @@ def run_orpo_training(cfg: DictConfig):
     logger.info("ORPO Training complete and model saved.")
 
 
-def format_reward_func(prompts, completions, **kwargs):
+def format_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks for the exact format constraints."""
+    if reward_weights is None: reward_weights = {}
+    format_reward = reward_weights.get("format_reward", 1.0)
+    format_penalty = reward_weights.get("format_penalty", -2.0)
+
     rewards = []
     for completion in completions:
         # A simple check: do we have all the sections in order?
@@ -495,14 +499,18 @@ def format_reward_func(prompts, completions, **kwargs):
         has_response = "Response:" in text
 
         if has_action and has_reasoning and has_facets and has_response:
-            rewards.append(1.0)
+            rewards.append(format_reward)
         else:
-            rewards.append(-2.0)
+            rewards.append(format_penalty)
     return rewards
 
 
-def action_reward_func(prompts, completions, **kwargs):
+def action_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks if the predicted action matches the target."""
+    if reward_weights is None: reward_weights = {}
+    action_reward = reward_weights.get("action_reward", 1.0)
+    action_penalty = reward_weights.get("action_penalty", -1.0)
+
     rewards = []
     target_actions = kwargs.get("target_action", [])
 
@@ -514,16 +522,20 @@ def action_reward_func(prompts, completions, **kwargs):
         if action_match:
             pred_action = action_match.group(1)
             if pred_action == target:
-                rewards.append(1.0)
+                rewards.append(action_reward)
             else:
-                rewards.append(-1.0)
+                rewards.append(action_penalty)
         else:
-            rewards.append(-1.0)
+            rewards.append(action_penalty)
     return rewards
 
 
-def facet_logic_reward_func(prompts, completions, **kwargs):
+def facet_logic_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks facet presence/absence based on action."""
+    if reward_weights is None: reward_weights = {}
+    facet_reward = reward_weights.get("facet_logic_reward", 0.5)
+    facet_penalty = reward_weights.get("facet_logic_penalty", -0.5)
+
     rewards = []
     for completion in completions:
         text = completion[0]["content"] if isinstance(completion, list) else completion
@@ -531,7 +543,7 @@ def facet_logic_reward_func(prompts, completions, **kwargs):
         facets_match = re.search(r"Facets:\s*(\[.*?\])", text, re.DOTALL)
 
         if not action_match or not facets_match:
-            rewards.append(-0.5)
+            rewards.append(facet_penalty)
             continue
 
         pred_action = action_match.group(1)
@@ -547,21 +559,27 @@ def facet_logic_reward_func(prompts, completions, **kwargs):
         if pred_action == "Clarify":
             # Clarify MUST have non-empty facets
             if len(facets) > 0:
-                rewards.append(0.5)
+                rewards.append(facet_reward)
             else:
-                rewards.append(-0.5)
+                rewards.append(facet_penalty)
         else:
             # Answer MUST have empty facets
             if len(facets) == 0:
-                rewards.append(0.5)
+                rewards.append(facet_reward)
             else:
-                rewards.append(-0.5)
+                rewards.append(facet_penalty)
     return rewards
 
 
-def accuracy_reward_func(prompts, completions, **kwargs):
+def accuracy_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks for factual accuracy (word overlap)
     for direct answers."""
+    if reward_weights is None: reward_weights = {}
+    acc_scale = reward_weights.get("accuracy_scale", 1.5)
+    acc_shift = reward_weights.get("accuracy_shift", -0.5)
+    acc_miss_penalty = reward_weights.get("accuracy_miss_penalty", -1.0)
+    acc_format_penalty = reward_weights.get("accuracy_format_penalty", -0.5)
+
     rewards = []
     target_responses = kwargs.get("target_response", [])
     target_actions = kwargs.get("target_action", [])
@@ -580,7 +598,7 @@ def accuracy_reward_func(prompts, completions, **kwargs):
 
         response_match = re.search(r"Response:\s*(.*)", text, re.DOTALL)
         if not response_match or not target_resp:
-            rewards.append(-0.5)
+            rewards.append(acc_format_penalty)
             continue
 
         pred_resp = response_match.group(1).strip()
@@ -596,7 +614,7 @@ def accuracy_reward_func(prompts, completions, **kwargs):
         intersection = pred_words.intersection(target_words)
 
         if not intersection:
-            rewards.append(-1.0)  # Totally missed the facts
+            rewards.append(acc_miss_penalty)  # Totally missed the facts
             continue
 
         recall = len(intersection) / len(target_words)
@@ -606,7 +624,7 @@ def accuracy_reward_func(prompts, completions, **kwargs):
 
         # Map F1 to reward: low overlap is penalized,
         # high overlap is moderately rewarded
-        reward = (f1 * 1.5) - 0.5
+        reward = (f1 * acc_scale) + acc_shift
         rewards.append(reward)
 
     return rewards
@@ -710,13 +728,16 @@ def run_grpo_training(cfg: DictConfig):
 
     model.generate = patched_generate
 
+    from functools import partial
+    reward_weights = cfg.training.get("reward_weights", {})
+
     trainer = GRPOTrainer(
         model=model,
         reward_funcs=[
-            format_reward_func,
-            action_reward_func,
-            facet_logic_reward_func,
-            accuracy_reward_func,
+            partial(format_reward_func, reward_weights=reward_weights),
+            partial(action_reward_func, reward_weights=reward_weights),
+            partial(facet_logic_reward_func, reward_weights=reward_weights),
+            partial(accuracy_reward_func, reward_weights=reward_weights),
         ],
         args=training_args,
         train_dataset=dataset_train,
