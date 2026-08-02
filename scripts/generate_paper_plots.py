@@ -320,6 +320,14 @@ def main():
     dpo_hist = get_run_history(api, project_path, "dpo_training")
     grpo_hist = get_run_history(api, project_path, "grpo_training")
 
+    # Normalize the x-axis (training steps) to start at 0 for all models
+    if sft_hist is not None and "_step" in sft_hist.columns:
+        sft_hist["_step"] = sft_hist["_step"] - sft_hist["_step"].min()
+    if dpo_hist is not None and "_step" in dpo_hist.columns:
+        dpo_hist["_step"] = dpo_hist["_step"] - dpo_hist["_step"].min()
+    if grpo_hist is not None and "_step" in grpo_hist.columns:
+        grpo_hist["_step"] = grpo_hist["_step"] - grpo_hist["_step"].min()
+
     plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir)
     plot_dpo_metrics(dpo_hist, out_dir)
     plot_grpo_metrics(grpo_hist, out_dir)
