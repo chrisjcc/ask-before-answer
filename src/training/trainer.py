@@ -485,7 +485,8 @@ def run_orpo_training(cfg: DictConfig):
 
 def format_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks for the exact format constraints."""
-    if reward_weights is None: reward_weights = {}
+    if reward_weights is None:
+        reward_weights = {}
     format_reward = reward_weights.get("format_reward", 1.0)
     format_penalty = reward_weights.get("format_penalty", -2.0)
 
@@ -507,7 +508,8 @@ def format_reward_func(prompts, completions, reward_weights=None, **kwargs):
 
 def action_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks if the predicted action matches the target."""
-    if reward_weights is None: reward_weights = {}
+    if reward_weights is None:
+        reward_weights = {}
     action_reward = reward_weights.get("action_reward", 1.0)
     action_penalty = reward_weights.get("action_penalty", -1.0)
 
@@ -532,7 +534,8 @@ def action_reward_func(prompts, completions, reward_weights=None, **kwargs):
 
 def facet_logic_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks facet presence/absence based on action."""
-    if reward_weights is None: reward_weights = {}
+    if reward_weights is None:
+        reward_weights = {}
     facet_reward = reward_weights.get("facet_logic_reward", 0.5)
     facet_penalty = reward_weights.get("facet_logic_penalty", -0.5)
 
@@ -574,7 +577,8 @@ def facet_logic_reward_func(prompts, completions, reward_weights=None, **kwargs)
 def accuracy_reward_func(prompts, completions, reward_weights=None, **kwargs):
     """Reward function that checks for factual accuracy (word overlap)
     for direct answers."""
-    if reward_weights is None: reward_weights = {}
+    if reward_weights is None:
+        reward_weights = {}
     acc_scale = reward_weights.get("accuracy_scale", 1.5)
     acc_shift = reward_weights.get("accuracy_shift", -0.5)
     acc_miss_penalty = reward_weights.get("accuracy_miss_penalty", -1.0)
@@ -729,6 +733,7 @@ def run_grpo_training(cfg: DictConfig):
     model.generate = patched_generate
 
     from functools import partial
+
     reward_weights = cfg.training.get("reward_weights", {})
 
     trainer = GRPOTrainer(
