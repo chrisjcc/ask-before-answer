@@ -418,21 +418,27 @@ In this section, we report the training dynamics to demonstrate optimization sta
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.32\textwidth]{figures/dpo_margin.png}
+\includegraphics[width=0.48\textwidth]{figures/dpo_margin.png}
 \hfill
-\includegraphics[width=0.32\textwidth]{figures/dpo_logprobs.png}
+\includegraphics[width=0.48\textwidth]{figures/dpo_implicit_rewards.png}
+
+\vspace{0.3cm}
+\includegraphics[width=0.48\textwidth]{figures/dpo_logprobs.png}
 \hfill
-\includegraphics[width=0.32\textwidth]{figures/dpo_accuracies.png}
-\caption{Detailed DPO training metrics: Reward Margins (left), Log Probabilities (center), and Accuracies (right).}
+\includegraphics[width=0.48\textwidth]{figures/dpo_accuracies.png}
+\caption{Detailed DPO training metrics: Reward Margins (top left), Implicit Rewards (top right), Log Probabilities (bottom left), and Accuracies (bottom right).}
 \label{fig:dpo_details}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.48\textwidth]{figures/reward_convergence.png}
+\includegraphics[width=0.48\textwidth]{figures/grpo_total_reward.png}
 \hfill
 \includegraphics[width=0.48\textwidth]{figures/kl_divergence.png}
-\caption{Detailed GRPO training metrics: Programmatic Reward Convergence (left) and KL Divergence from the reference policy (right).}
+
+\vspace{0.3cm}
+\includegraphics[width=0.8\textwidth]{figures/grpo_reward_components.png}
+\caption{Detailed GRPO training metrics: Total Training Reward (top left), KL Divergence from the reference policy (top right), and the convergence of individual programmatic reward components (bottom).}
 \label{fig:grpo_details}
 \end{figure}
 
