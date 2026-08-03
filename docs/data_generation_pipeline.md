@@ -4,37 +4,75 @@ This document conceptually outlines the end-to-end data generation pipeline used
 
 The pipeline is designed to enforce Chain-of-Thought (CoT) reasoning and structural schema alignment, ensuring that the final preference dataset is perfectly symmetric for Direct Preference Optimization (DPO).
 
+## Pipeline Flow
+
+```text
+[Raw AmbigNQ Data] 
+       │
+       ▼
+[Stage 1: Schema Enforcement & Open-Ended Extraction (7B)]
+       │
+       ▼
+[Stage 2: SFT "Chosen" Synthesis (Positive Targets)]
+       │
+       ▼
+[Stage 3: DPO "Rejected" Synthesis (Synthetic Hard Negatives)]
+```
+
+---
+
 ## Stage 1: Base Data and Schema Enforcement
 
-The foundation of our dataset is the raw AmbigNQ corpus, which contains questions that may have single or multiple interpretations. To align our model to a "clarify-first" behavior, we process this raw data using a lightweight instructor model (`qwen2.5-7b-instruct`).
+The foundation of our dataset is the raw AmbigNQ corpus, which contains questions that may have single or multiple interpretations. To align our model to a "clarify-first" behavior, we process this raw data using a lightweight instructor model (`qwen2.5-7b-instruct`). 
 
 To prevent the model from generating unstructured conversational hallucinations, the instructor model is prompted to adhere to a strict, 4-field structural schema for every response:
-1. **Action:** A binary classification (`Clarify` or `Answer`).
-2. **Reasoning:** A Chain-of-Thought (CoT) trace explaining *why* the question is ambiguous or clear.
-3. **Facets:** A JSON array of the specific semantic attributes missing from the query.
-4. **Response:** The final conversational text (a targeted clarifying question or a direct answer).
+
+*   **Action:** A binary classification (`Clarify` or `Answer`).
+*   **Reasoning:** A Chain-of-Thought (CoT) trace explaining *why* the question is ambiguous or clear.
+*   **Facets:** A parsed JSON array of the specific semantic attributes missing from the query.
+*   **Response:** The final conversational text (a targeted clarifying question or a direct answer).
 
 > [!NOTE]
 > **Open-Ended Facet Extraction:** The facets extracted by the model are **open-ended**. The prompt does *not* restrict the model to a finite, hardcoded list of available facets (e.g., temporal, spatial). Instead, the 7B model dynamically generates the semantic categories it determines are missing based on the inherent context of the user's question.
 
+---
+
 ## Stage 2: SFT "Chosen" Synthesis (Positive Targets)
 
-To generate the Supervised Fine-Tuning (SFT) dataset, the 7B instructor model is prompted to act as an expert agent. It analyzes the ground-truth AmbigNQ question and synthesizes the "Gold" (chosen) response using the 4-field schema. 
+To generate the Supervised Fine-Tuning (SFT) dataset, the 7B instructor model is prompted to act as an expert agent. It analyzes the ground-truth AmbigNQ question and synthesizes the "Gold" (chosen) response using the 4-field schema.
 
-For example, if a question is ambiguous, the model correctly outputs `Action: Clarify`, generates a valid, logical reasoning trace explaining the ambiguity, extracts the open-ended missing facets, and synthesizes a high-quality clarifying question as the `Response`.
+*   **For `Clarify` questions:** The model correctly outputs `Action: Clarify`, generates a valid logical reasoning trace explaining the ambiguity, extracts the open-ended missing facets, and synthesizes a high-quality clarifying question.
+*   **For `Answer` questions:** The model correctly outputs `Action: Answer`, generates reasoning explaining why the question is specific enough, leaves the Facets array empty (`[]`), and provides a direct answer.
 
 **How SFT Uses Reasoning Traces:** During SFT, the model is trained via standard cross-entropy loss over the entire generated string. By including the `Reasoning` field in the target, SFT teaches the model to internalize the Chain-of-Thought process—forcing it to logically deduce the ambiguity state *before* it predicts the final action or response.
 
+---
+
 ## Stage 3: DPO "Rejected" Synthesis (Synthetic Hard Negatives)
 
-To perform Direct Preference Optimization (DPO), the algorithm requires a contrastive pair for every question: a "chosen" target ($y^+$) and a "rejected" target ($y^-$).
+To perform Direct Preference Optimization (DPO), the algorithm requires a contrastive pair for every question: a "chosen" target ($y^+$) and a "rejected" target ($y^-$). Instead of using naive heuristics (such as randomly swapping the label or corrupting the final answer), we explicitly prompt the 7B instructor model to generate an adversarial, **synthetic hard negative**. 
 
-Instead of using naive heuristics (such as randomly swapping the label or corrupting the final answer), we explicitly prompt the 7B instructor model to generate an adversarial, **synthetic hard negative**. The model is instructed with a `NEGATIVE_SYSTEM_PROMPT` to intentionally generate an *incorrect but plausible-sounding* reasoning chain.
+The model is instructed with a `NEGATIVE_SYSTEM_PROMPT` to intentionally generate an *incorrect but plausible-sounding* reasoning chain.
 
-* If the correct action is `Clarify`, the model is forced to hallucinate a fake reasoning trace justifying why the question is "clear," and then outputs a hallucinated direct `Answer`.
-* If the correct action is `Answer`, the model hallucinates a reason for why the question is "ambiguous" and generates an unnecessary clarifying question.
+*   **If the correct action is `Clarify`:** The model is forced to hallucinate a fake reasoning trace justifying why the question is "clear," and then outputs a hallucinated direct `Answer`.
+*   **If the correct action is `Answer`:** The model hallucinates a reason for why the question is "ambiguous" and generates an unnecessary clarifying question.
 
 **How DPO Uses Reasoning Traces:** This synthetic generation process ensures that the dataset structure is **perfectly symmetric** between the chosen ($y^+$) and rejected ($y^-$) samples. Both targets contain the exact same 4-field JSON schema, and crucially, both contain a full `Reasoning` trace. Because DPO optimizes the log-probability margins over the *entire* generated sequence, the algorithm directly penalizes the *flawed logic* inside the rejected reasoning trace, rather than just penalizing the final incorrect response. This structurally symmetric design is critical: it prevents the model from "reward hacking" (e.g., learning to distinguish chosen/rejected pairs simply based on length disparities or missing formatting fields).
+
+---
+
+## Rationale Behind the Design Choices
+
+Our pipeline relies on these specific design patterns for several critical reasons:
+
+1.  **Interpretable Grounding via Facets vs. Unstructured Ambiguity:** 
+    By forcing the model to explicitly identify and output missing *facets* prior to generating a response, the model bases its clarification on precise semantic attributes rather than hallucinating broad, vague follow-up questions.
+2.  **Adding Explicit Reasoning Traces (Chain-of-Thought):** 
+    Simply predicting `Clarify` or `Answer` forces the model to memorize label patterns. Integrating CoT reasoning forces the model to internalize the decision boundary, leading to higher answer accuracy and better decision calibration during SFT.
+3.  **Structurally Symmetric Hard Negatives vs. Naive Negatives:** 
+    Naive synthetic negatives (e.g., simply stripping out the reasoning field or randomizing the answer) create artificial, easy-to-spot errors. By forcing the 7B model to actively *hallucinate a plausible but incorrect reasoning trace*, we create high-quality hard negatives that force the DPO algorithm to actually evaluate logical soundness rather than superficial formatting.
+
+---
 
 ## Summary of Our Pipeline
 
