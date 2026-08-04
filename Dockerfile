@@ -1,5 +1,7 @@
 FROM python:3.10-slim
 
+LABEL org.opencontainers.image.source="https://github.com/chrisjcc/ask-before-answer"
+LABEL org.opencontainers.image.description="AskBeforeAnswer: An RLHF-trained agent that clarifies ambiguity."
 WORKDIR /app
 
 # Install system dependencies
