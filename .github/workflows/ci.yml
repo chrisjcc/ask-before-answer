@@ -68,8 +68,7 @@ jobs:
         # Copy essential runtime files from the GitHub repo
         cp ../Dockerfile .
         
-        # Use the slim inference-only requirements for the HF Space
-        cp ../app/requirements.txt ./requirements.txt
+        # (The Dockerfile will natively use app/requirements.txt)
         
         cp ../pyproject.toml .
         cp -r ../app .
