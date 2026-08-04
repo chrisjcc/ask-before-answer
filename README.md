@@ -238,11 +238,23 @@ make run-app
 ```
 
 ### Docker Deployment
-Build and run the Streamlit application via Docker:
+You can easily pull the pre-compiled, multi-architecture Docker image directly from the GitHub Container Registry (GHCR) and run it locally. 
+
+**Option 1: Using a local `.env` file (Recommended)**
+If you have a `.env` file in your directory configured with `WANDB_API_KEY`, `WANDB_ENTITY`, and `WANDB_PROJECT`, you can inject it into the Docker container using the `--env-file` flag so the app can enable Weave tracing locally:
 ```bash
-make docker-build
-docker run -p 8501:8501 askbeforeanswer-app
+docker pull ghcr.io/chrisjcc/ask-before-answer:latest
+docker run --env-file .env -p 8501:8501 ghcr.io/chrisjcc/ask-before-answer:latest
 ```
+
+**Option 2: Using Inline Environment Variables**
+Alternatively, if you don't want to create a `.env` file, you can pass the secret directly in the terminal using the `-e` flag:
+```bash
+docker pull ghcr.io/chrisjcc/ask-before-answer:latest
+docker run -e WANDB_API_KEY="your_api_key_here" -p 8501:8501 ghcr.io/chrisjcc/ask-before-answer:latest
+```
+
+*(Note: If you run the container without passing a W&B API key, the app will gracefully disable telemetry and run 100% offline).*
 
 ---
 
