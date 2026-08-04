@@ -58,10 +58,20 @@ jobs:
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions"
         
-        # Clone the HF Space repository (with retry for 429 Rate Limits)
-        for i in 1 2 3 4 5; do
-          git clone https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo hf_space && break || sleep 15
+        # Clone the HF Space repository (with exponential backoff for 429 Rate Limits)
+        delay=15
+        for i in {1..6}; do
+          git clone https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo hf_space && break || {
+            echo "Clone failed, retrying in ${delay}s..."
+            sleep $delay
+            delay=$((delay * 2))
+          }
         done
+        
+        if [ ! -d "hf_space" ]; then
+          echo "Failed to clone HF Space repository after multiple retries."
+          exit 1
+        fi
         cd hf_space
         
         # Clean existing files (except .git) to allow for deletions
@@ -79,10 +89,15 @@ jobs:
         # Copy the specific Hugging Face README as the root README.md
         cp ../.github/hf_space_readme.md README.md
         
-        # Commit and Push (with retry for 429 Rate Limits)
+        # Commit and Push (with exponential backoff for 429 Rate Limits)
         git add .
         git commit -m "Automated deployment from GitHub Actions: ${GITHUB_SHA}" || echo "No changes to commit"
-        for i in 1 2 3 4 5; do
-          git push origin main && break || sleep 15
+        delay=15
+        for i in {1..6}; do
+          git push origin main && break || {
+            echo "Push failed, retrying in ${delay}s..."
+            sleep $delay
+            delay=$((delay * 2))
+          }
         done
 
