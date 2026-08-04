@@ -58,8 +58,10 @@ jobs:
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions"
         
-        # Clone the HF Space repository
-        git clone https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo hf_space
+        # Clone the HF Space repository (with retry for 429 Rate Limits)
+        for i in 1 2 3 4 5; do
+          git clone https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo hf_space && break || sleep 15
+        done
         cd hf_space
         
         # Clean existing files (except .git) to allow for deletions
@@ -77,8 +79,10 @@ jobs:
         # Copy the specific Hugging Face README as the root README.md
         cp ../.github/hf_space_readme.md README.md
         
-        # Commit and Push
+        # Commit and Push (with retry for 429 Rate Limits)
         git add .
         git commit -m "Automated deployment from GitHub Actions: ${GITHUB_SHA}" || echo "No changes to commit"
-        git push origin main
+        for i in 1 2 3 4 5; do
+          git push origin main && break || sleep 15
+        done
 
