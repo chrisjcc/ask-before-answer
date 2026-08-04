@@ -18,9 +18,9 @@ protobuf
 einops
 wandb>=0.27.2
 weave>=0.52.43
-unsloth==2026.7.3
-unsloth-zoo==2026.7.3
-xformers==0.0.29.post2
+unsloth==2026.7.3 ; sys_platform == "linux" and platform_machine == "x86_64"
+unsloth-zoo==2026.7.3 ; sys_platform == "linux" and platform_machine == "x86_64"
+xformers==0.0.29.post2 ; sys_platform == "linux" and platform_machine == "x86_64"
 flash_attn @ https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64"
 
 # Data processing & Utils
