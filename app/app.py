@@ -20,10 +20,7 @@ if os.environ.get("WANDB_API_KEY"):
     try:
         wandb_entity = os.environ.get("WANDB_ENTITY", "rl4aa")
         wandb_project = os.environ.get("WANDB_PROJECT", "ask-before-answer")
-        if "/" in wandb_project:
-            weave.init(wandb_project)
-        else:
-            weave.init(f"{wandb_entity}/{wandb_project}")
+        weave.init(f"{wandb_entity}/{wandb_project}")
     except Exception as e:
         print(f"Failed to initialize Weave: {e}")
 else:
