@@ -55,7 +55,12 @@ class ClarifyOrActPipeline:
         if is_peft:
             from peft import PeftModel
 
-            base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+            if torch.cuda.is_available():
+                base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+            else:
+                base_model_id = "Qwen/Qwen2.5-7B-Instruct"
+                logger.warning("No GPU detected! Loading full 7B base model on CPU. This will be very slow and may exceed memory limits.")
+
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_model_id, torch_dtype=torch.bfloat16, device_map="auto"
             )
