@@ -112,18 +112,43 @@ else:
 
     if st.button("Generate Response") and user_query:
         with st.spinner("Analyzing..."):
-            response = st.session_state.pipeline.generate(user_query)
+            raw_response = st.session_state.pipeline.generate(user_query)
+            # Fix any literal escaped newlines from the model
+            raw_response = raw_response.replace("\\n", "\n")
+
+            import re
+            import ast
+
+            action_match = re.search(r"Action:\s*(.*?)\n", raw_response + "\n")
+            reasoning_match = re.search(r"Reasoning:\s*(.*?)\n", raw_response + "\n")
+            facets_match = re.search(r"Facets:\s*(.*?)\n", raw_response + "\n")
+            response_match = re.search(r"Response:\s*(.*)", raw_response + "\n", re.DOTALL)
+
+            action = action_match.group(1).strip() if action_match else "Unknown"
+            reasoning = reasoning_match.group(1).strip() if reasoning_match else "None provided."
+            facets_str = facets_match.group(1).strip() if facets_match else "[]"
+            final_response = response_match.group(1).strip() if response_match else raw_response
+
+            try:
+                facets = ast.literal_eval(facets_str) if facets_str.startswith("[") else []
+            except:
+                facets = [facets_str] if facets_str else []
 
             st.markdown("### Model Response")
-            st.info(response)
+            
+            if "Clarify" in action:
+                st.warning("🤔 **Ambiguity Detected! Requesting Clarification:**")
+            elif "Answer" in action:
+                st.success("✅ **Clear Question! Answering Directly:**")
+            else:
+                st.info("🤖 **Response:**")
 
-            # Simple visualization of structured output
-            if "Action: Clarify" in response:
-                st.success(
-                    "Model successfully detected ambiguity and requested clarification!"
-                )
-            elif "Action: Answer" in response:
-                st.success(
-                    "Model determined the question was unambiguous "
-                    "and answered directly."
-                )
+            st.markdown(f"**{final_response}**")
+
+            with st.expander("View Agent Internal Reasoning"):
+                st.markdown(f"**Action:** `{action}`")
+                st.markdown(f"**Reasoning:** {reasoning}")
+                if facets:
+                    st.markdown("**Identified Missing Facets:**")
+                    for f in facets:
+                        st.markdown(f"- {f}")
