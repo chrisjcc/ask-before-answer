@@ -141,7 +141,7 @@ else:
                 facets = (
                     ast.literal_eval(facets_str) if facets_str.startswith("[") else []
                 )
-            except:
+            except (ValueError, SyntaxError, TypeError):
                 facets = [facets_str] if facets_str else []
 
             st.markdown("### Model Response")
