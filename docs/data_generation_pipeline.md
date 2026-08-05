@@ -16,7 +16,7 @@ The pipeline is designed to enforce Chain-of-Thought (CoT) reasoning and structu
 [Stage 2: SFT "Chosen" Synthesis (Positive Targets)]
        │
        ▼
-[Stage 3: DPO "Rejected" Synthesis (Synthetic Hard Negatives)]
+[Stage 3: DPO "Rejected" Synthesis (Prompt-Guided Synthetic Generation)]
 ```
 
 ---
@@ -48,16 +48,23 @@ To generate the Supervised Fine-Tuning (SFT) dataset, the 7B instructor model is
 
 ---
 
-## Stage 3: DPO "Rejected" Synthesis (Synthetic Hard Negatives)
+## Stage 3: DPO "Rejected" Synthesis (Prompt-Guided Synthetic Generation)
 
-To perform Direct Preference Optimization (DPO), the algorithm requires a contrastive pair for every question: a "chosen" target ($y^+$) and a "rejected" target ($y^-$). Instead of using naive heuristics (such as randomly swapping the label or corrupting the final answer), we explicitly prompt the 7B instructor model to generate an adversarial, **synthetic hard negative**. 
+To perform Direct Preference Optimization (DPO), the algorithm requires a contrastive pair for every question: a "chosen" target ($y^+$) and a "rejected" target ($y^-$). 
 
-The model is instructed with a `NEGATIVE_SYSTEM_PROMPT` to intentionally generate an *incorrect but plausible-sounding* reasoning chain.
+> [!NOTE]
+> **Why we skipped "Model-Grounded Mining"**
+> Some frontier models generate "rejected" samples via **Model-Grounded Mining**. This involves passing the entire dataset through a partially-trained 7B model's inference pipeline, using a massive 32B model as a judge to evaluate the predictions, and manually extracting the 7B model's *natural* mistakes. 
+> We explicitly **did not** use Model-Grounded Mining. Mining requires maintaining a massive 32B judge in memory alongside the 7B model, passing the entire dataset through inference pipelines, and dealing with significant extraction noise. 
+
+Instead, we use a much simpler, cheaper, and native approach called **Prompt-Guided Synthetic Generation**. This approach achieves ~90% of the benefit (forcing DPO to learn complex reasoning boundaries) but runs natively inside a single preprocessing script!
+
+Rather than waiting for the model to naturally fail, we explicitly instruct the 7B instructor model (using a `NEGATIVE_SYSTEM_PROMPT`) to intentionally generate an *incorrect but plausible-sounding* reasoning chain. The 7B model generates a structurally perfect but logically flawed response (e.g., confidently explaining why "Who won the US Open?" obviously refers to tennis). We then use this hallucinated response as the "rejected" example in DPO.
 
 *   **If the correct action is `Clarify`:** The model is forced to hallucinate a fake reasoning trace justifying why the question is "clear," and then outputs a hallucinated direct `Answer`.
 *   **If the correct action is `Answer`:** The model hallucinates a reason for why the question is "ambiguous" and generates an unnecessary clarifying question.
 
-**How DPO Uses Reasoning Traces:** This synthetic generation process ensures that the dataset structure is **perfectly symmetric** between the chosen ($y^+$) and rejected ($y^-$) samples. Both targets contain the exact same 4-field JSON schema, and crucially, both contain a full `Reasoning` trace. Because DPO optimizes the log-probability margins over the *entire* generated sequence, the algorithm directly penalizes the *flawed logic* inside the rejected reasoning trace, rather than just penalizing the final incorrect response. This structurally symmetric design is critical: it prevents the model from "reward hacking" (e.g., learning to distinguish chosen/rejected pairs simply based on length disparities or missing formatting fields).
+**How DPO Uses Reasoning Traces:** This Prompt-Guided Synthetic Generation process ensures that the dataset structure is **perfectly symmetric** between the chosen ($y^+$) and rejected ($y^-$) samples. Both targets contain the exact same 4-field JSON schema, and crucially, both contain a full `Reasoning` trace. Because DPO optimizes the log-probability margins over the *entire* generated sequence, the algorithm directly penalizes the *flawed logic* inside the rejected reasoning trace, rather than just penalizing the final incorrect response. This structurally symmetric design is critical: it prevents the model from "reward hacking" (e.g., learning to distinguish chosen/rejected pairs simply based on length disparities or missing formatting fields).
 
 ---
 
