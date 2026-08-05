@@ -154,7 +154,11 @@ test:
 # Deployment
 # -------------------------
 deploy-hf:
-	@echo "Deploying datasets and final model to Hugging Face Hub..."
+	@echo "=========================================================="
+	@echo "🚀 Deploying to Hugging Face Hub"
+	@echo "➔ Dataset: https://huggingface.co/datasets/chrisjcc/ask-before-answer-data"
+	@echo "➔ Model:   https://huggingface.co/chrisjcc/ask-before-answer"
+	@echo "=========================================================="
 	@RELEASE_TAG=$$(git describe --tags --abbrev=0) && \
 	echo "Detected latest release tag: $$RELEASE_TAG" && \
 	python scripts/push_to_hub.py deployment.release_tag="$$RELEASE_TAG"
