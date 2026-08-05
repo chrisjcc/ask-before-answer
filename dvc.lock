@@ -133,6 +133,85 @@ stages:
     outs:
     - path: models/dpo_only/final
       hash: md5
-      md5: 3299e0c1b83d84869f07d220be0989d5.dir
-      size: 177424623
-      nfiles: 10
+      md5: 4adf2af1d802d3ded2656d55c4e07333.dir
+      size: 177425310
+      nfiles: 11
+  train_orpo:
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_orpo.py training=orpo
+    deps:
+    - path: configs/model/qwen2_5_7b.yaml
+      hash: md5
+      md5: e97dad93ea0032d6e21d121e9eb6cca0
+      size: 588
+    - path: configs/training/orpo.yaml
+      hash: md5
+      md5: 414ab7514e1056f2d9ab57e67e5cfb40
+      size: 332
+    - path: data/dpo_train.jsonl
+      hash: md5
+      md5: 66c8886cee0faac7ce1ccda1cd29b755
+      size: 546991
+    - path: data/dpo_val.jsonl
+      hash: md5
+      md5: 7d49e812e18d66645f398f7e61d75d44
+      size: 114204
+    outs:
+    - path: models/orpo/final
+      hash: md5
+      md5: d7cf73c1a2f5d732898d9a18995fe56e.dir
+      size: 177424735
+      nfiles: 11
+  train_grpo:
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_grpo.py training=grpo 
+      model.name=models/sft/final
+    deps:
+    - path: configs/training/grpo.yaml
+      hash: md5
+      md5: 2237f69d89a61143ccb0373c70f796c9
+      size: 415
+    - path: data/dpo_train.jsonl
+      hash: md5
+      md5: 66c8886cee0faac7ce1ccda1cd29b755
+      size: 546991
+    - path: data/dpo_val.jsonl
+      hash: md5
+      md5: 7d49e812e18d66645f398f7e61d75d44
+      size: 114204
+    - path: models/sft/final
+      hash: md5
+      md5: ebf268539721c150673146efb2bad96d.dir
+      size: 177424798
+      nfiles: 11
+    outs:
+    - path: models/grpo/final
+      hash: md5
+      md5: 61fd94e7f863cd29c70a23cf1697b9cd.dir
+      size: 177425991
+      nfiles: 11
+  train_grpo_dpo:
+    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo 
+      model.name=models/grpo/final training.output_dir=models/grpo_dpo
+    deps:
+    - path: configs/training/dpo.yaml
+      hash: md5
+      md5: 8e72657ddb45e03064d8134806d47976
+      size: 344
+    - path: data/dpo_train.jsonl
+      hash: md5
+      md5: 66c8886cee0faac7ce1ccda1cd29b755
+      size: 546991
+    - path: data/dpo_val.jsonl
+      hash: md5
+      md5: 7d49e812e18d66645f398f7e61d75d44
+      size: 114204
+    - path: models/grpo/final
+      hash: md5
+      md5: 23860a3bd4997c18ccd753d007a26ace.dir
+      size: 177425991
+      nfiles: 11
+    outs:
+    - path: models/grpo_dpo/final
+      hash: md5
+      md5: 558e93418571089ed4e6f03bddccf613.dir
+      size: 177425388
+      nfiles: 11
