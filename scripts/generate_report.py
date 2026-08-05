@@ -91,6 +91,27 @@ def generate_report():
     plt.savefig(plot_path)
     plt.close()
 
+    # Plot 2: Validation Curve (Learning Rate vs Eval Loss)
+    valid_runs = df_summary[df_summary["Learning Rate"] != "N/A"].copy()
+    if not valid_runs.empty:
+        valid_runs["Learning Rate"] = pd.to_numeric(valid_runs["Learning Rate"])
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(
+            data=valid_runs, x="Learning Rate", y="Eval Loss", hue="Group", s=100
+        )
+        plt.xscale("log")
+        plt.title("Validation Curve: Eval Loss vs Learning Rate")
+        plt.xlabel("Learning Rate (log scale)")
+        plt.ylabel("Final Eval Loss")
+
+        if plt.gca().get_legend_handles_labels()[0]:
+            plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+
+        plt.tight_layout()
+        val_plot_path = "docs/plots/val_curve_lr.png"
+        plt.savefig(val_plot_path)
+        plt.close()
+
     logger.info("Generating Markdown Report...")
     report_content = [
         "# Ablation Experiment Report",
@@ -113,6 +134,16 @@ def generate_report():
             "",
         ]
     )
+
+    if not valid_runs.empty:
+        report_content.extend(
+            [
+                "## Validation Curves",
+                "",
+                "![Validation Curve](plots/val_curve_lr.png)",
+                "",
+            ]
+        )
 
     with open("docs/ablation_report.md", "w") as f:
         f.write("\n".join(report_content))
