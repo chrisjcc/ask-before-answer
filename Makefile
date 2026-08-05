@@ -1,4 +1,4 @@
-.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only ablation-suite evaluate infer sweep-sft sweep-dpo format lint test docker-build run-app clean
+.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only ablation-suite evaluate infer sweep-sft sweep-dpo sweep-grpo format lint test docker-build run-app clean
 
 # -------------------------
 # Help
@@ -32,6 +32,7 @@ help:
 	@echo "Hyperparameter Optimization (Sweeps):"
 	@echo "  make sweep-sft          Run hyperparameter sweep for SFT stage"
 	@echo "  make sweep-dpo          Run hyperparameter sweep for DPO stage"
+	@echo "  make sweep-grpo         Run hyperparameter sweep for GRPO stage"
 	@echo ""
 	@echo "Dev tools:"
 	@echo "  make format             Format code with isort and black"
@@ -124,6 +125,12 @@ sweep-sft:
 sweep-dpo:
 	@echo "Initializing DPO W&B Sweep..."
 	wandb sweep sweeps/dpo.yaml
+	@echo "Copy the sweep ID above and run:"
+	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
+
+sweep-grpo:
+	@echo "Initializing GRPO W&B Sweep..."
+	wandb sweep sweeps/grpo.yaml
 	@echo "Copy the sweep ID above and run:"
 	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
 
