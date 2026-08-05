@@ -116,26 +116,36 @@ else:
             # Fix any literal escaped newlines from the model
             raw_response = raw_response.replace("\\n", "\n")
 
-            import re
             import ast
+            import re
 
             action_match = re.search(r"Action:\s*(.*?)\n", raw_response + "\n")
             reasoning_match = re.search(r"Reasoning:\s*(.*?)\n", raw_response + "\n")
             facets_match = re.search(r"Facets:\s*(.*?)\n", raw_response + "\n")
-            response_match = re.search(r"Response:\s*(.*)", raw_response + "\n", re.DOTALL)
+            response_match = re.search(
+                r"Response:\s*(.*)", raw_response + "\n", re.DOTALL
+            )
 
             action = action_match.group(1).strip() if action_match else "Unknown"
-            reasoning = reasoning_match.group(1).strip() if reasoning_match else "None provided."
+            reasoning = (
+                reasoning_match.group(1).strip()
+                if reasoning_match
+                else "None provided."
+            )
             facets_str = facets_match.group(1).strip() if facets_match else "[]"
-            final_response = response_match.group(1).strip() if response_match else raw_response
+            final_response = (
+                response_match.group(1).strip() if response_match else raw_response
+            )
 
             try:
-                facets = ast.literal_eval(facets_str) if facets_str.startswith("[") else []
+                facets = (
+                    ast.literal_eval(facets_str) if facets_str.startswith("[") else []
+                )
             except:
                 facets = [facets_str] if facets_str else []
 
             st.markdown("### Model Response")
-            
+
             if "Clarify" in action:
                 st.warning("🤔 **Ambiguity Detected! Requesting Clarification:**")
             elif "Answer" in action:
