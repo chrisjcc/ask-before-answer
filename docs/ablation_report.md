@@ -7,10 +7,15 @@ This report was automatically generated from Weights & Biases metrics.
 | Run ID   | Name          | Group         | Hypothesis   | Sweep ID   |   Learning Rate |   Batch Size |   Eval Loss | URL                                                    |
 |:---------|:--------------|:--------------|:-------------|:-----------|----------------:|-------------:|------------:|:-------------------------------------------------------|
 | amq3lj42 | sft_training  | sft_baseline  | N/A          | N/A        |           2e-05 |            1 |    0.223156 | https://wandb.ai/rl4aa/ask-before-answer/runs/amq3lj42 |
+| 0gvwnfbh | sft_training  | sft_baseline  | N/A          | N/A        |           2e-05 |            1 |    0.223158 | https://wandb.ai/rl4aa/ask-before-answer/runs/0gvwnfbh |
 | 2om8x500 | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.344238 | https://wandb.ai/rl4aa/ask-before-answer/runs/2om8x500 |
+| k2wiy1vj | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.346359 | https://wandb.ai/rl4aa/ask-before-answer/runs/k2wiy1vj |
 | 5c1r1rmw | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.662823 | https://wandb.ai/rl4aa/ask-before-answer/runs/5c1r1rmw |
+| 0j5k4zvb | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.676405 | https://wandb.ai/rl4aa/ask-before-answer/runs/0j5k4zvb |
+| flatws8l | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.688865 | https://wandb.ai/rl4aa/ask-before-answer/runs/flatws8l |
 | xazqzfa1 | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.692516 | https://wandb.ai/rl4aa/ask-before-answer/runs/xazqzfa1 |
 | tooh9928 | orpo_training | orpo_baseline | N/A          | N/A        |           5e-06 |            1 |    1.36939  | https://wandb.ai/rl4aa/ask-before-answer/runs/tooh9928 |
+| 9h1ht20g | orpo_training | orpo_baseline | N/A          | N/A        |           5e-06 |            1 |    1.37373  | https://wandb.ai/rl4aa/ask-before-answer/runs/9h1ht20g |
 
 ## Learning Curves
 
