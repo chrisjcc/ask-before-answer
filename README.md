@@ -236,6 +236,7 @@ Launch a local Hugging Face Spaces-compatible Streamlit UI:
 ```bash
 make run-app
 ```
+*(Note: When loading the default `AskBeforeAnswer (SFT+DPO)` adapter in the UI, the pipeline is hardcoded to automatically pull `unsloth/qwen2.5-7b-instruct` as the underlying base model for memory efficiency and PEFT compatibility).*
 
 ### Docker Deployment
 You can easily pull the pre-compiled, multi-architecture Docker image directly from the GitHub Container Registry (GHCR) and run it locally. 
