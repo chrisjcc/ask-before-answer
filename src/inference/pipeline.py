@@ -58,24 +58,21 @@ class ClarifyOrActPipeline:
             if torch.cuda.is_available():
                 base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
                 d_map = "auto"
-                compute_dtype = torch.bfloat16
             else:
                 base_model_id = "unsloth/qwen2.5-7b-instruct"
                 d_map = "cpu"
-                compute_dtype = torch.float32  # CPU requires float32 to prevent numerical gibberish
                 logger.warning(
                     "No GPU detected! Loading full 7B base model on CPU. "
                     "This will be very slow and may exceed memory limits."
                 )
 
             base_model = AutoModelForCausalLM.from_pretrained(
-                base_model_id, torch_dtype=compute_dtype, device_map=d_map
+                base_model_id, torch_dtype=torch.bfloat16, device_map=d_map
             )
             self.model = PeftModel.from_pretrained(base_model, model_path)
         else:
-            compute_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_path, torch_dtype=compute_dtype, device_map="auto"
+                model_path, torch_dtype=torch.bfloat16, device_map="auto"
             )
 
         self.model.eval()
