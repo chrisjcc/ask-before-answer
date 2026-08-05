@@ -14,6 +14,16 @@ Our codebase does *not* wait until the very end to manually plot things. Instead
 
 ---
 
+## Advanced Interactive W&B Charts
+While our `generate_report.py` script pulls down raw historical metrics to embed a standard Validation Curve locally, the true power of W&B lies in its **Web Dashboard**. W&B automatically builds and updates advanced interactive charts live on the web dashboard the moment your sweep trials start completing!
+
+You can find the following interactive visualizations exclusively on the W&B Web UI for your sweep:
+- **Parallel Coordinates Chart:** It instantly draws this to help you visually trace how combinations of variables (e.g., high Learning Rate + low Batch Size) flow toward the final Eval Loss.
+- **Hyperparameter Importance Matrix:** Under the hood, W&B actually trains a lightweight Random Forest model on your sweep results in real-time! It uses this to calculate "Feature Importance," outputting a matrix that explicitly tells you (for example) "Beta was 85% responsible for the changes in your F1 score, while Batch Size was only 15% responsible."
+- **Standard Validation Curves:** It plots the interactive scatter plots for Performance vs. Hyperparameters, allowing you to hover over individual dots to inspect the specific run.
+
+---
+
 ## Supported Sweep Strategies
 
 The repository supports Bayesian hyperparameter sweeps for all three major training stages. 
