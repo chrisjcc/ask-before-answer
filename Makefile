@@ -155,7 +155,9 @@ test:
 # -------------------------
 deploy-hf:
 	@echo "Deploying datasets and final model to Hugging Face Hub..."
-	python scripts/push_to_hub.py
+	@RELEASE_TAG=$$(git describe --tags --abbrev=0) && \
+	echo "Detected latest release tag: $$RELEASE_TAG" && \
+	python scripts/push_to_hub.py deployment.release_tag="$$RELEASE_TAG"
 
 docker-build:
 	docker build -t askbeforeanswer-app .
