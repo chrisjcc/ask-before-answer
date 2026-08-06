@@ -177,4 +177,3 @@ clean-cache:
 	@echo "Pruning DVC Cache to free up disk space..."
 	@echo "WARNING: This will permanently delete the weights of old sweep trials!"
 	dvc gc -w -f
-	dvc exp gc -f
