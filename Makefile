@@ -52,6 +52,7 @@ help:
 	@echo "Cleanup:"
 	@echo "  make clean              Remove all outputs, models, and W&B cache"
 	@echo "  make clean-cache        Prune old DVC cache (deletes historical sweep models to save disk space)"
+	@echo "  make clean-locks        Forcefully remove DVC lock files left behind after crashes or CTRL+C"
 	@echo ""
 
 # -------------------------
@@ -201,3 +202,7 @@ clean-cache:
 	@echo "Pruning DVC Cache to free up disk space..."
 	@echo "WARNING: This will permanently delete the weights of old sweep trials!"
 	dvc gc -w -f
+
+clean-locks:
+	@echo "Forcefully removing leftover DVC locks..."
+	rm -f .dvc/lock .dvc/tmp/lock .dvc/tmp/rwlock
