@@ -1,3 +1,8 @@
+name: sft-bayes-hyperband
+description: >
+  Bayesian hyperparameter sweep for the train_sft pipeline.
+  Searches SFT learning rate while minimizing eval/loss using
+  Hyperband early stopping
 project: ask-before-answer
 program: scripts/run_sweep_trial.py
 command:
