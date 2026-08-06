@@ -30,6 +30,10 @@ def generate_report():
     run_histories = {}
 
     for run in runs:
+        # Ignore sweep runs to keep the ablation report clean
+        if run.sweep:
+            continue
+
         # Only process completed runs that logged eval/loss
         if run.state != "finished" or "eval/loss" not in run.summary:
             continue
