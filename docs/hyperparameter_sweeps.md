@@ -6,11 +6,21 @@ Because algorithms like DPO and GRPO are notoriously sensitive to hyperparameter
 
 This repository fully automates this process using **Weights & Biases (W&B) Sweeps** paired with **Data Version Control (DVC)**.
 
-## How it works mechanically
-Our codebase does *not* wait until the very end to manually plot things. Instead:
-1. When you run a sweep command (e.g., `make sweep-dpo`), it launches a W&B Agent that executes `scripts/run_sweep_trial.py`.
-2. That script injects specific hyperparameters (like $\beta=0.1$) into your YAML configs and runs a full DVC training trial, streaming the evaluation loss and metrics live to the W&B servers.
-3. Later, when you run `make ablation-suite`, our script `scripts/generate_report.py` queries the W&B API, pulls down the exact raw metrics for every single trial, plots the **Validation Curves** locally using `seaborn`, and injects them directly into `docs/ablation_report.md`.
+## How it works mechanically: The Two-Step Architecture
+
+Our codebase completely isolates the hyperparameter sweep trials from your final baseline model evaluations. 
+
+### Step 1: The Sweep Report
+1. When you run a sweep command (e.g., `make sweep-dpo COUNT=10`), it launches a W&B Agent that executes `scripts/run_sweep_trial.py`.
+2. That script injects specific hyperparameters into your YAML configs and runs a full DVC training trial, streaming metrics live to the W&B servers.
+3. Once the trials complete, the Makefile automatically triggers `scripts/generate_sweep_report.py`. This script pulls the raw metrics from the cloud, groups them by Sweep ID, plots the Validation Curves, and statelessly regenerates the `docs/sweep_report.md` leaderboard.
+
+### Step 2: Human-in-the-Loop Promotion
+Crucially, **no automated script picks the top model from the sweep trials and promotes it.** The filtering mechanism relies entirely on a human-in-the-loop workflow using DVC and the W&B API:
+1. **Review:** You review the `docs/sweep_report.md` leaderboard and identify the absolute best trial (e.g., Run ID `5cxs95q7`).
+2. **Apply:** You tell DVC to restore that winning model to your active workspace by running `dvc exp apply sweep_5cxs95q7`. This permanently locks the winning hyperparameters into your local YAML config.
+3. **Train the Final Baseline:** You run `make ablation-suite` (which executes standard `dvc repro`). This runs the training script *manually*, outside of the W&B sweep agent.
+4. **Isolate the Ablation Report:** Because the manual run was not executed by the agent, W&B does *not* tag it with the `.sweep` metadata property. When `scripts/generate_report.py` generates the final `docs/ablation_report.md`, it loops through the cloud and instantly skips any run that possesses a `.sweep` tag. It only allows manual runs to pass through, ensuring your ablation report contains only your clean, final baseline rows (Base vs SFT vs DPO vs GRPO) rather than being cluttered by dozens of sweep trials!
 
 ---
 
