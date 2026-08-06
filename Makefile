@@ -135,6 +135,8 @@ sweep-sft:
 	fi; \
 	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
 	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
+	@echo "Sweep complete! Generating sweep report..."
+	python scripts/generate_sweep_report.py
 
 sweep-dpo:
 	@echo "Initializing DPO W&B Sweep and launching agent..."
@@ -147,6 +149,8 @@ sweep-dpo:
 	fi; \
 	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
 	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
+	@echo "Sweep complete! Generating sweep report..."
+	python scripts/generate_sweep_report.py
 
 sweep-grpo:
 	@echo "Initializing GRPO W&B Sweep and launching agent..."
@@ -159,6 +163,8 @@ sweep-grpo:
 	fi; \
 	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
 	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
+	@echo "Sweep complete! Generating sweep report..."
+	python scripts/generate_sweep_report.py
 
 # -------------------------
 # Dev tools

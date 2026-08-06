@@ -30,6 +30,10 @@ def generate_report():
     run_histories = {}
 
     for run in runs:
+        # Ignore sweep runs to keep the ablation report clean
+        if run.sweep:
+            continue
+
         # Only process completed runs that logged eval/loss
         if run.state != "finished" or "eval/loss" not in run.summary:
             continue
@@ -91,6 +95,31 @@ def generate_report():
     plt.savefig(plot_path)
     plt.close()
 
+    # Plot 1.5: Eval Loss Comparison
+    plt.figure(figsize=(10, 6))
+    for name, hist in run_histories.items():
+        if "eval/loss" in hist.columns:
+            # Drop NaN values for eval/loss
+            valid_hist = hist.dropna(subset=["eval/loss"])
+            if not valid_hist.empty:
+                # Use a rolling average to smooth the eval loss curve
+                valid_hist = valid_hist.sort_values("_step")
+                sns.lineplot(
+                    x=valid_hist["_step"],
+                    y=valid_hist["eval/loss"].rolling(10, min_periods=1).mean(),
+                    label=name,
+                )
+
+    plt.title("Eval Loss vs Steps (Smoothed)")
+    plt.xlabel("Training Steps")
+    plt.ylabel("Eval Loss")
+    if plt.gca().get_legend_handles_labels()[0]:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.tight_layout()
+    eval_plot_path = "docs/plots/eval_loss_comparison.png"
+    plt.savefig(eval_plot_path)
+    plt.close()
+
     # Plot 2: Validation Curve (Learning Rate vs Eval Loss)
     valid_runs = df_summary[df_summary["Learning Rate"] != "N/A"].copy()
     if not valid_runs.empty:
@@ -131,6 +160,8 @@ def generate_report():
             "## Learning Curves",
             "",
             "![Training Loss](plots/train_loss_comparison.png)",
+            "",
+            "![Eval Loss](plots/eval_loss_comparison.png)",
             "",
         ]
     )
