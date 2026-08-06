@@ -241,7 +241,7 @@ assuming an intent, the model:
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-base_model_name = "Qwen/Qwen2.5-7B-Instruct"
+base_model_name = "unsloth/Qwen2.5-7B-Instruct"
 adapter_model_name = "{model_repo}"
 
 # Load Base
