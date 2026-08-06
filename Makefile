@@ -45,6 +45,7 @@ help:
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean              Remove all outputs, models, and W&B cache"
+	@echo "  make clean-cache        Prune old DVC cache (deletes historical sweep models to save disk space)"
 	@echo ""
 
 # -------------------------
@@ -171,3 +172,9 @@ run-app:
 
 clean:
 	rm -rf models/* outputs/* results/* wandb/
+
+clean-cache:
+	@echo "Pruning DVC Cache to free up disk space..."
+	@echo "WARNING: This will permanently delete the weights of old sweep trials!"
+	dvc gc -w -f
+	dvc exp gc -f
