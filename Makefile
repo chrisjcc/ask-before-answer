@@ -1,4 +1,10 @@
-.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only ablation-suite evaluate infer sweep-sft sweep-dpo sweep-grpo format lint test docker-build run-app clean
+-include .env
+export
+
+# Default sweep agent trial count
+COUNT ?= 10
+
+.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only train-orpo train-grpo train-grpo-dpo ablation-suite evaluate infer sweep-sft sweep-dpo sweep-grpo format lint test docker-build run-app clean
 
 # -------------------------
 # Help
@@ -118,22 +124,40 @@ infer:
 # Hyperparameter Optimization (Sweeps)
 # -------------------------
 sweep-sft:
-	@echo "Initializing SFT W&B Sweep..."
-	wandb sweep sweeps/sft.yaml
-	@echo "Copy the sweep ID above and run:"
-	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
+	@echo "Initializing SFT W&B Sweep and launching agent..."
+	@OUTPUT=$$(wandb sweep sweeps/sft.yaml 2>&1); \
+	echo "$$OUTPUT"; \
+	SWEEP_ID=$$(echo "$$OUTPUT" | grep -oE "ID: [a-zA-Z0-9]+" | awk '{print $$2}' | tail -1); \
+	if [ -z "$$SWEEP_ID" ]; then \
+		echo "Failed to extract Sweep ID from wandb output."; \
+		exit 1; \
+	fi; \
+	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
+	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
 
 sweep-dpo:
-	@echo "Initializing DPO W&B Sweep..."
-	wandb sweep sweeps/dpo.yaml
-	@echo "Copy the sweep ID above and run:"
-	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
+	@echo "Initializing DPO W&B Sweep and launching agent..."
+	@OUTPUT=$$(wandb sweep sweeps/dpo.yaml 2>&1); \
+	echo "$$OUTPUT"; \
+	SWEEP_ID=$$(echo "$$OUTPUT" | grep -oE "ID: [a-zA-Z0-9]+" | awk '{print $$2}' | tail -1); \
+	if [ -z "$$SWEEP_ID" ]; then \
+		echo "Failed to extract Sweep ID from wandb output."; \
+		exit 1; \
+	fi; \
+	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
+	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
 
 sweep-grpo:
-	@echo "Initializing GRPO W&B Sweep..."
-	wandb sweep sweeps/grpo.yaml
-	@echo "Copy the sweep ID above and run:"
-	@echo "  wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10"
+	@echo "Initializing GRPO W&B Sweep and launching agent..."
+	@OUTPUT=$$(wandb sweep sweeps/grpo.yaml 2>&1); \
+	echo "$$OUTPUT"; \
+	SWEEP_ID=$$(echo "$$OUTPUT" | grep -oE "ID: [a-zA-Z0-9]+" | awk '{print $$2}' | tail -1); \
+	if [ -z "$$SWEEP_ID" ]; then \
+		echo "Failed to extract Sweep ID from wandb output."; \
+		exit 1; \
+	fi; \
+	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
+	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
 
 # -------------------------
 # Dev tools
