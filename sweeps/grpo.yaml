@@ -1,3 +1,8 @@
+name: grpo-bayes-hyperband
+description: >
+  Bayesian hyperparameter sweep for the train_grpo pipeline.
+  Searches GRPO beta and learning rate while maximizing eval/reward/accuracy using
+  Hyperband early stopping
 project: ask-before-answer
 program: scripts/run_sweep_trial.py
 command:
