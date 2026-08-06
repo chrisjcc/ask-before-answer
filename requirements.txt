@@ -44,3 +44,4 @@ black>=24.1.0
 isort>=5.13.0
 ruff>=0.1.14
 dvc>=3.0.0
+dvc-gdrive>=3.0.0
