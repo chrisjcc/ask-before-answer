@@ -158,7 +158,8 @@ def main(cfg: DictConfig) -> None:
 
         # Pre-compute all predictions via vLLM batching
         logger.info(
-            f"Pre-computing vLLM offline batch for {len(weave_dataset_rows)} questions..."
+            "Pre-computing vLLM offline batch "
+            f"for {len(weave_dataset_rows)} questions..."
         )
         pipeline = ClarifyOrActPipeline(model_path, is_peft)
         all_questions = [row["question"] for row in weave_dataset_rows]
@@ -251,7 +252,8 @@ def main(cfg: DictConfig) -> None:
             logger.warning(f"Could not register model to W&B Registry: {e}")
 
         # Cleanup model from GPU memory to make room for the next one
-        # Not needed anymore because vLLM manages its own VRAM and dynamically swaps LoRA!
+        # Not needed anymore because vLLM manages its own VRAM
+        # and dynamically swaps LoRA!
         pass
 
     # Save summary results to JSON for the report generator
