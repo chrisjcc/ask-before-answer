@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 _VLLM_OFFLINE_CACHE = {}
 
+
 class ClarifyOrActModel(weave.Model):
     """Weave Model wrapper for the ClarifyOrActPipeline.
 
@@ -157,11 +158,13 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"Evaluating model: {model_name} from {model_path}")
 
         # Pre-compute all predictions via vLLM batching
-        logger.info(f"Pre-computing vLLM offline batch for {len(weave_dataset_rows)} questions...")
+        logger.info(
+            f"Pre-computing vLLM offline batch for {len(weave_dataset_rows)} questions..."
+        )
         pipeline = ClarifyOrActPipeline(model_path, is_peft)
         all_questions = [row["question"] for row in weave_dataset_rows]
         all_answers = pipeline.batch_generate(all_questions)
-        
+
         # Save to global dictionary so the Pydantic model can access it statelessly
         global _VLLM_OFFLINE_CACHE
         _VLLM_OFFLINE_CACHE = dict(zip(all_questions, all_answers))
