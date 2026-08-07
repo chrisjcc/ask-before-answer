@@ -4,8 +4,9 @@ import src.inference.pipeline
 from src.inference.pipeline import ClarifyOrActPipeline
 
 
+@patch("src.inference.pipeline.SamplingParams")
 @patch("src.inference.pipeline.LLM")
-def test_pipeline_initialization(mock_llm):
+def test_pipeline_initialization(mock_llm, mock_sampling_params):
     # Reset the singleton state for the test
     src.inference.pipeline._VLLM_ENGINE = None
 
