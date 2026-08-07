@@ -8,7 +8,6 @@ import asyncio
 import json  # noqa: F401
 import logging
 import os
-import threading
 
 import hydra
 import weave
