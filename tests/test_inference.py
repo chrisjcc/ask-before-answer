@@ -1,12 +1,19 @@
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
+import src.inference.pipeline
 from src.inference.pipeline import ClarifyOrActPipeline
 
 
-@patch("src.inference.pipeline.AutoModelForCausalLM.from_pretrained")
-@patch("src.inference.pipeline.AutoTokenizer.from_pretrained")
-def test_pipeline_initialization(mock_tokenizer, mock_model):
+@patch("src.inference.pipeline.LLM")
+def test_pipeline_initialization(mock_llm):
+    # Reset the singleton state for the test
+    src.inference.pipeline._VLLM_ENGINE = None
+    
+    # Mock the vLLM engine instance
+    mock_engine = MagicMock()
+    mock_llm.return_value = mock_engine
+    
     pipeline = ClarifyOrActPipeline(model_path="dummy/path", is_peft=False)
+    
     assert pipeline is not None
-    mock_model.assert_called_once()
-    mock_tokenizer.assert_called_once()
+    mock_llm.assert_called_once()
