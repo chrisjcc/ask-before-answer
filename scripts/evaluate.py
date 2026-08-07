@@ -158,8 +158,8 @@ def main(cfg: DictConfig) -> None:
 
         # Pre-compute all predictions via vLLM batching
         logger.info(
-            "Pre-computing vLLM offline batch "
-            f"for {len(weave_dataset_rows)} questions..."
+            "Pre-computing vLLM offline batch for "
+            f"{len(weave_dataset_rows)} questions..."
         )
         pipeline = ClarifyOrActPipeline(model_path, is_peft)
         all_questions = [row["question"] for row in weave_dataset_rows]
