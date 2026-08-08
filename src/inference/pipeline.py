@@ -2,93 +2,93 @@
 
 This module provides the core inference class for the ClarifyOrAct architecture,
 routing ambiguous questions to clarification requests and clear questions
-to direct answers.
+to direct answers using vLLM for high-throughput inference.
 """
 
 import logging
 from typing import List, Optional
 
 import torch
-import transformers
-import weave
 
-# =====================================================================
-# EMERGENCY HOTFIX: Patch missing BloomPreTrainedModel for Transformers 4.57+
-# =====================================================================
-
-if not hasattr(transformers, "BloomPreTrainedModel"):
-
-    class MockBloom:
-        pass
-
-    transformers.BloomPreTrainedModel = MockBloom
-
-# =====================================================================
-
-from transformers import AutoModelForCausalLM, AutoTokenizer
+try:
+    from vllm import LLM, SamplingParams
+    from vllm.lora.request import LoRARequest
+except ImportError:
+    LLM, SamplingParams, LoRARequest = None, None, None
 
 logger = logging.getLogger(__name__)
 
+# =====================================================================
+# vLLM Singleton Engine
+# =====================================================================
+_VLLM_ENGINE = None
+
+
+def get_vllm_engine():
+    """Initialize the vLLM engine exactly once to save massive VRAM overhead."""
+    global _VLLM_ENGINE
+    if _VLLM_ENGINE is None:
+        if LLM is None:
+            raise ImportError("vLLM is not installed. Please pip install vllm.")
+
+        base_model_id = "unsloth/Qwen2.5-7B-Instruct"
+        logger.info(f"Initializing vLLM base engine with {base_model_id}...")
+
+        # Load the base model with LoRA support enabled for dynamic swapping
+        _VLLM_ENGINE = LLM(
+            model=base_model_id,
+            enable_lora=True,
+            max_lora_rank=64,
+            trust_remote_code=True,
+            dtype=(
+                "bfloat16"
+                if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+                else "float16"
+            ),
+        )
+    return _VLLM_ENGINE
+
+
+# =====================================================================
+
 
 class ClarifyOrActPipeline:
-    """A dual-routing inference pipeline for ambiguity resolution.
+    """A dual-routing inference pipeline for ambiguity resolution via vLLM.
 
-    This class wraps the trained models (either base or LoRA-adapter) and provides
-    methods to generate clarification-seeking questions or direct answers based on
-    the input question's inherent ambiguity.
+    This class wraps the vLLM engine to dynamically swap LoRA adapters
+    and process massive batches of inference requests concurrently using PagedAttention.
     """
 
     def __init__(self, model_path: str, is_peft: bool = True) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.info(f"Loading inference model from {model_path} on {self.device}...")
+        self.is_peft = is_peft
+        self.model_path = model_path
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_path, trust_remote_code=True
-        )
-        if self.tokenizer.chat_template is None:
+        if self.device == "cpu":
             logger.warning(
-                f"Tokenizer {model_path} missing chat_template. Falling back to Qwen."
-            )
-            base_tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
-            self.tokenizer.chat_template = base_tokenizer.chat_template
-
-        if is_peft:
-            from peft import PeftModel
-
-            if torch.cuda.is_available():
-                base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
-                d_map = "auto"
-            else:
-                base_model_id = "unsloth/qwen2.5-7b-instruct"
-                d_map = "cpu"
-                logger.warning(
-                    "No GPU detected! Loading full 7B base model on CPU. "
-                    "This will be very slow and may exceed memory limits."
-                )
-
-            base_model = AutoModelForCausalLM.from_pretrained(
-                base_model_id, torch_dtype=torch.bfloat16, device_map=d_map
-            )
-            self.model = PeftModel.from_pretrained(base_model, model_path)
-        else:
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_path, torch_dtype=torch.bfloat16, device_map="auto"
+                "vLLM requires a GPU! CPU fallback is not supported. This will crash."
             )
 
-        self.model.eval()
+        logger.info(f"Binding vLLM pipeline to model: {model_path} (is_peft={is_peft})")
 
-    @weave.op()
+        # Ensure the global engine is initialized
+        self.llm = get_vllm_engine()
+
+        # Initialize standard sampling parameters
+        self.sampling_params = SamplingParams(
+            temperature=0.0,
+            max_tokens=300,
+            skip_special_tokens=True,
+        )
+
     def generate(self, question: str, system_prompt: Optional[str] = None) -> str:
-        """Run single-turn inference for clarification seeking.
+        """Run single-turn inference (Not recommended for high throughput)."""
+        return self.batch_generate([question], system_prompt)[0]
 
-        Args:
-            question (str): The user's input query.
-            system_prompt (Optional[str]): A custom system prompt overriding
-               the default.
-
-        Returns:
-            str: The raw generated string from the model.
-        """
+    def batch_generate(
+        self, questions: List[str], system_prompt: Optional[str] = None
+    ) -> List[str]:
+        """Run high-throughput continuous batch inference using vLLM PagedAttention."""
         if system_prompt is None:
             system_prompt = (
                 "You are a helpful assistant. "
@@ -100,33 +100,37 @@ class ClarifyOrActPipeline:
                 "Response: <clarifying question or direct answer>"
             )
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question},
-        ]
+        tokenizer = self.llm.get_tokenizer()
 
-        input_text = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-
-        inputs = self.tokenizer(input_text, return_tensors="pt").to(self.model.device)
-
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=300,
-                do_sample=False,
-                temperature=None,
-                top_p=None,
-                top_k=None,
-                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+        prompts = []
+        for q in questions:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": q},
+            ]
+            prompts.append(
+                tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
             )
 
-        # Decode only the generated response
-        gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]
-        return self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
+        if self.is_peft:
+            # Dynamically attach the LoRA adapter just for this batch!
+            lora_request = LoRARequest(
+                lora_name="current_adapter",
+                lora_int_id=1,
+                lora_local_path=self.model_path,
+            )
+            outputs = self.llm.generate(
+                prompts,
+                sampling_params=self.sampling_params,
+                lora_request=lora_request,
+                use_tqdm=False,
+            )
+        else:
+            # Raw base model generation
+            outputs = self.llm.generate(
+                prompts, sampling_params=self.sampling_params, use_tqdm=False
+            )
 
-    @weave.op()
-    def batch_generate(self, questions: List[str]) -> List[str]:
-        """Run batch inference."""
-        return [self.generate(q) for q in questions]
+        return [output.outputs[0].text.strip() for output in outputs]

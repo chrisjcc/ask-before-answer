@@ -8,7 +8,6 @@ import asyncio
 import json  # noqa: F401
 import logging
 import os
-import threading
 
 import hydra
 import weave
@@ -22,48 +21,21 @@ from src.inference.pipeline import ClarifyOrActPipeline
 
 load_dotenv()
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["WEAVE_PARALLELISM"] = "1"
+os.environ["WEAVE_PARALLELISM"] = "50"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-_PIPELINE_CACHE = {}
-_PIPELINE_LOCK = threading.Lock()
-_INFERENCE_LOCK = threading.Lock()
-
-
-def get_cached_pipeline(model_path: str, is_peft: bool) -> ClarifyOrActPipeline:
-    """Retrieve or instantiate a cached inference pipeline.
-
-    Args:
-        model_path (str): Path to the model weights.
-        is_peft (bool): Whether the model is a LoRA adapter.
-
-    Returns:
-        ClarifyOrActPipeline: The loaded inference pipeline.
-    """
-    with _PIPELINE_LOCK:
-        if model_path not in _PIPELINE_CACHE:
-            # Clear old models to free VRAM
-            _PIPELINE_CACHE.clear()
-            import gc
-
-            import torch
-
-            gc.collect()
-            torch.cuda.empty_cache()
-
-            _PIPELINE_CACHE[model_path] = ClarifyOrActPipeline(model_path, is_peft)
-        return _PIPELINE_CACHE[model_path]
+_VLLM_OFFLINE_CACHE = {}
 
 
 class ClarifyOrActModel(weave.Model):
     """Weave Model wrapper for the ClarifyOrActPipeline.
 
     This class integrates the inference pipeline directly into the Weave
-    evaluation ecosystem, allowing the `weave.Evaluation` class to automatically
-    generate predictions for every sample in the dataset.
+    evaluation ecosystem. By using the _VLLM_OFFLINE_CACHE, we bypass
+    sequential generation entirely and just look up the pre-computed answers.
     """
 
     model_name: str
@@ -72,9 +44,8 @@ class ClarifyOrActModel(weave.Model):
 
     @weave.op()
     def predict(self, question: str) -> str:
-        pipeline = get_cached_pipeline(self.model_path, self.is_peft)
-        with _INFERENCE_LOCK:
-            return pipeline.generate(question)
+        # Instantly return the pre-computed vLLM answer!
+        return _VLLM_OFFLINE_CACHE.get(question, "")
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
@@ -185,6 +156,19 @@ def main(cfg: DictConfig) -> None:
 
         logger.info(f"Evaluating model: {model_name} from {model_path}")
 
+        # Pre-compute all predictions via vLLM batching
+        logger.info(
+            "Pre-computing vLLM offline batch for "
+            f"{len(weave_dataset_rows)} questions..."
+        )
+        pipeline = ClarifyOrActPipeline(model_path, is_peft)
+        all_questions = [row["question"] for row in weave_dataset_rows]
+        all_answers = pipeline.batch_generate(all_questions)
+
+        # Save to global dictionary so the Pydantic model can access it statelessly
+        global _VLLM_OFFLINE_CACHE
+        _VLLM_OFFLINE_CACHE = dict(zip(all_questions, all_answers))
+
         # Instantiate Weave Model
         model = ClarifyOrActModel(
             model_name=model_name, model_path=model_path, is_peft=is_peft
@@ -268,14 +252,9 @@ def main(cfg: DictConfig) -> None:
             logger.warning(f"Could not register model to W&B Registry: {e}")
 
         # Cleanup model from GPU memory to make room for the next one
-        if hasattr(model, "_pipeline"):
-            del model._pipeline
-        import torch
-
-        torch.cuda.empty_cache()
-        import gc
-
-        gc.collect()
+        # Not needed anymore because vLLM manages its own VRAM
+        # and dynamically swaps LoRA!
+        pass
 
     # Save summary results to JSON for the report generator
     os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)

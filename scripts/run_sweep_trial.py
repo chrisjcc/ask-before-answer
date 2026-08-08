@@ -6,6 +6,8 @@ import subprocess
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
 
+import wandb
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,11 @@ CONFIG_MAP = {
 def main():
     # 1. Load environment variables (e.g., WANDB_API_KEY from .env)
     load_dotenv()
+
+    # 1.1 Start wandb early to prevent timeout crashes while DVC preprocesses
+    run_id = os.environ.get("WANDB_RUN_ID")
+    if run_id:
+        wandb.init(id=run_id, resume="allow")
 
     # 2. Parse arguments to determine the stage
     parser = argparse.ArgumentParser()
@@ -64,16 +71,38 @@ def main():
     OmegaConf.save(hydra_cfg, cfg_path)
     logger.info(f"Updated {cfg_path} with new hyperparameters: {sweep_params}")
 
-    # 5. Trigger DVC to track and execute the run for the specific stage
     # Grab the run ID dynamically injected by the W&B agent environment
     run_id = os.environ.get("WANDB_RUN_ID", "local")
     logger.info(
         f"Triggering DVC Experiment for Sweep Run: {run_id} targeting stage: {stage}"
     )
-    cmd = ["dvc", "exp", "run", stage, "-n", f"sweep_{run_id}"]
+
+    # 5.1 Force clean any stale DVC locks left behind by W&B early-stopping kills
+    dvc_lock_file = ".dvc/tmp/rwlock"
+    if os.path.exists(dvc_lock_file):
+        logger.warning(
+            f"Found stale DVC lock at {dvc_lock_file}. Removing it to prevent deadlock."
+        )
+        try:
+            os.remove(dvc_lock_file)
+        except OSError:
+            pass
+
+    # Note the '-f' flag to forcefully overwrite the experiment name
+    # if W&B replays a run ID
+    cmd = ["dvc", "exp", "run", stage, "-n", f"sweep_{run_id}", "-f"]
 
     # We use subprocess.run to execute the DVC CLI command
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    except Exception as e:
+        logger.error(f"DVC Experiment failed: {e}")
+        if os.path.exists(dvc_lock_file):
+            try:
+                os.remove(dvc_lock_file)
+            except OSError:
+                pass
+        raise
 
 
 if __name__ == "__main__":
