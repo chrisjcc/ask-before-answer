@@ -3,10 +3,9 @@ import logging
 import os
 import subprocess
 
+import wandb
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
-
-import wandb
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
