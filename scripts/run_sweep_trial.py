@@ -73,13 +73,16 @@ def main():
     # 5.1 Force clean any stale DVC locks left behind by W&B early-stopping kills
     dvc_lock_file = ".dvc/tmp/rwlock"
     if os.path.exists(dvc_lock_file):
-        logger.warning(f"Found stale DVC lock at {dvc_lock_file}. Removing it to prevent deadlock.")
+        logger.warning(
+            f"Found stale DVC lock at {dvc_lock_file}. Removing it to prevent deadlock."
+        )
         try:
             os.remove(dvc_lock_file)
         except OSError:
             pass
 
-    # Note the '-f' flag to forcefully overwrite the experiment name if W&B replays a run ID
+    # Note the '-f' flag to forcefully overwrite the experiment name
+    # if W&B replays a run ID
     cmd = ["dvc", "exp", "run", stage, "-n", f"sweep_{run_id}", "-f"]
 
     # We use subprocess.run to execute the DVC CLI command
