@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 
+import wandb
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
 
@@ -20,6 +21,11 @@ CONFIG_MAP = {
 def main():
     # 1. Load environment variables (e.g., WANDB_API_KEY from .env)
     load_dotenv()
+    
+    # 1.1 Start wandb early to prevent timeout crashes while DVC preprocesses
+    run_id = os.environ.get("WANDB_RUN_ID")
+    if run_id:
+        wandb.init(id=run_id, resume="allow")
 
     # 2. Parse arguments to determine the stage
     parser = argparse.ArgumentParser()
