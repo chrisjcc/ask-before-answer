@@ -5,7 +5,6 @@ import subprocess
 
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
-
 import wandb
 
 logging.basicConfig(level=logging.INFO)
