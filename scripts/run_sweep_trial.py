@@ -3,9 +3,10 @@ import logging
 import os
 import subprocess
 
-import wandb
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
+
+import wandb
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ CONFIG_MAP = {
 def main():
     # 1. Load environment variables (e.g., WANDB_API_KEY from .env)
     load_dotenv()
-    
+
     # 1.1 Start wandb early to prevent timeout crashes while DVC preprocesses
     run_id = os.environ.get("WANDB_RUN_ID")
     if run_id:
