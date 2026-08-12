@@ -25,6 +25,8 @@ stages:
       - data/sft_val.jsonl
       - configs/training/sft.yaml
       - configs/model/qwen2_5_7b.yaml
+    params:
+      - sft.learning_rate
     outs:
       - models/sft/final:
           persist: false
