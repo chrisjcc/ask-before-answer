@@ -1,0 +1,20 @@
+# DVC experiment parameters.
+#
+# These values define the baseline/default parameter state for each
+# training algorithm. W&B sweeps will override these values on a
+# per-experiment basis without modifying configs/training/*.yaml.
+
+sft:
+  learning_rate: 2e-5
+
+dpo:
+  learning_rate: 5e-7
+  beta: 0.1
+
+grpo:
+  learning_rate: 5e-6
+  beta: 0.1
+
+orpo:
+  learning_rate: 5e-6
+  beta: 0.1
