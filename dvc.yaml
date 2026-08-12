@@ -26,7 +26,7 @@ stages:
       - configs/training/sft.yaml
       - configs/model/qwen2_5_7b.yaml
     params:
-      - sft.learning_rate
+      - training.sft.learning_rate
     outs:
       - models/sft/final:
           persist: false
@@ -46,6 +46,9 @@ stages:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
       - configs/training/dpo.yaml
+    params:
+      - training.dpo.learning_rate
+      - training.dpo.beta
     outs:
       - models/dpo/final:
           persist: false
@@ -110,6 +113,9 @@ stages:
       - data/dpo_val.jsonl
       - configs/training/orpo.yaml
       - configs/model/qwen2_5_7b.yaml
+    params:
+      - training.orpo.learning_rate
+      - training.orpo.beta
     outs:
       - models/orpo/final
 
@@ -117,6 +123,7 @@ stages:
     cmd: python scripts/evaluate.py model_name=orpo
     deps:
       - models/orpo/final
+      - configs/training/orpo.yaml
     metrics:
       - results/orpo_metrics.json:
           cache: false
@@ -131,6 +138,9 @@ stages:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
       - configs/training/grpo.yaml
+    params:
+      - training.grpo.learning_rate
+      - training.grpo.beta
     outs:
       - models/grpo/final:
           persist: false
@@ -142,6 +152,3 @@ stages:
     metrics:
       - results/grpo_metrics.json:
           cache: false
-
-
-
