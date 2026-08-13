@@ -19,7 +19,10 @@ stages:
   # FULL PIPELINE (SFT → DPO)
   # ----------------------------
   train_sft:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_sft.py
+      training.learning_rate=${training.sft.learning_rate}
     deps:
       - data/sft_train.jsonl
       - data/sft_val.jsonl
@@ -40,7 +43,13 @@ stages:
           cache: false
 
   train_dpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo model.name=models/sft/final
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_dpo.py
+      training=dpo
+      model.name=models/sft/final
+      training.learning_rate=${training.dpo.learning_rate}
+      training.beta=${training.dpo.beta}
     deps:
       - models/sft/final
       - data/dpo_train.jsonl
@@ -86,7 +95,11 @@ stages:
   # ABLATION: DPO ONLY
   # ----------------------------
   train_dpo_only:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo training.output_dir=models/dpo_only
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_dpo.py
+      training=dpo
+      training.output_dir=models/dpo_only
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
@@ -107,7 +120,12 @@ stages:
   # ABLATION: ORPO ONLY
   # ----------------------------
   train_orpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_orpo.py training=orpo
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_orpo.py
+      training=orpo
+      training.learning_rate=${training.orpo.learning_rate}
+      training.beta=${training.orpo.beta}
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
@@ -132,7 +150,13 @@ stages:
   # ABLATION: GRPO ONLY
   # ----------------------------
   train_grpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_grpo.py training=grpo model.name=models/sft/final
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_grpo.py
+      training=grpo
+      model.name=models/sft/final
+      training.learning_rate=${training.grpo.learning_rate}
+      training.beta=${training.grpo.beta}
     deps:
       - models/sft/final
       - data/dpo_train.jsonl
