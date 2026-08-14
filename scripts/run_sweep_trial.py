@@ -10,50 +10,98 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Map each DVC stage to the corresponding parameter namespace in params.yaml.
+# DVC parameter namespace corresponding to each training stage.
 PARAM_MAP = {
-    "train_sft": {
-        "learning_rate": "training.sft.learning_rate",
-    },
-    "train_dpo": {
-        "learning_rate": "training.dpo.learning_rate",
-        "beta": "training.dpo.beta",
-    },
-    "train_sft_only": {
-        "learning_rate": "training.sft.learning_rate",
-    },
-    "train_dpo_only": {
-        "learning_rate": "training.dpo.learning_rate",
-        "beta": "training.dpo.beta",
-    },
-    "train_orpo": {
-        "learning_rate": "training.orpo.learning_rate",
-        "beta": "training.orpo.beta",
-    },
-    "train_grpo": {
-        "learning_rate": "training.grpo.learning_rate",
-        "beta": "training.grpo.beta",
-    },
+    "train_sft": "training.sft",
+    "train_dpo": "training.dpo",
+    "train_sft_only": "training.sft",
+    "train_dpo_only": "training.dpo",
+    "train_orpo": "training.orpo",
+    "train_grpo": "training.grpo",
 }
 
 
-def parse_sweep_params(unknown_args):
-    """Extract W&B sweep parameters from CLI arguments.
+def main():
+    # 1. Load environment variables, including WANDB_API_KEY.
+    load_dotenv()
 
-    W&B passes sweep parameters in the form:
+    # 1.1 Initialize W&B immediately.
+    #
+    # This is intentional. DVC may spend hours in preprocessing before
+    # train_sft.py/train_dpo.py/etc. starts, so we establish the W&B
+    # run immediately to prevent the sweep from being considered crashed.
+    run_id = os.environ.get("WANDB_RUN_ID")
 
-        --learning_rate=0.0001
-        --beta=0.1
-    """
+    if not run_id:
+        raise RuntimeError(
+            "WANDB_RUN_ID is not set. "
+            "This script is intended to be launched by a W&B sweep agent."
+        )
+
+    print("=== BEFORE TRAINING ===")
+    print(f"WANDB_RUN_ID={os.environ.get('WANDB_RUN_ID')}")
+
+    run =  wandb.init(id=run_id, resume="allow")
+
+    print(f"W&B active run ID={run.id}")
+    print("=======================")
+
+    # 2. Parse arguments.
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--stage",
+        type=str,
+        default="train_sft",
+        help="DVC stage to sweep",
+    )
+
+    # W&B supplies sweep parameters as additional CLI arguments.
+    args, unknown = parser.parse_known_args()
+
+    stage = args.stage
+
+    if stage not in PARAM_MAP:
+        raise ValueError(
+            f"Unknown stage: {stage}. "
+            f"Must be one of {list(PARAM_MAP.keys())}"
+        )
+
+    # 3. Log the relevant W&B environment.
+    #
+    # Do NOT print WANDB_API_KEY.
+    logger.info("========== W&B ENVIRONMENT ==========")
+
+    for key in [
+        "WANDB_RUN_ID",
+        "WANDB_SWEEP_ID",
+        "WANDB_ENTITY",
+        "WANDB_PROJECT",
+        "WANDB_DIR",
+    ]:
+        logger.info(
+            "ENV %s=%s",
+            key,
+            os.environ.get(key),
+        )
+
+    logger.info("====================================")
+
+    # 4. Parse W&B sweep parameters.
+    #
+    # Example:
+    #   --learning_rate=7.632829697182058e-05
+    #
+    # becomes:
+    #   {"learning_rate": 7.632829697182058e-05}
     sweep_params = {}
 
-    for arg in unknown_args:
+    for arg in unknown:
         if not arg.startswith("--") or "=" not in arg:
             continue
 
         key, value = arg.lstrip("-").split("=", 1)
 
-        # Convert numeric values to int/float where appropriate.
         try:
             if "." in value or "e" in value.lower():
                 value = float(value)
@@ -64,172 +112,103 @@ def parse_sweep_params(unknown_args):
 
         sweep_params[key] = value
 
-    return sweep_params
-
-
-def main():
-    load_dotenv()
-
-    # ---------------------------------------------------------
-    # 1. Parse arguments
-    # ---------------------------------------------------------
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--stage",
-        type=str,
-        default="train_sft",
-        help="DVC training stage to sweep",
-    )
-
-    args, unknown = parser.parse_known_args()
-
-    stage = args.stage
-
-    if stage not in PARAM_MAP:
-        raise ValueError(
-            f"Unknown stage: {stage}. "
-            f"Supported stages: {list(PARAM_MAP.keys())}"
-        )
-
-    # ---------------------------------------------------------
-    # 2. Extract W&B sweep parameters
-    # ---------------------------------------------------------
-    sweep_params = parse_sweep_params(unknown)
-
-    if not sweep_params:
-        raise ValueError(
-            "No W&B sweep parameters were provided. "
-            f"Received unknown arguments: {unknown}"
-        )
-
     logger.info(
         "Received W&B sweep parameters for %s: %s",
         stage,
         sweep_params,
     )
 
-    # ---------------------------------------------------------
-    # 3. Resolve W&B run ID
-    # ---------------------------------------------------------
-    run_id = os.environ.get("WANDB_RUN_ID")
-
-    if not run_id:
+    if not sweep_params:
         raise RuntimeError(
-            "WANDB_RUN_ID is not set. "
-            "This script is intended to be launched by a W&B sweep agent."
+            f"No sweep parameters were received for stage '{stage}'."
         )
 
-    logger.info(
-        "Processing W&B Sweep Run: %s",
-        run_id,
-    )
+    # 5. Construct DVC parameter overrides.
+    #
+    # W&B:
+    #   learning_rate=7.632829697182058e-05
+    #
+    # becomes:
+    #   -S training.sft.learning_rate=7.632829697182058e-05
+    #
+    # DVC then translates that parameter override into the Hydra
+    # command-line override defined in dvc.yaml:
+    #
+    #   training.learning_rate=7.632829697182058e-05
+    #
+    # IMPORTANT:
+    # We do NOT modify configs/training/*.yaml.
+    param_namespace = PARAM_MAP[stage]
 
-    # ---------------------------------------------------------
-    # 4. Initialize/resume W&B run
-    # ---------------------------------------------------------
-    wandb.init(
-        id=run_id,
-        resume="allow",
-    )
+    dvc_param_overrides = []
 
-    # ---------------------------------------------------------
-    # 5. Convert W&B parameters into DVC -S overrides
-    # ---------------------------------------------------------
-    dvc_overrides = []
-
-    stage_param_map = PARAM_MAP[stage]
-
-    for sweep_key, sweep_value in sweep_params.items():
-
-        if sweep_key not in stage_param_map:
-            logger.warning(
-                "Ignoring unsupported sweep parameter '%s' for stage '%s'.",
-                sweep_key,
-                stage,
-            )
-            continue
-
-        dvc_param = stage_param_map[sweep_key]
-
-        override = f"{dvc_param}={sweep_value}"
-
-        dvc_overrides.extend(["-S", override])
-
-        logger.info(
-            "Mapping W&B parameter '%s=%s' -> DVC parameter '%s'",
-            sweep_key,
-            sweep_value,
-            dvc_param,
+    for key, value in sweep_params.items():
+        dvc_param_overrides.extend(
+            [
+                "-S",
+                f"{param_namespace}.{key}={value}",
+            ]
         )
 
-    if not dvc_overrides:
-        raise ValueError(
-            f"No valid sweep parameters were found for stage '{stage}'. "
-            f"Received: {sweep_params}"
-        )
+    # 6. Construct the DVC experiment command.
+    run_name = f"sweep_{run_id}"
 
-    # ---------------------------------------------------------
-    # 6. Construct DVC experiment name
-    # ---------------------------------------------------------
-    experiment_name = f"sweep_{run_id}"
-
-    # ---------------------------------------------------------
-    # 7. Construct DVC command
-    # ---------------------------------------------------------
-    #
-    # Example for SFT:
-    #
-    # dvc exp run train_sft \
-    #     -n sweep_jmmerfsj \
-    #     -f \
-    #     -S training.sft.learning_rate=9.36e-05
-    #
-    # DVC will then apply the parameter override and execute
-    # the stage command with the corresponding Hydra override.
-    #
     cmd = [
         "dvc",
         "exp",
         "run",
         stage,
         "-n",
-        experiment_name,
-        "-f",
-        *dvc_overrides,
+        run_name,
+        *dvc_param_overrides,
     ]
 
+    logger.info("=== W&B ENVIRONMENT BEFORE DVC ===")
+    logger.info("WANDB_RUN_ID=%s", os.environ.get("WANDB_RUN_ID"))
+    logger.info("WANDB_SWEEP_ID=%s", os.environ.get("WANDB_SWEEP_ID"))
+    logger.info("WANDB_PROJECT=%s", os.environ.get("WANDB_PROJECT"))
+    logger.info("WANDB_ENTITY=%s", os.environ.get("WANDB_ENTITY"))
+    logger.info("==================================")
+
+    logger.info("DVC parameter overrides: %s", dvc_param_overrides)
+    logger.info("DVC command: %s", " ".join(cmd))
     logger.info(
-        "Executing DVC experiment:\n%s",
-        " ".join(map(str, cmd)),
+        "Triggering DVC Experiment for Sweep Run: %s targeting stage: %s",
+        run_id,
+        stage,
     )
 
-    # ---------------------------------------------------------
-    # 8. Execute DVC experiment
-    # ---------------------------------------------------------
+    # 7. Handle stale DVC locks.
+    #
+    # This remains from the previous implementation because Hyperband
+    # can terminate a trial while DVC still has its lock.
+    dvc_lock_file = ".dvc/tmp/rwlock"
+
+    if os.path.exists(dvc_lock_file):
+        logger.warning(
+            "Found stale DVC lock at %s. Removing it to prevent deadlock.",
+            dvc_lock_file,
+        )
+
+        try:
+            os.remove(dvc_lock_file)
+        except OSError:
+            pass
+
+    # 8. Execute DVC.
     try:
         subprocess.run(cmd, check=True)
 
-    except subprocess.CalledProcessError as e:
-        logger.error(
-            "DVC experiment failed for W&B run %s: %s",
-            run_id,
-            e,
-        )
-        raise
+    except Exception as e:
+        logger.error("DVC Experiment failed: %s", e)
 
-    except Exception:
-        logger.exception(
-            "Unexpected error while executing DVC experiment "
-            "for W&B run %s.",
-            run_id,
-        )
-        raise
+        if os.path.exists(dvc_lock_file):
+            try:
+                os.remove(dvc_lock_file)
+            except OSError:
+                pass
 
-    finally:
-        # Finish the W&B run cleanly when this script owns the run.
-        if wandb.run is not None:
-            wandb.finish()
+        raise
 
 
 if __name__ == "__main__":
