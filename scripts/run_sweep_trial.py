@@ -3,8 +3,9 @@ import logging
 import os
 import subprocess
 
-import wandb
 from dotenv import load_dotenv
+
+import wandb
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def main():
     print("=== BEFORE TRAINING ===")
     print(f"WANDB_RUN_ID={os.environ.get('WANDB_RUN_ID')}")
 
-    run =  wandb.init(id=run_id, resume="allow")
+    run = wandb.init(id=run_id, resume="allow")
 
     print(f"W&B active run ID={run.id}")
     print("=======================")
@@ -63,8 +64,7 @@ def main():
 
     if stage not in PARAM_MAP:
         raise ValueError(
-            f"Unknown stage: {stage}. "
-            f"Must be one of {list(PARAM_MAP.keys())}"
+            f"Unknown stage: {stage}. Must be one of {list(PARAM_MAP.keys())}"
         )
 
     # 3. Log the relevant W&B environment.
@@ -119,9 +119,7 @@ def main():
     )
 
     if not sweep_params:
-        raise RuntimeError(
-            f"No sweep parameters were received for stage '{stage}'."
-        )
+        raise RuntimeError(f"No sweep parameters were received for stage '{stage}'.")
 
     # 5. Construct DVC parameter overrides.
     #
