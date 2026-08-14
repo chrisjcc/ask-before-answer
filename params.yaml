@@ -6,7 +6,7 @@
 
 training:
   sft:
-    learning_rate: 2e-5
+    learning_rate: 2e-05
 
   dpo:
     learning_rate: 5e-7
