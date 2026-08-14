@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 def main(cfg: DictConfig) -> None:
     logger.info("Starting SFT training pipeline...")
 
+    print("=== W&B ENVIRONMENT IN TRAIN_SFT ===")
+    print(f"WANDB_RUN_ID={os.environ.get('WANDB_RUN_ID')}")
+    print(f"WANDB_SWEEP_ID={os.environ.get('WANDB_SWEEP_ID')}")
+    print(f"WANDB_PROJECT={os.environ.get('WANDB_PROJECT')}")
+    print(f"WANDB_ENTITY={os.environ.get('WANDB_ENTITY')}")
+    print("====================================")
+
     # Explicitly group experiments for W&B
     if os.environ.get("WANDB_SWEEP_ID"):
         os.environ["WANDB_RUN_GROUP"] = "sft_sweeps"

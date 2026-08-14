@@ -4,7 +4,7 @@ export
 # Default sweep agent trial count
 COUNT ?= 10
 
-.PHONY: help install install-dvc run-pipeline train train-sft train-dpo train-sft-only train-dpo-only train-orpo train-grpo train-grpo-dpo ablation-suite evaluate infer sweep-sft sweep-dpo sweep-grpo format lint test docker-build run-app clean
+.PHONY: help install install-dvc preprocess run-pipeline train train-sft train-dpo train-sft-only train-dpo-only train-orpo train-grpo train-grpo-dpo ablation-suite evaluate infer sweep-sft sweep-dpo sweep-grpo format lint test docker-build run-app clean
 
 # -------------------------
 # Help
@@ -15,6 +15,7 @@ help:
 	@echo ""
 	@echo "Core commands:"
 	@echo "  make install            Install dependencies"
+	@echo "  make preprocess         Run data preprocessing"
 	@echo "  make run-pipeline       Run full DVC pipeline"
 	@echo "  make train              Alias for run-pipeline"
 	@echo ""
@@ -75,12 +76,15 @@ install-dvc:
 	fi
 
 # -------------------------
-# Core pipeline (DVC is source of truth)
+# Core pipeline / data (DVC is source of truth)
 # -------------------------
 run-pipeline:
 	dvc repro
 
 train: run-pipeline
+
+preprocess:
+	dvc repro preprocess
 
 # -------------------------
 # DVC training targets
@@ -106,7 +110,7 @@ train-grpo:
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train_sft_only train_dpo_only train_orpo train_grpo train_sft train_dpo
+	dvc repro train_sft train_dpo train_dpo_only train_orpo train_grpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
