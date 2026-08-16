@@ -25,11 +25,12 @@ def main():
     # 1. Load environment variables, including WANDB_API_KEY.
     load_dotenv()
 
-    # 1.1 Initialize W&B immediately.
+    # 1.1 Capture the W&B sweep-run identity.
     #
-    # This is intentional. DVC may spend hours in preprocessing before
-    # train_sft.py/train_dpo.py/etc. starts, so we establish the W&B
-    # run immediately to prevent the sweep from being considered crashed.
+    # The W&B sweep agent creates and owns the run before launching this
+    # script. We intentionally do not call wandb.init() here because the
+    # actual training process (train_sft.py) uses the Hugging Face/TRL
+    # W&B integration and inherits WANDB_RUN_ID from the sweep agent.
     run_id = os.environ.get("WANDB_RUN_ID")
 
     if not run_id:
@@ -40,10 +41,6 @@ def main():
 
     print("=== BEFORE TRAINING ===")
     print(f"WANDB_RUN_ID={os.environ.get('WANDB_RUN_ID')}")
-
-    run = wandb.init(id=run_id, resume="allow")
-
-    print(f"W&B active run ID={run.id}")
     print("=======================")
 
     # 2. Parse arguments.
