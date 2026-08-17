@@ -3,8 +3,8 @@ import logging
 import os
 import subprocess
 
-import wandb
 from dotenv import load_dotenv
+import wandb
 
 
 logging.basicConfig(level=logging.INFO)
