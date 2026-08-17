@@ -75,7 +75,6 @@ def update_wandb_provenance(
         # W&B identity
         "provenance/wandb_run_id": run_id,
         "provenance/wandb_sweep_id": sweep_id,
-
         # DVC identity
         "provenance/dvc_experiment": dvc_experiment,
         "provenance/dvc_experiment_sha": dvc_experiment_sha,
@@ -149,9 +148,7 @@ def verify_wandb_provenance(
     logger.info("=============================")
 
     if failed:
-        raise RuntimeError(
-            f"W&B provenance verification failed for run {run_id}."
-        )
+        raise RuntimeError(f"W&B provenance verification failed for run {run_id}.")
 
     logger.info(
         "W&B provenance verification PASSED for run %s",
@@ -204,8 +201,7 @@ def main():
 
     if stage not in PARAM_MAP:
         raise ValueError(
-            f"Unknown stage: {stage}. "
-            f"Must be one of {list(PARAM_MAP.keys())}"
+            f"Unknown stage: {stage}. Must be one of {list(PARAM_MAP.keys())}"
         )
 
     # ---------------------------------------------------------------
@@ -258,9 +254,7 @@ def main():
     )
 
     if not sweep_params:
-        raise RuntimeError(
-            f"No sweep parameters were received for stage '{stage}'."
-        )
+        raise RuntimeError(f"No sweep parameters were received for stage '{stage}'.")
 
     # ---------------------------------------------------------------
     # 5. Construct DVC parameter overrides
