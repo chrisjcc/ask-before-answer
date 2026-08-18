@@ -1,10 +1,14 @@
 import argparse
+import json
 import logging
 import os
 import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 import wandb
-from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -154,6 +158,37 @@ def verify_wandb_provenance(
         "W&B provenance verification PASSED for run %s",
         run_id,
     )
+
+
+def write_provenance_file(
+    run_id,
+    sweep_id,
+    entity,
+    project,
+    stage,
+):
+    Path("provenance").mkdir(exist_ok=True)
+
+    provenance = {
+        "wandb_run_id": run_id,
+        "wandb_sweep_id": sweep_id,
+        "wandb_entity": entity,
+        "wandb_project": project,
+        "dvc_stage": stage,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    path = Path("provenance/wandb_context.json")
+
+    with open(path, "w") as f:
+        json.dump(provenance, f, indent=2)
+
+    logger.info(
+        "Wrote provenance file: %s",
+        path,
+    )
+
+    return path
 
 
 def main():
@@ -331,6 +366,13 @@ def main():
     # ---------------------------------------------------------------
 
     try:
+        write_provenance_file(
+            run_id=run_id,
+            sweep_id=sweep_id,
+            entity=entity,
+            project=project,
+            stage=stage,
+        )
         subprocess.run(cmd, check=True)
 
     except Exception as e:
