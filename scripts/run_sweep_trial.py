@@ -6,9 +6,8 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 import wandb
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
