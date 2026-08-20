@@ -6,10 +6,6 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-import json
-from pathlib import Path
-from datetime import datetime
-
 import wandb
 from dotenv import load_dotenv
 
@@ -156,7 +152,9 @@ def verify_wandb_provenance(
     logger.info("=============================")
 
     if failed:
-        raise RuntimeError(f"W&B provenance verification failed for run {run_id}.")
+        raise RuntimeError(
+            f"W&B provenance verification failed for run {run_id}."
+        )
 
     logger.info(
         "W&B provenance verification PASSED for run %s",
@@ -302,7 +300,6 @@ def main():
     # 5. Construct DVC parameter overrides
     # ---------------------------------------------------------------
 
-
     param_namespace = PARAM_MAP[stage]
 
     dvc_param_overrides = []
@@ -328,7 +325,7 @@ def main():
     #
     #   DVC experiment:
     #       sweep_oglusx4l
-    #
+
     run_name = f"sweep_{run_id}"
 
     cmd = [
