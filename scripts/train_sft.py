@@ -12,7 +12,6 @@ from omegaconf import DictConfig
 
 from src.training.trainer import run_sft_training
 
-
 load_dotenv()
 
 logger = logging.getLogger(__name__)
