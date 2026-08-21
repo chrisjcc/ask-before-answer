@@ -27,7 +27,6 @@ from typing import Any
 
 from ruamel.yaml import YAML
 
-
 MODEL_CONFIG = {
     "sft": {
         "stage": "train_sft",
@@ -155,9 +154,7 @@ def resolve_experiment(experiment: str) -> tuple[str, str]:
             matches.append((ref, sha))
 
     if not matches:
-        raise RuntimeError(
-            f"Could not resolve DVC experiment '{experiment}'."
-        )
+        raise RuntimeError(f"Could not resolve DVC experiment '{experiment}'.")
 
     if len(matches) > 1:
         refs = "\n".join(ref for ref, _ in matches)
@@ -226,8 +223,7 @@ def get_stage_metadata(
 
     if output_entry is None:
         raise RuntimeError(
-            f"Output '{expected_output}' was not found in stage "
-            f"'{stage_name}'."
+            f"Output '{expected_output}' was not found in stage '{stage_name}'."
         )
 
     params = stage.get("params", {})
@@ -248,8 +244,7 @@ def extract_stage_parameter(
 
     if param_key not in params_file:
         raise RuntimeError(
-            f"Parameter '{param_key}' was not recorded in the experiment "
-            "dvc.lock."
+            f"Parameter '{param_key}' was not recorded in the experiment dvc.lock."
         )
 
     return params_file[param_key]
@@ -273,10 +268,7 @@ def update_nested_parameter(
         current = current[key]
 
     if parameter_name not in current:
-        print(
-            f"Warning: adding missing parameter "
-            f"{'.'.join((*path, parameter_name))}."
-        )
+        print(f"Warning: adding missing parameter {'.'.join((*path, parameter_name))}.")
 
     current[parameter_name] = value
 
@@ -305,9 +297,7 @@ def verify_dvc_stage(stage_name: str) -> None:
         print("DVC verification output:")
         print(output)
 
-        raise RuntimeError(
-            f"DVC stage '{stage_name}' is not clean after promotion."
-        )
+        raise RuntimeError(f"DVC stage '{stage_name}' is not clean after promotion.")
 
     print("DVC verification successful.")
 
@@ -355,9 +345,7 @@ def promote(model: str, experiment: str) -> None:
     """Promote a DVC experiment."""
     if model not in MODEL_CONFIG:
         valid = ", ".join(MODEL_CONFIG)
-        raise ValueError(
-            f"Unsupported model '{model}'. Valid models: {valid}"
-        )
+        raise ValueError(f"Unsupported model '{model}'. Valid models: {valid}")
 
     config = MODEL_CONFIG[model]
 
@@ -424,9 +412,7 @@ def promote(model: str, experiment: str) -> None:
     local_output = ROOT / expected_output
 
     if not local_output.exists():
-        raise RuntimeError(
-            f"Local output does not exist: {expected_output}"
-        )
+        raise RuntimeError(f"Local output does not exist: {expected_output}")
 
     print(f"  Local output exists: {expected_output}")
 
@@ -436,12 +422,9 @@ def promote(model: str, experiment: str) -> None:
     print()
     print(f"Promoting stage '{stage_name}'...")
 
-    param_key = ".".join((*param_path, "learning_rate"))
+    promoted_value = extract_stage_parameter(stage, config["param_key"])
 
-    promoted_value = extract_stage_parameter(
-        stage,
-        config["param_key"]
-    )
+    promoted_value = extract_stage_parameter(stage, config["param_key"])
 
     print(f"Promoting parameters under '{'.'.join(param_path)}'...")
     print(f"  learning_rate: {promoted_value}")
@@ -485,9 +468,7 @@ def promote(model: str, experiment: str) -> None:
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Promote a DVC experiment."
-    )
+    parser = argparse.ArgumentParser(description="Promote a DVC experiment.")
 
     parser.add_argument(
         "--model",
