@@ -1,6 +1,28 @@
 #!/usr/bin/env python3
 
-"""Promote a selected DVC experiment stage into the current workspace."""
+"""Promote a selected DVC experiment into the workspace.
+
+The promotion process:
+
+1. Verify that the tracked Git working tree is clean.
+2. Resolve the DVC experiment name to its Git SHA.
+3. Read the experiment's dvc.lock and params.yaml.
+4. Verify that the expected model artifact exists locally.
+5. Promote the selected DVC stage from the experiment.
+6. Promote only the selected model's parameters.
+7. Preserve comments and formatting in params.yaml.
+8. Verify that DVC considers the promoted stage up to date.
+9. Commit only the files changed by the promotion.
+
+Examples:
+    python scripts/promote_experiment.py \
+        --model sft \
+        --experiment sweep_epl5w24i
+
+    python scripts/promote_experiment.py \
+        --model dpo \
+        --experiment sweep_abc123
+"""
 
 from __future__ import annotations
 
@@ -10,7 +32,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
+from ruamel.yaml import YAML
 
 
 MODEL_CONFIG = {
@@ -37,13 +59,19 @@ MODEL_CONFIG = {
 }
 
 
+yaml = YAML()
+yaml.preserve_quotes = True
+yaml.default_flow_style = False
+yaml.indent(mapping=2, sequence=4, offset=2)
+
+
 def run(
     command: list[str],
     *,
     capture: bool = False,
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a subprocess."""
+    """Run a command and optionally capture stdout/stderr."""
     return subprocess.run(
         command,
         check=check,
@@ -53,14 +81,65 @@ def run(
 
 
 def git_output(*args: str) -> str:
-    """Run git and return stripped stdout."""
+    """Run Git and return stripped stdout."""
     return run(["git", *args], capture=True).stdout.strip()
 
 
-def resolve_experiment(experiment: str) -> str:
-    """Resolve a DVC experiment name to its Git commit SHA."""
+def verify_tracked_working_tree() -> None:
+    """Ensure that no tracked files have uncommitted changes.
 
-    # DVC experiment names are refs under refs/exps/.
+    Untracked files are intentionally ignored. This allows local artifacts
+    such as W&B logs, generated reports, caches, and DVC credentials to
+    remain untouched while still preventing the promotion from overwriting
+    tracked user changes.
+    """
+    print("Checking tracked working tree...")
+
+    result = run(
+        ["git", "status", "--short"],
+        capture=True,
+    )
+
+    tracked_changes: list[str] = []
+    untracked_files: list[str] = []
+
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+
+        status = line[:2]
+        path = line[3:] if len(line) > 3 else ""
+
+        if status == "??":
+            untracked_files.append(path)
+        else:
+            tracked_changes.append(line)
+
+    if tracked_changes:
+        print("\nTracked working tree changes detected:")
+        for change in tracked_changes:
+            print(f"  {change}")
+
+        raise RuntimeError(
+            "Working tree is not clean.\n\n"
+            "Commit or stash your existing tracked changes before "
+            "promoting an experiment."
+        )
+
+    print("Tracked working tree is clean.")
+
+    if untracked_files:
+        print("\nUntracked files will be left untouched.")
+
+
+def resolve_experiment(experiment: str) -> str:
+    """Resolve a DVC experiment name to its Git commit SHA.
+
+    DVC experiment names are stored as Git refs under refs/exps and are
+    not necessarily valid arguments to `git rev-parse <experiment>`.
+    """
+    print(f"\nResolving experiment {experiment}...")
+
     result = run(
         [
             "git",
@@ -71,59 +150,83 @@ def resolve_experiment(experiment: str) -> str:
         capture=True,
     )
 
+    matches: list[tuple[str, str]] = []
+
     for line in result.stdout.splitlines():
-        ref, sha = line.split(maxsplit=1)
+        parts = line.split()
 
-        if ref.endswith(f"/{experiment}"):
-            return sha
+        if len(parts) != 2:
+            continue
 
-    # Also support passing a SHA directly.
-    result = run(
-        ["git", "rev-parse", "--verify", experiment],
-        capture=True,
-        check=False,
-    )
+        refname, sha = parts
 
-    if result.returncode == 0:
-        return result.stdout.strip()
+        if refname.endswith(f"/{experiment}") or experiment in refname:
+            matches.append((refname, sha))
+
+    if len(matches) == 1:
+        refname, sha = matches[0]
+
+        print(f"Experiment ref: {refname}")
+        print(f"Experiment SHA: {sha}")
+
+        return sha
+
+    if len(matches) > 1:
+        raise RuntimeError(
+            f"Multiple Git refs were found for DVC experiment "
+            f"'{experiment}':\n"
+            + "\n".join(
+                f"  {refname} -> {sha}"
+                for refname, sha in matches
+            )
+        )
 
     raise RuntimeError(
-        f"Could not resolve DVC experiment '{experiment}'.\n"
-        "Use 'git for-each-ref refs/exps' to inspect available experiments."
+        f"Could not resolve DVC experiment '{experiment}' "
+        "to a Git experiment ref."
     )
 
 
 def load_yaml_from_git(commit: str, path: str) -> dict[str, Any]:
-    """Load a YAML file from a Git commit."""
+    """Load YAML content from a Git commit."""
     content = git_output("show", f"{commit}:{path}")
-    return yaml.safe_load(content) or {}
+
+    data = yaml.load(content)
+
+    if data is None:
+        return {}
+
+    return data
 
 
-def load_yaml(path: Path) -> dict[str, Any]:
-    """Load YAML from the current workspace."""
+def load_current_yaml(path: Path) -> dict[str, Any]:
+    """Load YAML from the current workspace while preserving comments."""
     with path.open() as file:
-        return yaml.safe_load(file) or {}
+        data = yaml.load(file)
+
+    if data is None:
+        return {}
+
+    return data
 
 
 def write_yaml(path: Path, data: dict[str, Any]) -> None:
-    """Write YAML using standard project formatting."""
+    """Write YAML while preserving comments and formatting."""
     with path.open("w") as file:
-        yaml.safe_dump(
-            data,
-            file,
-            sort_keys=False,
-            default_flow_style=False,
-        )
+        yaml.dump(data, file)
 
 
-def get_nested(data: dict[str, Any], dotted_path: str) -> Any:
-    """Get a nested YAML value using a dotted path."""
+def get_nested_value(
+    data: dict[str, Any],
+    dotted_path: str,
+) -> Any:
+    """Retrieve a nested YAML value using a dotted path."""
     current: Any = data
 
     for key in dotted_path.split("."):
         if not isinstance(current, dict) or key not in current:
             raise RuntimeError(
-                f"Missing parameter '{dotted_path}' in experiment params.yaml."
+                f"YAML path '{dotted_path}' does not exist."
             )
 
         current = current[key]
@@ -131,121 +234,101 @@ def get_nested(data: dict[str, Any], dotted_path: str) -> Any:
     return current
 
 
-def set_nested(
+def set_nested_value(
     data: dict[str, Any],
     dotted_path: str,
     value: Any,
 ) -> None:
     """Set a nested YAML value using a dotted path."""
     keys = dotted_path.split(".")
-    current = data
+
+    current: Any = data
 
     for key in keys[:-1]:
-        current = current.setdefault(key, {})
+        if not isinstance(current, dict):
+            raise RuntimeError(
+                f"Cannot descend through YAML path "
+                f"'{dotted_path}'."
+            )
+
+        if key not in current:
+            current[key] = {}
+
+        current = current[key]
 
     current[keys[-1]] = value
 
 
-def get_stage(
-    lock: dict[str, Any],
-    stage: str,
-) -> dict[str, Any]:
-    """Return a stage from a DVC lockfile."""
-    stages = lock.get("stages", {})
-
-    if stage not in stages:
-        raise RuntimeError(
-            f"Stage '{stage}' does not exist in the experiment dvc.lock."
-        )
-
-    return stages[stage]
-
-
-def get_output_info(
-    stage: dict[str, Any],
-    output_path: str,
-) -> dict[str, Any]:
-    """Find an output entry in a DVC stage."""
-    for output in stage.get("outs", []):
-        if output.get("path") == output_path:
-            return output
-
-    raise RuntimeError(
-        f"Output '{output_path}' is not present in the experiment stage."
-    )
-
-
 def promote_stage(
     current_lock: dict[str, Any],
-    experiment_stage: dict[str, Any],
-    stage_name: str,
-) -> None:
-    """Replace exactly one stage in the current lockfile."""
-    stages = current_lock.setdefault("stages", {})
-    stages[stage_name] = experiment_stage
+    experiment_lock: dict[str, Any],
+    stage: str,
+) -> dict[str, Any]:
+    """Replace one stage in dvc.lock with the experiment version."""
+    current_stages = current_lock.setdefault("stages", {})
+    experiment_stages = experiment_lock.get("stages", {})
+
+    if stage not in experiment_stages:
+        raise RuntimeError(
+            f"Stage '{stage}' does not exist in the experiment "
+            "dvc.lock."
+        )
+
+    current_stages[stage] = experiment_stages[stage]
+
+    return current_lock
 
 
-def verify_workspace_output(
-    output_path: str,
-    expected_hash: str,
-) -> None:
+def promote_parameter(
+    current_params: dict[str, Any],
+    experiment_params: dict[str, Any],
+    param_path: str,
+) -> dict[str, Any]:
+    """Promote one model's parameter subtree.
+
+    Only the selected parameter subtree is replaced. The rest of
+    params.yaml remains untouched.
+
+    Because ruamel.yaml is used, comments associated with the existing
+    YAML structure are preserved.
     """
-    Verify that the promoted model exists and matches the experiment hash.
+    experiment_value = get_nested_value(
+        experiment_params,
+        param_path,
+    )
 
-    DVC's directory outputs are represented by a .dir hash in the cache.
-    We ask DVC to calculate the workspace hash rather than trying to
-    reconstruct it ourselves.
-    """
-    output = Path(output_path)
+    set_nested_value(
+        current_params,
+        param_path,
+        experiment_value,
+    )
+
+    return current_params
+
+
+def verify_output(model: str) -> None:
+    """Verify that the promoted model output exists locally."""
+    output = Path(MODEL_CONFIG[model]["output"])
+
+    print("\nChecking local model artifact...")
 
     if not output.exists():
         raise RuntimeError(
-            f"Required model output does not exist locally:\n"
-            f"  {output_path}\n\n"
-            "The promotion metadata cannot be committed because the model "
-            "artifact is not present in the workspace."
+            f"Promoted output does not exist locally: {output}\n"
+            "The experiment cannot be promoted without the "
+            "model artifact."
         )
 
     if output.is_dir() and not any(output.iterdir()):
         raise RuntimeError(
-            f"Model output directory is empty:\n  {output_path}"
+            f"Promoted output directory is empty: {output}"
         )
 
-    # Use `dvc status` after installing the experiment stage metadata.
-    # The caller performs the final DVC verification.
-    print(f"  Local output exists: {output_path}")
-    print(f"  Expected DVC hash:   {expected_hash}")
-
-
-def tracked_worktree_is_clean() -> bool:
-    """
-    Check only tracked changes.
-
-    Untracked files are intentionally allowed. This repository generates
-    logs, reports, caches, W&B artifacts, outputs, and other temporary files.
-    The promotion command only owns dvc.lock and params.yaml.
-    """
-    unstaged = git_output("diff", "--name-only")
-    staged = git_output("diff", "--cached", "--name-only")
-
-    if unstaged or staged:
-        print("Tracked files have uncommitted changes:")
-
-        if unstaged:
-            print("\nUnstaged:")
-            print(unstaged)
-
-        if staged:
-            print("\nStaged:")
-            print(staged)
-
-        return False
-
-    return True
+    print(f"  Local output exists: {output}")
 
 
 def verify_stage(stage: str) -> None:
-    """Verify that DVC considers the promoted stage up to date."""
+    """Verify that DVC considers a stage up to date."""
     result = run(
         ["dvc", "status", stage],
         capture=True,
@@ -256,17 +339,56 @@ def verify_stage(stage: str) -> None:
 
     if result.returncode != 0:
         raise RuntimeError(
-            f"DVC status failed for stage '{stage}':\n{output}"
+            f"DVC status failed for stage '{stage}':\n"
+            f"{output}"
         )
 
     if "Data and pipelines are up to date." not in output:
         raise RuntimeError(
-            f"DVC stage '{stage}' is not up to date after promotion:\n"
-            f"{output}"
+            f"DVC stage '{stage}' is not up to date after "
+            f"promotion:\n{output}"
         )
 
 
+def print_experiment_metadata(
+    experiment_lock: dict[str, Any],
+    model: str,
+) -> None:
+    """Print useful metadata about the selected experiment stage."""
+    stage = MODEL_CONFIG[model]["stage"]
+    output = MODEL_CONFIG[model]["output"]
+
+    stage_data = experiment_lock.get("stages", {}).get(stage)
+
+    if not stage_data:
+        raise RuntimeError(
+            f"Stage '{stage}' was not found in experiment dvc.lock."
+        )
+
+    experiment_outputs = stage_data.get("outs", [])
+
+    output_hash = None
+
+    for item in experiment_outputs:
+        if isinstance(item, dict) and output in item:
+            output_data = item[output]
+
+            if isinstance(output_data, dict):
+                output_hash = output_data.get("md5")
+
+            break
+
+    print(f"Experiment stage: {stage}")
+    print(f"Experiment output: {output}")
+
+    if output_hash:
+        print(f"Experiment hash:   {output_hash}")
+    else:
+        print("Experiment hash:   unavailable")
+
+
 def main() -> int:
+    """Run the promotion workflow."""
     parser = argparse.ArgumentParser(
         description="Promote a model from a DVC experiment."
     )
@@ -275,11 +397,13 @@ def main() -> int:
         "--model",
         required=True,
         choices=sorted(MODEL_CONFIG),
+        help="Model type to promote.",
     )
 
     parser.add_argument(
         "--experiment",
         required=True,
+        help="DVC experiment name to promote.",
     )
 
     args = parser.parse_args()
@@ -289,60 +413,42 @@ def main() -> int:
     config = MODEL_CONFIG[model]
 
     repo_root = Path.cwd()
-    stage_name = config["stage"]
-    output_path = config["output"]
-    param_prefix = config["param_prefix"]
+
+    stage = config["stage"]
+    output = config["output"]
+    param_path = config["param_prefix"]
 
     print("=" * 58)
     print("Promoting DVC experiment")
     print("=" * 58)
     print(f"Model:       {model}")
     print(f"Experiment:  {experiment}")
-    print(f"Stage:       {stage_name}")
-    print(f"Output:      {output_path}")
+    print(f"Stage:       {stage}")
+    print(f"Output:      {output}")
     print("=" * 58)
 
-    # ------------------------------------------------------------
-    # 1. Verify tracked working tree is clean.
-    #
-    # Untracked files are explicitly allowed.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 1. Verify tracked Git working tree
+    # ---------------------------------------------------------
 
-    print("\nChecking tracked working tree...")
+    verify_tracked_working_tree()
 
-    if not tracked_worktree_is_clean():
-        raise RuntimeError(
-            "Tracked working-tree changes detected.\n\n"
-            "Commit or stash those changes before promoting an experiment."
-        )
-
-    print("Tracked working tree is clean.")
-    print("Untracked files will be left untouched.")
-
-    # ------------------------------------------------------------
-    # 2. Resolve experiment.
-    # ------------------------------------------------------------
-
-    print(f"\nResolving experiment {experiment}...")
+    # ---------------------------------------------------------
+    # 2. Resolve experiment
+    # ---------------------------------------------------------
 
     experiment_sha = resolve_experiment(experiment)
 
-    print(f"Experiment SHA: {experiment_sha}")
-
-    current_head = git_output("rev-parse", "HEAD")
+    current_head = git_output(
+        "rev-parse",
+        "HEAD",
+    )
 
     print(f"Current HEAD:   {current_head}")
 
-    # ------------------------------------------------------------
-    # 3. Load experiment metadata directly from Git.
-    #
-    # IMPORTANT:
-    # We deliberately do NOT run:
-    #
-    #     dvc exp apply
-    #
-    # because that attempts to restore unrelated experiment outputs.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 3. Read experiment metadata
+    # ---------------------------------------------------------
 
     print("\nReading experiment metadata...")
 
@@ -356,80 +462,61 @@ def main() -> int:
         "params.yaml",
     )
 
-    experiment_stage = get_stage(
+    print_experiment_metadata(
         experiment_lock,
-        stage_name,
+        model,
     )
 
-    experiment_output = get_output_info(
-        experiment_stage,
-        output_path,
-    )
-
-    expected_hash = experiment_output.get("md5")
-
-    if not expected_hash:
-        raise RuntimeError(
-            f"No DVC hash found for '{output_path}' in experiment."
-        )
-
-    print(f"Experiment stage: {stage_name}")
-    print(f"Experiment output: {output_path}")
-    print(f"Experiment hash:   {expected_hash}")
-
-    # ------------------------------------------------------------
-    # 4. Verify the model artifact exists locally.
-    # ------------------------------------------------------------
-
-    print("\nChecking local model artifact...")
-
-    verify_workspace_output(
-        output_path,
-        expected_hash,
-    )
-
-    # ------------------------------------------------------------
-    # 5. Load current metadata.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 4. Load current workspace metadata
+    # ---------------------------------------------------------
 
     current_lock_path = repo_root / "dvc.lock"
     current_params_path = repo_root / "params.yaml"
 
-    current_lock = load_yaml(current_lock_path)
-    current_params = load_yaml(current_params_path)
+    current_lock = load_current_yaml(
+        current_lock_path,
+    )
 
-    # ------------------------------------------------------------
-    # 6. Promote exactly one DVC stage.
-    # ------------------------------------------------------------
+    current_params = load_current_yaml(
+        current_params_path,
+    )
 
-    print(f"\nPromoting stage '{stage_name}'...")
+    # ---------------------------------------------------------
+    # 5. Verify local artifact
+    # ---------------------------------------------------------
 
-    promote_stage(
+    verify_output(model)
+
+    # ---------------------------------------------------------
+    # 6. Promote DVC stage
+    # ---------------------------------------------------------
+
+    print(f"\nPromoting stage '{stage}'...")
+
+    current_lock = promote_stage(
         current_lock,
-        experiment_stage,
-        stage_name,
+        experiment_lock,
+        stage,
     )
 
-    # ------------------------------------------------------------
-    # 7. Promote only the relevant model parameters.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 7. Promote selected model parameters
+    # ---------------------------------------------------------
 
-    print(f"Promoting parameters under '{param_prefix}'...")
-
-    promoted_params = get_nested(
-        experiment_params,
-        param_prefix,
+    print(
+        f"Promoting parameters under '{param_path}'..."
     )
 
-    set_nested(
+    current_params = promote_parameter(
         current_params,
-        param_prefix,
-        promoted_params,
+        experiment_params,
+        param_path,
     )
 
-    # ------------------------------------------------------------
-    # 8. Write metadata.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 8. Write metadata
+    # ---------------------------------------------------------
 
     write_yaml(
         current_lock_path,
@@ -441,19 +528,19 @@ def main() -> int:
         current_params,
     )
 
-    # ------------------------------------------------------------
-    # 9. Verify DVC.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 9. Verify DVC
+    # ---------------------------------------------------------
 
     print("\nVerifying promoted DVC stage...")
 
-    verify_stage(stage_name)
+    verify_stage(stage)
 
     print("DVC verification successful.")
 
-    # ------------------------------------------------------------
-    # 10. Show exact changes.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 10. Show promotion diff
+    # ---------------------------------------------------------
 
     print("\nPromotion diff:")
 
@@ -467,9 +554,9 @@ def main() -> int:
         ]
     )
 
-    # ------------------------------------------------------------
-    # 11. Stage ONLY promotion-owned files.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 11. Stage only promotion-owned files
+    # ---------------------------------------------------------
 
     run(
         [
@@ -488,29 +575,21 @@ def main() -> int:
 
     if not staged:
         print(
-            "\nNo metadata changes were produced by the promotion.\n"
-            "Nothing to commit."
+            "\nNo metadata changes were produced by the "
+            "promotion."
         )
+        print("Nothing to commit.")
+
         return 0
 
     print("\nFiles staged for promotion commit:")
-    print(staged)
 
-    # Safety check: only expected files may be staged.
-    allowed = {"dvc.lock", "params.yaml"}
-    staged_files = set(staged.splitlines())
+    for path in staged.splitlines():
+        print(f"  {path}")
 
-    unexpected = staged_files - allowed
-
-    if unexpected:
-        raise RuntimeError(
-            "Unexpected files are staged:\n"
-            + "\n".join(sorted(unexpected))
-        )
-
-    # ------------------------------------------------------------
-    # 12. Automatically commit.
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 12. Commit
+    # ---------------------------------------------------------
 
     commit_message = (
         f"dvc: promote {model} experiment {experiment}"
@@ -528,20 +607,23 @@ def main() -> int:
         ]
     )
 
-    commit_sha = git_output(
+    new_commit = git_output(
         "rev-parse",
         "--short",
         "HEAD",
     )
+
+    # ---------------------------------------------------------
+    # 13. Final result
+    # ---------------------------------------------------------
 
     print("\n" + "=" * 58)
     print("Promotion successful")
     print("=" * 58)
     print(f"Model:       {model}")
     print(f"Experiment:  {experiment}")
-    print(f"Stage:       {stage_name}")
-    print(f"Output:      {output_path}")
-    print(f"Commit:      {commit_sha}")
+    print(f"Stage:       {stage}")
+    print(f"Commit:      {new_commit}")
     print("=" * 58)
 
     return 0
@@ -567,5 +649,9 @@ if __name__ == "__main__":
         sys.exit(exc.returncode)
 
     except Exception as exc:
-        print(f"\nERROR: {exc}", file=sys.stderr)
+        print(
+            f"\nERROR: {exc}",
+            file=sys.stderr,
+        )
+
         sys.exit(1)

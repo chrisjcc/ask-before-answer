@@ -29,6 +29,7 @@ numpy
 python-dotenv
 hydra-core>=1.3.2
 omegaconf>=2.3.0
+ruamel.yaml>=0.19.1
 
 # Visualization
 matplotlib
