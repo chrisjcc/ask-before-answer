@@ -157,13 +157,13 @@ promote:
 		echo "Usage: make promote MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"; \
 		exit 1; \
 	fi
-	@echo "=========================================================="
-	@echo "Promoting DVC experiment"
-	@echo "=========================================================="
-	@echo "Model:       $(MODEL)"
-	@echo "Experiment:  $(EXPERIMENT)"
-	@echo "=========================================================="
-	python scripts/promote_experiment.py \
+        @echo "=========================================================="
+        @echo "Promoting DVC experiment"
+        @echo "=========================================================="
+        @echo "Model:       $(MODEL)"
+        @echo "Experiment:  $(EXPERIMENT)"
+        @echo "=========================================================="
+	@python scripts/promote_experiment.py \
 		--model "$(MODEL)" \
 		--experiment "$(EXPERIMENT)"
 
