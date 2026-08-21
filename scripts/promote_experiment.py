@@ -139,27 +139,37 @@ def ensure_tracked_worktree_clean() -> None:
 
 
 def resolve_experiment(experiment: str) -> tuple[str, str]:
-    """Resolve an experiment name to its ref and commit SHA."""
+    """Resolve a DVC experiment name to its Git ref and commit SHA."""
     result = run_git(
         "for-each-ref",
         "--format=%(refname) %(objectname)",
         "refs/exps",
     )
 
-    matches = []
+    matches: list[tuple[str, str]] = []
 
     for line in result.stdout.splitlines():
-        if line.endswith(f"/{experiment}"):
-            ref, sha = line.split(maxsplit=1)
+        if not line.strip():
+            continue
+
+        ref, sha = line.split(maxsplit=1)
+
+        if ref.rsplit("/", 1)[-1] == experiment:
             matches.append((ref, sha))
 
     if not matches:
-        raise RuntimeError(f"Could not resolve DVC experiment '{experiment}'.")
+        raise RuntimeError(
+            f"Could not resolve DVC experiment '{experiment}'.\n"
+            f"Run:\n"
+            f"  git for-each-ref --format='%(refname) %(objectname)' "
+            f"refs/exps | grep '{experiment}'"
+        )
 
     if len(matches) > 1:
         refs = "\n".join(ref for ref, _ in matches)
         raise RuntimeError(
-            f"Multiple DVC experiment refs found for '{experiment}':\n{refs}"
+            f"Multiple DVC experiment refs found for '{experiment}':\n"
+            f"{refs}"
         )
 
     return matches[0]
@@ -198,8 +208,8 @@ def get_stage_metadata(
     experiment_lock: Any,
     stage_name: str,
     expected_output: str,
-) -> tuple[Any, str | None]:
-    """Extract stage metadata and the promoted parameter value."""
+) -> Any:
+    """Extract and validate metadata for the requested DVC stage."""
     stages = experiment_lock.get("stages")
 
     if not stages or stage_name not in stages:
@@ -210,28 +220,24 @@ def get_stage_metadata(
     stage = stages[stage_name]
 
     outputs = stage.get("outs", [])
-    output_entry = None
+    output_found = False
 
     for entry in outputs:
         if isinstance(entry, dict) and expected_output in entry:
-            output_entry = entry[expected_output]
+            output_found = True
             break
 
         if isinstance(entry, str) and entry == expected_output:
-            output_entry = {}
+            output_found = True
             break
 
-    if output_entry is None:
+    if not output_found:
         raise RuntimeError(
-            f"Output '{expected_output}' was not found in stage '{stage_name}'."
+            f"Output '{expected_output}' was not found in stage "
+            f"'{stage_name}'."
         )
 
-    params = stage.get("params", {})
-    params_file = params.get("params.yaml", {})
-
-    learning_rate = params_file.get("training.sft.learning_rate")
-
-    return stage, learning_rate
+    return stage
 
 
 def extract_stage_parameter(
@@ -384,7 +390,7 @@ def promote(model: str, experiment: str) -> None:
     lock_text = read_experiment_lock(experiment_sha)
     experiment_lock = load_yaml(lock_text)
 
-    stage, _ = get_stage_metadata(
+    stage = get_stage_metadata(
         experiment_lock,
         stage_name,
         expected_output,
