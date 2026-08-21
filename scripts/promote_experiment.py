@@ -320,20 +320,55 @@ def verify_dvc_stage(stage: str) -> None:
 
 
 def ensure_clean_workspace() -> None:
-    """Require a clean Git worktree before promotion."""
+    """Require no tracked/staged Git changes before promotion.
 
-    status = git_output("status", "--short")
+    Ignored untracked files are allowed. Non-ignored untracked files
+    are rejected because they may be accidentally overwritten by DVC.
+    """
 
-    if status:
-        print("ERROR: Working tree is not clean.", file=sys.stderr)
-        print(file=sys.stderr)
-        print(status, file=sys.stderr)
-        print(file=sys.stderr)
+    # Tracked modifications and staged changes.
+    tracked = git_output(
+        "status",
+        "--porcelain",
+        "--untracked-files=no",
+    )
+
+    if tracked:
         print(
-            "Commit or stash your existing changes before promoting an experiment.",
+            "ERROR: Tracked or staged changes are present.",
             file=sys.stderr,
         )
-        raise RuntimeError("Working tree is not clean.")
+        print(file=sys.stderr)
+        print(tracked, file=sys.stderr)
+        print(file=sys.stderr)
+        print(
+            "Commit or stash your existing tracked changes before "
+            "promoting an experiment.",
+            file=sys.stderr,
+        )
+        raise RuntimeError("Tracked Git changes are present.")
+
+    # Non-ignored untracked files.
+    untracked = git_output(
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+    )
+
+    if untracked:
+        print(
+            "ERROR: Non-ignored untracked files are present.",
+            file=sys.stderr,
+        )
+        print(file=sys.stderr)
+        print(untracked, file=sys.stderr)
+        print(file=sys.stderr)
+        print(
+            "Either commit these files or add appropriate patterns "
+            "to .gitignore before promoting an experiment.",
+            file=sys.stderr,
+        )
+        raise RuntimeError("Non-ignored untracked files are present.")
 
 
 def main() -> int:
