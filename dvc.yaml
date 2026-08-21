@@ -32,7 +32,6 @@ stages:
       - training.sft.learning_rate
     outs:
       - models/sft/final:
-          persist: false
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
@@ -60,7 +59,6 @@ stages:
       - training.dpo.beta
     outs:
       - models/dpo/final:
-          persist: false
 
   evaluate_dpo:
     cmd: python scripts/evaluate.py model_name=dpo
@@ -167,7 +165,6 @@ stages:
       - training.grpo.beta
     outs:
       - models/grpo/final:
-          persist: false
 
   evaluate_grpo:
     cmd: python scripts/evaluate.py model_name=grpo

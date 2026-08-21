@@ -1,64 +1,75 @@
 -include .env
+
 export
 
 # Default sweep agent trial count
 COUNT ?= 10
 
-.PHONY: help install install-dvc preprocess run-pipeline train train-sft train-dpo train-sft-only train-dpo-only train-orpo train-grpo train-grpo-dpo ablation-suite evaluate infer sweep-sft sweep-dpo sweep-grpo format lint test docker-build run-app clean
+.PHONY: help install install-dvc preprocess run-pipeline train \
+	train-sft train-dpo train-sft-only train-dpo-only train-orpo \
+	train-grpo train-grpo-dpo ablation-suite evaluate infer \
+	sweep-sft sweep-dpo sweep-grpo promote format lint test \
+	docker-build run-app deploy-hf clean clean-cache clean-locks
 
 # -------------------------
 # Help
 # -------------------------
+
 help:
 	@echo ""
 	@echo "DVC-driven ML pipeline"
 	@echo ""
 	@echo "Core commands:"
-	@echo "  make install            Install dependencies"
-	@echo "  make preprocess         Run data preprocessing"
-	@echo "  make run-pipeline       Run full DVC pipeline"
-	@echo "  make train              Alias for run-pipeline"
+	@echo "  make install             Install dependencies"
+	@echo "  make preprocess          Run data preprocessing"
+	@echo "  make run-pipeline        Run full DVC pipeline"
+	@echo "  make train               Alias for run-pipeline"
 	@echo ""
 	@echo "Training variants (DVC stages):"
-	@echo "  make train-sft          Run SFT stage"
-	@echo "  make train-dpo          Run DPO stage (requires SFT)"
-	@echo "  make train-sft-only     Run SFT-only baseline"
-	@echo "  make train-dpo-only     Run DPO-only baseline"
-	@echo "  make train-orpo         Run ORPO baseline"
-	@echo "  make train-grpo         Run GRPO baseline"
-	@echo "  make train-grpo-dpo     Run GRPO->DPO pipeline"
-	@echo "  make ablation-suite     Run all experimental variants"
+	@echo "  make train-sft           Run SFT stage"
+	@echo "  make train-dpo           Run DPO stage (requires SFT)"
+	@echo "  make train-sft-only      Run SFT-only baseline"
+	@echo "  make train-dpo-only      Run DPO-only baseline"
+	@echo "  make train-orpo          Run ORPO baseline"
+	@echo "  make train-grpo          Run GRPO baseline"
+	@echo "  make train-grpo-dpo      Run GRPO->DPO pipeline"
+	@echo "  make ablation-suite      Run all experimental variants"
 	@echo ""
 	@echo "Evaluation & Inference:"
-	@echo "  make evaluate           Run evaluation scripts"
-	@echo "  make infer              Run inference"
+	@echo "  make evaluate            Run evaluation scripts"
+	@echo "  make infer               Run inference"
+	@echo ""
+	@echo "Model Promotion:"
+	@echo "  make promote MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"
+	@echo "                          Apply DVC experiment and commit promotion"
 	@echo ""
 	@echo "Deployment:"
-	@echo "  make deploy-hf          Push final datasets and best model to Hugging Face"
+	@echo "  make deploy-hf           Push final datasets and best model to Hugging Face"
 	@echo ""
 	@echo "Hyperparameter Optimization (Sweeps):"
-	@echo "  make sweep-sft          Run hyperparameter sweep for SFT stage"
-	@echo "  make sweep-dpo          Run hyperparameter sweep for DPO stage"
-	@echo "  make sweep-grpo         Run hyperparameter sweep for GRPO stage"
+	@echo "  make sweep-sft           Run hyperparameter sweep for SFT stage"
+	@echo "  make sweep-dpo           Run hyperparameter sweep for DPO stage"
+	@echo "  make sweep-grpo          Run hyperparameter sweep for GRPO stage"
 	@echo ""
 	@echo "Dev tools:"
-	@echo "  make format             Format code with isort and black"
-	@echo "  make lint               Check code style and linting"
-	@echo "  make test               Run pytest test suite"
+	@echo "  make format              Format code with isort, black, and ruff"
+	@echo "  make lint                Check code style and linting"
+	@echo "  make test                Run pytest test suite"
 	@echo ""
 	@echo "App & Docker:"
-	@echo "  make run-app            Launch the Streamlit demo application"
-	@echo "  make docker-build       Build the Docker container image"
+	@echo "  make run-app             Launch the Streamlit demo application"
+	@echo "  make docker-build        Build the Docker container image"
 	@echo ""
 	@echo "Cleanup:"
-	@echo "  make clean              Remove all outputs, models, and W&B cache"
-	@echo "  make clean-cache        Prune old DVC cache (deletes historical sweep models to save disk space)"
-	@echo "  make clean-locks        Forcefully remove DVC lock files left behind after crashes or CTRL+C"
+	@echo "  make clean               Remove all outputs, models, and W&B cache"
+	@echo "  make clean-cache         Prune old DVC cache"
+	@echo "  make clean-locks         Forcefully remove DVC lock files"
 	@echo ""
 
 # -------------------------
 # Setup
 # -------------------------
+
 install:
 	pip install -r requirements.txt
 	pip uninstall -y torchao
@@ -76,8 +87,10 @@ install-dvc:
 	fi
 
 # -------------------------
-# Core pipeline / data (DVC is source of truth)
+# Core pipeline / data
+# DVC is the source of truth
 # -------------------------
+
 run-pipeline:
 	dvc repro
 
@@ -89,6 +102,7 @@ preprocess:
 # -------------------------
 # DVC training targets
 # -------------------------
+
 train-sft:
 	dvc repro train_sft
 
@@ -107,6 +121,8 @@ train-orpo:
 train-grpo:
 	dvc repro train_grpo
 
+train-grpo-dpo:
+	dvc repro train_grpo train_dpo
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
@@ -117,8 +133,9 @@ ablation-suite:
 	python scripts/generate_report.py
 
 # -------------------------
-# Evaluation / inference (optional shortcuts)
+# Evaluation / inference
 # -------------------------
+
 evaluate:
 	python scripts/evaluate.py
 
@@ -126,8 +143,34 @@ infer:
 	python scripts/infer.py
 
 # -------------------------
-# Hyperparameter Optimization (Sweeps)
+# DVC experiment promotion
 # -------------------------
+
+promote:
+	@if [ -z "$(MODEL)" ]; then \
+		echo "ERROR: MODEL is required."; \
+		echo "Usage: make promote MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"; \
+		exit 1; \
+	fi
+	@if [ -z "$(EXPERIMENT)" ]; then \
+		echo "ERROR: EXPERIMENT is required."; \
+		echo "Usage: make promote MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"; \
+		exit 1; \
+	fi
+	@echo "=========================================================="
+	@echo "Promoting DVC experiment"
+	@echo "=========================================================="
+	@echo "Model:       $(MODEL)"
+	@echo "Experiment:  $(EXPERIMENT)"
+	@echo "=========================================================="
+	python scripts/promote_experiment.py \
+		--model "$(MODEL)" \
+		--experiment "$(EXPERIMENT)"
+
+# -------------------------
+# Hyperparameter Optimization
+# -------------------------
+
 sweep-sft:
 	@echo "Initializing SFT W&B Sweep and launching agent..."
 	@OUTPUT=$$(wandb sweep sweeps/sft.yaml 2>&1); \
@@ -173,6 +216,7 @@ sweep-grpo:
 # -------------------------
 # Dev tools
 # -------------------------
+
 format:
 	isort src scripts tests app
 	black src scripts tests app
@@ -189,6 +233,7 @@ test:
 # -------------------------
 # Deployment
 # -------------------------
+
 deploy-hf:
 	@echo "=========================================================="
 	@echo "🚀 Deploying to Hugging Face Hub"
@@ -199,11 +244,19 @@ deploy-hf:
 	echo "Detected latest release tag: $$RELEASE_TAG" && \
 	python scripts/push_to_hub.py deployment.release_tag="$$RELEASE_TAG"
 
+# -------------------------
+# App & Docker
+# -------------------------
+
 docker-build:
 	docker build -t askbeforeanswer-app .
 
 run-app:
 	streamlit run app/app.py
+
+# -------------------------
+# Cleanup
+# -------------------------
 
 clean:
 	rm -rf models/* outputs/* results/* wandb/
