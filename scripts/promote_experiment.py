@@ -369,13 +369,7 @@ def verify_promoted_parameter(
 
 
 def report_dvc_status(stage_name: str) -> None:
-    """Report DVC status without requiring the stage to be clean.
-
-    A promoted experiment may legitimately leave the current DVC stage
-    dirty because the experiment's dvc.lock contains an experiment-specific
-    command and parameter state. Promotion intentionally changes only
-    params.yaml.
-    """
+    """Report DVC status for the promoted stage."""
     result = run_dvc("status", stage_name, check=False)
 
     if result.returncode != 0:
@@ -397,12 +391,6 @@ def report_dvc_status(stage_name: str) -> None:
     for line in output.splitlines():
         print(f"  {line}")
 
-    print()
-    print(
-        "Note: the stage may remain dirty because promotion updates "
-        "params.yaml without rewriting dvc.lock."
-    )
-
 
 def git_diff() -> str:
     """Return the current Git diff."""
@@ -412,25 +400,16 @@ def git_diff() -> str:
 
 def verify_only_params_changed() -> None:
     """Verify that promotion changed only params.yaml."""
-    status = get_git_status()
+    result = run_git(
+        "diff",
+        "--name-only",
+    )
 
-    unexpected: list[str] = []
+    changed_files = [
+        line.strip() for line in result.stdout.splitlines() if line.strip()
+    ]
 
-    for line in status.splitlines():
-        if len(line) < 3:
-            continue
-
-        index_status = line[0]
-        worktree_status = line[1]
-
-        # Untracked files are intentionally ignored.
-        if index_status == "?" and worktree_status == "?":
-            continue
-
-        path = line[3:]
-
-        if path != "params.yaml":
-            unexpected.append(line)
+    unexpected = [path for path in changed_files if path != "params.yaml"]
 
     if unexpected:
         print("ERROR: Promotion changed unexpected tracked files:")
