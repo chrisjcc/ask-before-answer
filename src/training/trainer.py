@@ -732,18 +732,58 @@ def run_grpo_training(cfg: DictConfig):
 
     model.generate = patched_generate
 
-    from functools import partial
+    def make_reward_functions(reward_weights: dict[str, Any]) -> list[Any]:
+        """Create GRPO reward functions with bound reward weights.
+
+        The returned objects are regular Python functions rather than
+        functools.partial instances because Unsloth expects reward functions
+        to expose a __name__ attribute.
+        """
+
+        def format_reward(prompts, completions, **kwargs):
+            return format_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        def action_reward(prompts, completions, **kwargs):
+            return action_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        def facet_logic_reward(prompts, completions, **kwargs):
+            return facet_logic_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        def accuracy_reward(prompts, completions, **kwargs):
+            return accuracy_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        return [
+            format_reward,
+            action_reward,
+            facet_logic_reward,
+            accuracy_reward,
+        ]
 
     reward_weights = cfg.training.get("reward_weights", {})
 
     trainer = GRPOTrainer(
         model=model,
-        reward_funcs=[
-            partial(format_reward_func, reward_weights=reward_weights),
-            partial(action_reward_func, reward_weights=reward_weights),
-            partial(facet_logic_reward_func, reward_weights=reward_weights),
-            partial(accuracy_reward_func, reward_weights=reward_weights),
-        ],
+        reward_funcs=make_reward_functions(reward_weights),
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
