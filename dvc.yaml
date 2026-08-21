@@ -31,7 +31,7 @@ stages:
     params:
       - training.sft.learning_rate
     outs:
-      - models/sft/final:
+      - models/sft/final
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
@@ -58,7 +58,7 @@ stages:
       - training.dpo.learning_rate
       - training.dpo.beta
     outs:
-      - models/dpo/final:
+      - models/dpo/final
 
   evaluate_dpo:
     cmd: python scripts/evaluate.py model_name=dpo
@@ -164,7 +164,7 @@ stages:
       - training.grpo.learning_rate
       - training.grpo.beta
     outs:
-      - models/grpo/final:
+      - models/grpo/final
 
   evaluate_grpo:
     cmd: python scripts/evaluate.py model_name=grpo
