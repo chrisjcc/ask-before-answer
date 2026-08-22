@@ -41,10 +41,13 @@ help:
 	@echo ""
 	@echo "Model Promotion:"
 	@echo "  make promote MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"
-	@echo "                          Apply DVC experiment and commit promotion"
+	@echo "                          Promote a DVC experiment"
+	@echo "  make promote-model ARTIFACT_REF=<exact-wandb-artifact-ref>"
+	@echo "                          Verify and promote a W&B model artifact"
 	@echo ""
 	@echo "Deployment:"
-	@echo "  make deploy-hf           Push final datasets and best model to Hugging Face"
+	@echo "  make deploy-hf           Publish the verified W&B model to Hugging Face"
+	@echo "                           using provenance/model_promotion.json"
 	@echo ""
 	@echo "Hyperparameter Optimization (Sweeps):"
 	@echo "  make sweep-sft           Run hyperparameter sweep for SFT stage"
@@ -162,6 +165,21 @@ promote:
 		--experiment "$(EXPERIMENT)"
 
 # -------------------------
+# W&B level promotion
+# -------------------------
+
+promote-model:
+	@if [ -z "$(ARTIFACT_REF)" ]; then \
+		echo "ERROR: ARTIFACT_REF is required."; \
+		echo "Usage: make promote-model ARTIFACT_REF=<exact-wandb-artifact-ref>"; \
+		echo "Example:"; \
+		echo "  make promote-model ARTIFACT_REF=rl4aa/ask-before-answer/Clarifier-grpo:v17"; \
+		exit 1; \
+	fi
+	@python scripts/promote_model.py \
+		--artifact-ref "$(ARTIFACT_REF)"
+
+# -------------------------
 # Hyperparameter Optimization
 # -------------------------
 
@@ -230,13 +248,23 @@ test:
 
 deploy-hf:
 	@echo "=========================================================="
-	@echo "🚀 Deploying to Hugging Face Hub"
-	@echo "➔ Dataset: https://huggingface.co/datasets/chrisjcc/ask-before-answer-data"
+	@echo "🚀 Deploying verified production model to Hugging Face"
+	@echo "➔ Dataset: https://huggingface.co/datasets/chrisjcc/ask-before-answer-dataset"
 	@echo "➔ Model:   https://huggingface.co/chrisjcc/ask-before-answer"
 	@echo "=========================================================="
+	@test -f "provenance/model_promotion.json" || ( \
+		echo "ERROR: provenance/model_promotion.json not found."; \
+		echo "Run 'make promote-model ARTIFACT_REF=<exact-artifact-ref>' first."; \
+		exit 1; \
+	)
 	@RELEASE_TAG=$$(git describe --tags --abbrev=0) && \
 	echo "Detected latest release tag: $$RELEASE_TAG" && \
-	python scripts/push_to_hub.py deployment.release_tag="$$RELEASE_TAG"
+	echo "Using W&B promotion provenance: provenance/model_promotion.json" && \
+	python scripts/push_to_hub.py \
+		deployment.release_tag="$$RELEASE_TAG"
+	@echo "=========================================================="
+	@echo "Hugging Face deployment complete."
+	@echo "=========================================================="
 
 # -------------------------
 # App & Docker
