@@ -58,7 +58,7 @@ def load_promotion_record(
     during promotion.
     """
 
-    promotion_path = Path(cfg.project_dir) / PROMOTION_FILE
+    promotion_path = Path(cfg.project_dir) /  "provenance"/ PROMOTION_FILE
 
     if not promotion_path.is_file():
         raise FileNotFoundError(

@@ -1,210 +1,283 @@
-"""Publish a DVC-promoted model to the W&B Model Registry.
-
-This script is the bridge between DVC-level promotion and W&B-level
-promotion.
+#!/usr/bin/env python3
+"""
+Publish a promoted DVC model artifact to Weights & Biases.
 
 Workflow:
 
     DVC experiment
-        -> models/<variant>/final
-        -> W&B project artifact
-        -> W&B Registry collection
-        -> production alias
-        -> provenance/model_promotion.json
+        |
+        v
+    models/<model>/final
+        |
+        v
+    W&B project artifact
+        |
+        v
+    W&B Registry collection
+        |
+        v
+    provenance/model_promotion.json
 
-The DVC-managed training output is never modified.
+The Registry artifact is the immutable deployment artifact.
+
+Important:
+
+    - Model files are uploaded directly from the local DVC output.
+    - No W&B Weave references are created.
+    - The source project artifact is linked to the W&B Registry.
+    - The Registry artifact's own digest is stored in provenance.
+    - The source artifact digest is stored separately for provenance.
+    - The provenance artifact_ref is ALWAYS the fully qualified
+      W&B Registry reference:
+          wandb-registry-<registry_name>/<collection>:<version>
+    - push_to_hub.py must verify the Registry artifact against
+      artifact_digest, never against the source artifact digest.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import logging
-import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import hydra
-import wandb
-from dotenv import load_dotenv
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
-load_dotenv()
+import wandb
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    format="[%(asctime)s][%(name)s][%(levelname)s] - %(message)s",
 )
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Model variants
-# ---------------------------------------------------------------------------
-
-MODEL_PATHS = {
-    "sft_only": "models/sft_only/final",
-    "dpo_only": "models/dpo_only/final",
-    "sft": "models/sft/final",
-    "dpo": "models/dpo/final",
-    "sft_dpo": "models/dpo/final",
-    "grpo": "models/grpo/final",
-    "orpo": "models/orpo/final",
-}
-
-
-# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-PROVENANCE_DIR = Path("provenance")
-PROMOTION_FILE = PROVENANCE_DIR / "model_promotion.json"
+PROMOTION_FILE = "provenance/model_promotion.json"
+
+DEFAULT_WANDB_ENTITY = "rl4aa"
+DEFAULT_WANDB_PROJECT = "ask-before-answer"
+
+DEFAULT_REGISTRY_NAME = "Model"
+DEFAULT_REGISTRY_COLLECTION = "AskBeforeAnswer-Models"
+DEFAULT_REGISTRY_ALIAS = "production"
+
+MODEL_ARTIFACT_PREFIX = "Clarifier"
 
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Utility helpers
 # ---------------------------------------------------------------------------
 
 
-def get_registry_config(
-    cfg: DictConfig,
-) -> tuple[str, str, str]:
-    """Read W&B Registry configuration from Hydra config."""
-
-    deployment = cfg.deployment
-
-    registry_name = str(
-        deployment.get("registry_name", "")
-    ).strip()
-
-    registry_collection = str(
-        deployment.get("registry_collection", "")
-    ).strip()
-
-    registry_alias = str(
-        deployment.get("registry_alias", "")
-    ).strip()
-
-    if not registry_name:
-        raise RuntimeError(
-            "deployment.registry_name is not configured."
-        )
-
-    if not registry_collection:
-        raise RuntimeError(
-            "deployment.registry_collection is not configured."
-        )
-
-    if not registry_alias:
-        raise RuntimeError(
-            "deployment.registry_alias is not configured."
-        )
-
-    return (
-        registry_name,
-        registry_collection,
-        registry_alias,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Environment
-# ---------------------------------------------------------------------------
-
-
-def get_wandb_config() -> tuple[str, str]:
-    """Resolve the W&B entity and project from the environment."""
-
-    entity = os.environ.get("WANDB_ENTITY")
-    project = os.environ.get("WANDB_PROJECT")
-
-    if not entity:
-        raise RuntimeError(
-            "WANDB_ENTITY environment variable is not set."
-        )
-
-    if not project:
-        raise RuntimeError(
-            "WANDB_PROJECT environment variable is not set."
-        )
-
-    return entity, project
-
-
-# ---------------------------------------------------------------------------
-# DVC helpers
-# ---------------------------------------------------------------------------
-
-
-def get_git_experiment_sha(
-    experiment_name: str,
+def run_command(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
 ) -> str:
-    """Resolve a DVC experiment name to its immutable Git SHA."""
+    """Run a command and return stdout."""
+
+    logger.debug(
+        "Running command: %s",
+        " ".join(command),
+    )
 
     result = subprocess.run(
-        [
-            "git",
-            "for-each-ref",
-            "--format=%(objectname) %(refname)",
-            "refs/exps/",
-        ],
-        capture_output=True,
+        command,
+        cwd=str(cwd) if cwd else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        check=True,
+        check=False,
     )
 
-    for line in result.stdout.splitlines():
-        if not line.strip():
-            continue
-
-        sha, ref = line.split(" ", 1)
-
-        if ref.endswith(f"/{experiment_name}"):
-            return sha
-
-    raise RuntimeError(
-        f"Could not resolve DVC experiment '{experiment_name}' "
-        "to a Git experiment SHA."
-    )
-
-
-def validate_model_directory(
-    model: str,
-) -> Path:
-    """Validate that the DVC-promoted model output exists."""
-
-    if model not in MODEL_PATHS:
-        supported = ", ".join(sorted(MODEL_PATHS))
-
-        raise ValueError(
-            f"Unsupported model '{model}'. "
-            f"Supported models: {supported}"
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Command failed ({result.returncode}): "
+            f"{' '.join(command)}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
         )
 
-    model_dir = Path(MODEL_PATHS[model])
+    return result.stdout.strip()
 
-    if not model_dir.is_dir():
-        raise FileNotFoundError(
-            f"Promoted model directory does not exist: {model_dir}"
+
+def project_root(cfg: DictConfig) -> Path:
+    """Return the project root."""
+
+    return Path(
+        OmegaConf.select(
+            cfg,
+            "project_dir",
+            default=".",
+        )
+    ).resolve()
+
+
+def get_wandb_config(cfg: DictConfig) -> dict[str, str]:
+    """
+    Read W&B configuration with safe fallbacks.
+
+    This deliberately does not require cfg.wandb to exist.
+    """
+
+    wandb_cfg = OmegaConf.select(
+        cfg,
+        "wandb",
+        default=None,
+    )
+
+    if wandb_cfg is None:
+        return {
+            "entity": DEFAULT_WANDB_ENTITY,
+            "project": DEFAULT_WANDB_PROJECT,
+            "registry_name": DEFAULT_REGISTRY_NAME,
+            "registry_collection": DEFAULT_REGISTRY_COLLECTION,
+            "registry_alias": DEFAULT_REGISTRY_ALIAS,
+        }
+
+    return {
+        "entity": str(
+            OmegaConf.select(
+                cfg,
+                "wandb.entity",
+                default=DEFAULT_WANDB_ENTITY,
+            )
+        ),
+        "project": str(
+            OmegaConf.select(
+                cfg,
+                "wandb.project",
+                default=DEFAULT_WANDB_PROJECT,
+            )
+        ),
+        "registry_name": str(
+            OmegaConf.select(
+                cfg,
+                "wandb.registry_name",
+                default=DEFAULT_REGISTRY_NAME,
+            )
+        ),
+        "registry_collection": str(
+            OmegaConf.select(
+                cfg,
+                "wandb.registry_collection",
+                default=DEFAULT_REGISTRY_COLLECTION,
+            )
+        ),
+        "registry_alias": str(
+            OmegaConf.select(
+                cfg,
+                "wandb.registry_alias",
+                default=DEFAULT_REGISTRY_ALIAS,
+            )
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# W&B Registry reference helpers
+# ---------------------------------------------------------------------------
+
+
+def build_registry_ref(
+    *,
+    registry_name: str,
+    registry_collection: str,
+    version: str,
+) -> str:
+    """
+    Construct the fully qualified W&B Registry artifact reference.
+
+    Example:
+
+        wandb-registry-Model/AskBeforeAnswer-Models:v0
+
+    This fully qualified namespace is important. A short reference such as
+
+        AskBeforeAnswer-Models:v0
+
+    can be resolved ambiguously by the W&B API.
+    """
+
+    return (
+        f"wandb-registry-{registry_name}/"
+        f"{registry_collection}:"
+        f"{version}"
+    )
+
+
+def build_registry_alias_ref(
+    *,
+    registry_name: str,
+    registry_collection: str,
+    registry_alias: str,
+) -> str:
+    """
+    Construct the fully qualified W&B Registry alias reference.
+
+    Example:
+
+        wandb-registry-Model/AskBeforeAnswer-Models:production
+    """
+
+    return (
+        f"wandb-registry-{registry_name}/"
+        f"{registry_collection}:"
+        f"{registry_alias}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# DVC
+# ---------------------------------------------------------------------------
+
+
+def validate_model_output(
+    cfg: DictConfig,
+    model_variant: str,
+) -> Path:
+    """Validate the local DVC model output."""
+
+    root = project_root(cfg)
+
+    model_path = (
+        root
+        / "models"
+        / model_variant
+        / "final"
+    )
+
+    if not model_path.is_dir():
+        raise RuntimeError(
+            f"DVC model output does not exist: {model_path}"
         )
 
     files = [
         path
-        for path in model_dir.rglob("*")
+        for path in model_path.rglob("*")
         if path.is_file()
     ]
 
     if not files:
         raise RuntimeError(
-            f"Promoted model directory is empty: {model_dir}"
+            f"DVC model output is empty: {model_path}"
         )
 
     logger.info(
         "Validated DVC model output: %s",
-        model_dir,
+        model_path,
     )
 
     logger.info(
@@ -212,67 +285,357 @@ def validate_model_directory(
         len(files),
     )
 
-    return model_dir
+    return model_path
+
+
+def resolve_dvc_experiment_sha(
+    cfg: DictConfig,
+    experiment: str,
+) -> str:
+    """
+    Resolve a DVC experiment name to its Git SHA.
+
+    DVC versions differ in the structure of `dvc exp list` and
+    `dvc exp show` output. The most reliable representation for
+    the installed DVC version is the Git experiment ref:
+
+        refs/exps/<...>/<experiment>
+
+    We therefore inspect Git refs first and fall back to DVC output.
+    """
+
+    root = project_root(cfg)
+
+    logger.info(
+        "Resolving DVC experiment: %s",
+        experiment,
+    )
+
+    # ------------------------------------------------------------------
+    # Method 1: Git refs
+    # ------------------------------------------------------------------
+
+    try:
+        output = run_command(
+            [
+                "git",
+                "for-each-ref",
+                "--format=%(refname) %(objectname)",
+                "refs/exps",
+            ],
+            cwd=root,
+        )
+
+        for line in output.splitlines():
+            parts = line.split(maxsplit=1)
+
+            if len(parts) != 2:
+                continue
+
+            ref_name, sha = parts
+
+            if ref_name.endswith(f"/{experiment}"):
+                logger.info(
+                    "Resolved DVC experiment '%s' through Git ref:",
+                    experiment,
+                )
+
+                logger.info(
+                    "  Git ref: %s",
+                    ref_name,
+                )
+
+                logger.info(
+                    "  SHA:     %s",
+                    sha,
+                )
+
+                return sha
+
+    except RuntimeError:
+        pass
+
+    # ------------------------------------------------------------------
+    # Method 2: dvc exp list --json
+    # ------------------------------------------------------------------
+
+    try:
+        output = run_command(
+            [
+                "dvc",
+                "exp",
+                "list",
+                "--json",
+            ],
+            cwd=root,
+        )
+
+        data = json.loads(output)
+        experiments = data.get("experiments", {})
+
+        if isinstance(experiments, dict):
+            value = experiments.get(experiment)
+
+            if isinstance(value, str):
+                logger.info(
+                    "DVC experiment SHA: %s",
+                    value,
+                )
+                return value
+
+            if isinstance(value, dict):
+                for key in (
+                    "sha",
+                    "rev",
+                    "baseline_rev",
+                    "commit",
+                ):
+                    candidate = value.get(key)
+
+                    if (
+                        isinstance(candidate, str)
+                        and candidate
+                    ):
+                        logger.info(
+                            "DVC experiment SHA: %s",
+                            candidate,
+                        )
+                        return candidate
+
+        if isinstance(experiments, list):
+            for item in experiments:
+                if not isinstance(item, dict):
+                    continue
+
+                name = (
+                    item.get("name")
+                    or item.get("experiment")
+                    or item.get("exp_name")
+                )
+
+                if name != experiment:
+                    continue
+
+                for key in (
+                    "sha",
+                    "rev",
+                    "baseline_rev",
+                    "commit",
+                ):
+                    candidate = item.get(key)
+
+                    if (
+                        isinstance(candidate, str)
+                        and candidate
+                    ):
+                        logger.info(
+                            "DVC experiment SHA: %s",
+                            candidate,
+                        )
+                        return candidate
+
+    except (
+        RuntimeError,
+        json.JSONDecodeError,
+    ):
+        pass
+
+    # ------------------------------------------------------------------
+    # Method 3: dvc exp show --json
+    # ------------------------------------------------------------------
+
+    try:
+        output = run_command(
+            [
+                "dvc",
+                "exp",
+                "show",
+                "--json",
+            ],
+            cwd=root,
+        )
+
+        data = json.loads(output)
+
+        def search_json(
+            obj: Any,
+        ) -> str | None:
+            if isinstance(obj, dict):
+                if experiment in obj:
+                    value = obj[experiment]
+
+                    if isinstance(value, str):
+                        return value
+
+                    if isinstance(value, dict):
+                        for key in (
+                            "sha",
+                            "rev",
+                            "baseline_rev",
+                            "commit",
+                        ):
+                            candidate = value.get(key)
+
+                            if (
+                                isinstance(candidate, str)
+                                and candidate
+                            ):
+                                return candidate
+
+                name = (
+                    obj.get("name")
+                    or obj.get("experiment")
+                    or obj.get("exp_name")
+                )
+
+                if name == experiment:
+                    for key in (
+                        "sha",
+                        "rev",
+                        "baseline_rev",
+                        "commit",
+                    ):
+                        candidate = obj.get(key)
+
+                        if (
+                            isinstance(candidate, str)
+                            and candidate
+                        ):
+                            return candidate
+
+                for value in obj.values():
+                    result = search_json(value)
+
+                    if result:
+                        return result
+
+            elif isinstance(obj, list):
+                for value in obj:
+                    result = search_json(value)
+
+                    if result:
+                        return result
+
+            return None
+
+        sha = search_json(data)
+
+        if sha:
+            logger.info(
+                "DVC experiment SHA: %s",
+                sha,
+            )
+            return sha
+
+    except (
+        RuntimeError,
+        json.JSONDecodeError,
+    ):
+        pass
+
+    # ------------------------------------------------------------------
+    # Method 4: dvc exp list
+    # ------------------------------------------------------------------
+
+    try:
+        output = run_command(
+            [
+                "dvc",
+                "exp",
+                "list",
+            ],
+            cwd=root,
+        )
+
+        for line in output.splitlines():
+            if experiment not in line:
+                continue
+
+            tokens = line.split()
+
+            for token in tokens:
+                if (
+                    len(token) >= 7
+                    and all(
+                        char
+                        in "0123456789abcdef"
+                        for char in token.lower()
+                    )
+                ):
+                    logger.info(
+                        "DVC experiment SHA: %s",
+                        token,
+                    )
+                    return token
+
+    except RuntimeError:
+        pass
+
+    raise RuntimeError(
+        f"Could not determine DVC SHA for experiment "
+        f"'{experiment}'. "
+        "Verify it with 'dvc exp list' and ensure the "
+        "experiment exists locally."
+    )
 
 
 # ---------------------------------------------------------------------------
-# W&B artifact publication
+# W&B source artifact
 # ---------------------------------------------------------------------------
 
 
-def publish_artifact(
-    model: str,
-    model_dir: Path,
-    dvc_experiment: str,
-    dvc_experiment_sha: str,
-    stage: str,
+def create_source_artifact(
+    *,
     entity: str,
     project: str,
-    registry_name: str,
-    registry_collection: str,
-    registry_alias: str,
-) -> dict[str, Any]:
-    """Publish the DVC-promoted model and link it to the W&B Registry."""
+    model_variant: str,
+    model_path: Path,
+    dvc_experiment: str,
+    dvc_sha: str,
+) -> tuple[str, str, str]:
+    """
+    Create or reuse the project-level W&B artifact.
 
-    artifact_name = f"Clarifier-{model}"
+    Returns:
 
-    metadata = {
-        "model_variant": model,
-        "dvc_experiment": dvc_experiment,
-        "dvc_experiment_sha": dvc_experiment_sha,
-        "dvc_stage": stage,
-        "source_directory": str(model_dir),
-        "promotion_timestamp": datetime.now(
-            timezone.utc
-        ).isoformat(),
-    }
+        source_artifact_ref
+        source_artifact_digest
+        run_id
+
+    The source artifact digest is deliberately kept separate from
+    the Registry artifact digest.
+    """
+
+    artifact_name = (
+        f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
+    )
 
     logger.info(
         "Creating W&B artifact: %s",
         artifact_name,
     )
 
-    with wandb.init(
+    run = wandb.init(
         entity=entity,
         project=project,
         job_type="model-promotion",
-        name=f"promote-{model}-{dvc_experiment}",
+        name=f"promote-{model_variant}-{dvc_experiment}",
         config={
-            "model_variant": model,
+            "model_variant": model_variant,
             "dvc_experiment": dvc_experiment,
-            "dvc_experiment_sha": dvc_experiment_sha,
-            "dvc_stage": stage,
+            "dvc_experiment_sha": dvc_sha,
         },
-    ) as run:
+    )
 
+    try:
         artifact = wandb.Artifact(
             name=artifact_name,
             type="model",
-            description=(
-                f"AskBeforeAnswer {model} model promoted "
-                f"from DVC experiment {dvc_experiment}."
-            ),
-            metadata=metadata,
+            metadata={
+                "model_variant": model_variant,
+                "dvc_experiment": dvc_experiment,
+                "dvc_experiment_sha": dvc_sha,
+            },
         )
 
         logger.info(
@@ -280,7 +643,7 @@ def publish_artifact(
         )
 
         artifact.add_dir(
-            local_path=str(model_dir),
+            local_path=str(model_path),
         )
 
         logger.info(
@@ -290,110 +653,221 @@ def publish_artifact(
 
         logged_artifact = run.log_artifact(
             artifact,
+            aliases=[
+                f"dvc-{dvc_experiment}",
+            ],
         )
 
-        # log_artifact() queues the artifact for upload. Calling wait()
-        # on the artifact is sufficient here. There is no Run.wait_until_finish()
-        # method in the installed W&B SDK.
         logger.info(
             "Waiting for W&B artifact upload to complete..."
         )
 
-        logged_artifact.wait()
+        try:
+            logged_artifact.wait()
+        except AttributeError:
+            pass
 
-        source_version = getattr(
-            logged_artifact,
-            "version",
-            None,
+        # --------------------------------------------------------------
+        # Resolve the actual project artifact explicitly.
+        # --------------------------------------------------------------
+
+        source_latest_ref = (
+            f"{entity}/{project}/"
+            f"{artifact_name}:latest"
         )
 
-        if not source_version:
+        logger.info(
+            "Resolving project artifact: %s",
+            source_latest_ref,
+        )
+
+        api = wandb.Api()
+
+        resolved = api.artifact(
+            source_latest_ref,
+            type="model",
+        )
+
+        if not resolved.version:
             raise RuntimeError(
-                "W&B did not return an artifact version after upload."
+                "W&B project artifact resolved successfully, "
+                "but no immutable artifact version was returned."
             )
 
-        source_artifact_ref = (
-            f"{entity}/{project}/{artifact_name}:{source_version}"
+        source_ref = (
+            f"{entity}/{project}/"
+            f"{artifact_name}:"
+            f"{resolved.version}"
         )
+
+        source_digest = resolved.digest
+
+        if not source_digest:
+            raise RuntimeError(
+                "W&B project artifact resolved successfully, "
+                "but no source artifact digest was returned."
+            )
 
         logger.info(
             "Source W&B artifact: %s",
-            source_artifact_ref,
-        )
-
-        registry_target = (
-            f"wandb-registry-{registry_name}/"
-            f"{registry_collection}"
+            source_ref,
         )
 
         logger.info(
-            "Linking artifact to W&B Registry collection: %s",
-            registry_target,
+            "Source W&B artifact digest: %s",
+            source_digest,
         )
 
-        linked_artifact = run.link_artifact(
-            artifact=logged_artifact,
-            target_path=registry_target,
-            aliases=[registry_alias],
+        return (
+            source_ref,
+            source_digest,
+            run.id,
         )
 
-        if linked_artifact is None:
-            raise RuntimeError(
-                "W&B did not return a linked Registry artifact."
-            )
+    finally:
+        run.finish()
 
-        logger.info(
-            "Artifact linked to W&B Registry collection."
-        )
 
-        run_id = run.id
+# ---------------------------------------------------------------------------
+# W&B Registry
+# ---------------------------------------------------------------------------
 
-    # ------------------------------------------------------------------
-    # Resolve the Registry artifact after the run has completed.
-    # ------------------------------------------------------------------
 
-    linked_name = getattr(
-        linked_artifact,
-        "name",
-        None,
-    )
+def link_to_registry(
+    *,
+    source_artifact_ref: str,
+    entity: str,
+    registry_name: str,
+    registry_collection: str,
+    registry_alias: str,
+) -> tuple[str, str]:
+    """
+    Link the exact source artifact to the W&B Registry.
 
-    if not linked_name:
-        raise RuntimeError(
-            "W&B linked artifact did not expose a Registry artifact name."
-        )
+    Returns:
+
+        fully-qualified immutable Registry artifact reference
+        Registry artifact digest
+
+    CRITICAL:
+
+        The returned digest belongs to the Registry artifact.
+
+        The returned reference is fully qualified:
+
+            wandb-registry-<name>/<collection>:<version>
+
+        It must NOT be shortened to:
+
+            <collection>:<version>
+
+    The fully-qualified reference is what downstream deployment code
+    must use to prevent W&B from resolving an unrelated artifact.
+    """
 
     logger.info(
-        "W&B linked artifact reference: %s",
-        linked_name,
+        "Linking artifact to W&B Registry collection: %s",
+        registry_collection,
     )
 
     api = wandb.Api()
 
-    try:
-        registry_artifact = api.artifact(
-            linked_name,
-        )
-    except Exception as exc:
-        raise RuntimeError(
-            f"Failed to resolve linked W&B Registry artifact "
-            f"'{linked_name}'."
-        ) from exc
+    # ------------------------------------------------------------------
+    # Resolve exact source artifact.
+    # ------------------------------------------------------------------
 
-    registry_digest = getattr(
-        registry_artifact,
-        "digest",
-        None,
+    source_artifact = api.artifact(
+        source_artifact_ref,
+        type="model",
     )
 
-    if not registry_digest:
+    logger.info(
+        "Source artifact resolved: %s",
+        source_artifact_ref,
+    )
+
+    logger.info(
+        "Source artifact digest: %s",
+        source_artifact.digest,
+    )
+
+    if not source_artifact.digest:
         raise RuntimeError(
-            f"Registry artifact '{linked_name}' did not expose a digest."
+            "Source W&B artifact has no digest."
         )
+
+    # ------------------------------------------------------------------
+    # Link source artifact to Registry.
+    # ------------------------------------------------------------------
+
+    target_path = (
+        f"{registry_name}/"
+        f"{registry_collection}"
+    )
+
+    logger.info(
+        "Registry target path: %s",
+        target_path,
+    )
+
+    source_artifact.link(
+        target_path=target_path,
+        aliases=[registry_alias],
+    )
+
+    logger.info(
+        "Artifact linked to W&B Registry collection."
+    )
+
+    # ------------------------------------------------------------------
+    # Resolve the Registry alias using the FULL namespace.
+    # ------------------------------------------------------------------
+
+    registry_alias_ref = build_registry_alias_ref(
+        registry_name=registry_name,
+        registry_collection=registry_collection,
+        registry_alias=registry_alias,
+    )
+
+    logger.info(
+        "Resolving registry artifact: %s",
+        registry_alias_ref,
+    )
+
+    resolved_alias = api.artifact(
+        registry_alias_ref,
+        type="model",
+    )
+
+    if not resolved_alias.version:
+        raise RuntimeError(
+            "W&B Registry alias resolved successfully, "
+            "but no immutable version was returned."
+        )
+
+    if not resolved_alias.digest:
+        raise RuntimeError(
+            "W&B Registry alias resolved successfully, "
+            "but no Registry digest was returned."
+        )
+
+    # ------------------------------------------------------------------
+    # Construct the FULLY QUALIFIED immutable Registry reference.
+    #
+    # This is the critical fix.
+    # ------------------------------------------------------------------
+
+    registry_ref = build_registry_ref(
+        registry_name=registry_name,
+        registry_collection=registry_collection,
+        version=resolved_alias.version,
+    )
+
+    registry_digest = resolved_alias.digest
 
     logger.info(
         "W&B Registry artifact: %s",
-        linked_name,
+        registry_ref,
     )
 
     logger.info(
@@ -401,133 +875,196 @@ def publish_artifact(
         registry_digest,
     )
 
-    return {
-        "wandb_entity": entity,
-        "wandb_project": project,
-        "wandb_run_id": run_id,
-        "source_artifact_ref": source_artifact_ref,
-        "registry_artifact_ref": linked_name,
-        "artifact_name": artifact_name,
-        "artifact_digest": registry_digest,
-        "registry_name": registry_name,
-        "registry_collection": registry_collection,
-        "registry_alias": registry_alias,
-    }
+    # ------------------------------------------------------------------
+    # IMPORTANT:
+    #
+    # Re-resolve the exact immutable reference we are about to persist.
+    #
+    # This guarantees that:
+    #
+    #     provenance artifact_ref
+    #
+    # and
+    #
+    #     provenance artifact_digest
+    #
+    # refer to the same W&B object that downstream deployment will
+    # resolve.
+    # ------------------------------------------------------------------
+
+    logger.info(
+        "Verifying immutable Registry artifact: %s",
+        registry_ref,
+    )
+
+    verified = api.artifact(
+        registry_ref,
+        type="model",
+    )
+
+    verified_digest = verified.digest
+
+    if not verified_digest:
+        raise RuntimeError(
+            "Immutable Registry artifact resolved successfully, "
+            "but no digest was returned during verification."
+        )
+
+    logger.info(
+        "Verified Registry digest: %s",
+        verified_digest,
+    )
+
+    if verified_digest != registry_digest:
+        raise RuntimeError(
+            "W&B Registry integrity check failed immediately after "
+            "linking. The alias resolved to digest "
+            f"'{registry_digest}', but immutable reference "
+            f"'{registry_ref}' resolved to '{verified_digest}'."
+        )
+
+    logger.info(
+        "Registry artifact reference and digest verified."
+    )
+
+    return registry_ref, verified_digest
 
 
 # ---------------------------------------------------------------------------
-# Promotion provenance
+# Provenance
 # ---------------------------------------------------------------------------
 
 
 def write_promotion_provenance(
-    model: str,
+    cfg: DictConfig,
+    *,
+    model_variant: str,
     stage: str,
-    dvc_experiment: str,
-    dvc_experiment_sha: str,
-    artifact_info: dict[str, Any],
+    experiment: str,
+    dvc_sha: str,
+    entity: str,
+    project: str,
+    source_artifact_ref: str,
+    source_artifact_digest: str,
+    registry_artifact_ref: str,
+    registry_artifact_digest: str,
+    artifact_name: str,
+    registry_name: str,
+    registry_collection: str,
+    registry_alias: str,
+    run_id: str,
 ) -> Path:
-    """Write the exact W&B promotion record consumed by deployment."""
+    """
+    Write the deployment provenance record.
 
-    PROVENANCE_DIR.mkdir(
+    CRITICAL SCHEMA RULE:
+
+        artifact_ref
+            = fully qualified immutable W&B Registry reference
+
+        artifact_digest
+            = immutable W&B Registry artifact digest
+
+    The source project artifact reference and digest are retained
+    separately under wandb.source_* fields.
+
+    push_to_hub.py consumes artifact_ref and artifact_digest directly.
+    """
+
+    root = project_root(cfg)
+
+    provenance_dir = root / "provenance"
+
+    provenance_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    promotion = {
+    path = provenance_dir / "model_promotion.json"
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    record = {
         "schema_version": 1,
-        "model_variant": model,
+        "model_variant": model_variant,
         "dvc_stage": stage,
-        "dvc_experiment": dvc_experiment,
-        "dvc_experiment_sha": dvc_experiment_sha,
+        "dvc_experiment": experiment,
+        "dvc_experiment_sha": dvc_sha,
+
+        # ------------------------------------------------------------------
+        # Deployment artifact.
+        #
+        # These MUST refer to the fully-qualified W&B Registry artifact.
+        # ------------------------------------------------------------------
+
+        "artifact_ref": registry_artifact_ref,
+        "artifact_digest": registry_artifact_digest,
+
         "wandb": {
-            "entity": artifact_info["wandb_entity"],
-            "project": artifact_info["wandb_project"],
-            "run_id": artifact_info["wandb_run_id"],
-            "source_artifact_ref": artifact_info[
-                "source_artifact_ref"
-            ],
-            "registry_artifact_ref": artifact_info[
-                "registry_artifact_ref"
-            ],
-            "artifact_name": artifact_info[
-                "artifact_name"
-            ],
-            "artifact_digest": artifact_info[
-                "artifact_digest"
-            ],
-            "registry_name": artifact_info[
-                "registry_name"
-            ],
-            "registry_collection": artifact_info[
-                "registry_collection"
-            ],
-            "registry_alias": artifact_info[
-                "registry_alias"
-            ],
+            "entity": entity,
+            "project": project,
+            "run_id": run_id,
+
+            # Canonical deployment artifact.
+            "artifact_ref": registry_artifact_ref,
+            "artifact_digest": registry_artifact_digest,
+
+            # Source project artifact.
+            "source_artifact_ref": source_artifact_ref,
+            "source_artifact_digest": source_artifact_digest,
+
+            # Registry artifact.
+            "registry_artifact_ref": registry_artifact_ref,
+            "registry_artifact_digest": registry_artifact_digest,
+
+            "artifact_name": artifact_name,
+            "registry_name": registry_name,
+            "registry_collection": registry_collection,
+            "registry_alias": registry_alias,
         },
-        "promoted_at": datetime.now(
-            timezone.utc
-        ).isoformat(),
+
+        "promoted_at": now,
     }
 
-    with PROMOTION_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            promotion,
-            file,
-            indent=2,
+    # ------------------------------------------------------------------
+    # Final provenance sanity checks.
+    # ------------------------------------------------------------------
+
+    if not registry_artifact_ref.startswith(
+        f"wandb-registry-{registry_name}/"
+    ):
+        raise RuntimeError(
+            "Refusing to write provenance because the Registry "
+            "artifact reference is not fully qualified: "
+            f"{registry_artifact_ref}"
         )
-        file.write("\n")
+
+    if not registry_artifact_digest:
+        raise RuntimeError(
+            "Refusing to write provenance because the Registry "
+            "artifact digest is empty."
+        )
+
+    path.write_text(
+        json.dumps(
+            record,
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     logger.info(
         "Wrote promotion provenance: %s",
-        PROMOTION_FILE,
+        path,
     )
 
-    return PROMOTION_FILE
+    return path
 
 
 # ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
-
-    parser = argparse.ArgumentParser(
-        description=(
-            "Publish a DVC-promoted model to the W&B Model Registry."
-        ),
-    )
-
-    parser.add_argument(
-        "--model",
-        required=True,
-        choices=sorted(MODEL_PATHS),
-        help="Model variant to publish.",
-    )
-
-    parser.add_argument(
-        "--experiment",
-        required=True,
-        help="DVC experiment name that was promoted.",
-    )
-
-    parser.add_argument(
-        "--stage",
-        required=True,
-        help="DVC training stage associated with the model.",
-    )
-
-    return parser.parse_args()
-
-
-# ---------------------------------------------------------------------------
-# Entry point
+# Main
 # ---------------------------------------------------------------------------
 
 
@@ -537,157 +1074,245 @@ def parse_args() -> argparse.Namespace:
     config_name="config",
 )
 def main(cfg: DictConfig) -> None:
-    """Publish the DVC-promoted model to W&B Registry."""
+    """Publish a DVC experiment model to W&B Registry."""
 
-    args = parse_args()
-
-    entity, project = get_wandb_config()
-
-    (
-        registry_name,
-        registry_collection,
-        registry_alias,
-    ) = get_registry_config(cfg)
-
-    logger.info(
-        "=========================================================="
+    model_variant = str(
+        OmegaConf.select(
+            cfg,
+            "publication_model",
+            default="sft",
+        )
     )
-    logger.info(
-        "W&B MODEL ARTIFACT PUBLICATION"
+
+    experiment = str(
+        OmegaConf.select(
+            cfg,
+            "experiment",
+            default="",
+        )
     )
-    logger.info(
-        "=========================================================="
+
+    stage = str(
+        OmegaConf.select(
+            cfg,
+            "stage",
+            default="",
+        )
     )
+
+    if not experiment:
+        raise RuntimeError(
+            "No DVC experiment was supplied. "
+            "Use experiment=<experiment-name>."
+        )
+
+    if not stage:
+        raise RuntimeError(
+            "No DVC stage was supplied. "
+            "Use stage=<stage-name>."
+        )
+
+    wandb_cfg = get_wandb_config(cfg)
+
+    entity = wandb_cfg["entity"]
+    project = wandb_cfg["project"]
+    registry_name = wandb_cfg["registry_name"]
+    registry_collection = wandb_cfg["registry_collection"]
+    registry_alias = wandb_cfg["registry_alias"]
+
+    artifact_name = (
+        f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
+    )
+
+    logger.info("=" * 58)
+    logger.info("W&B MODEL ARTIFACT PUBLICATION")
+    logger.info("=" * 58)
+
     logger.info(
         "Model:              %s",
-        args.model,
+        model_variant,
     )
+
     logger.info(
         "Experiment:         %s",
-        args.experiment,
+        experiment,
     )
+
     logger.info(
         "Stage:              %s",
-        args.stage,
+        stage,
     )
+
     logger.info(
         "W&B entity:         %s",
         entity,
     )
+
     logger.info(
         "W&B project:        %s",
         project,
     )
+
     logger.info(
-        "Registry:            %s",
+        "Registry:           %s",
         registry_name,
     )
+
     logger.info(
         "Registry collection: %s",
         registry_collection,
     )
+
     logger.info(
-        "Registry alias:      %s",
+        "Registry alias:     %s",
         registry_alias,
     )
-    logger.info(
-        "=========================================================="
+
+    logger.info("=" * 58)
+
+    # ------------------------------------------------------------------
+    # 1. Validate local DVC output.
+    # ------------------------------------------------------------------
+
+    model_path = validate_model_output(
+        cfg,
+        model_variant,
     )
 
     # ------------------------------------------------------------------
-    # 1. Validate the already-promoted DVC artifact.
+    # 2. Resolve DVC experiment SHA.
     # ------------------------------------------------------------------
 
-    model_dir = validate_model_directory(
-        args.model,
-    )
-
-    # ------------------------------------------------------------------
-    # 2. Resolve the immutable DVC experiment SHA.
-    # ------------------------------------------------------------------
-
-    dvc_experiment_sha = get_git_experiment_sha(
-        args.experiment,
+    dvc_sha = resolve_dvc_experiment_sha(
+        cfg,
+        experiment,
     )
 
     logger.info(
         "DVC experiment SHA: %s",
-        dvc_experiment_sha,
+        dvc_sha,
     )
 
     # ------------------------------------------------------------------
-    # 3. Publish exact DVC-promoted model to W&B Registry.
+    # 3. Create/reuse project-level W&B artifact.
     # ------------------------------------------------------------------
 
-    artifact_info = publish_artifact(
-        model=args.model,
-        model_dir=model_dir,
-        dvc_experiment=args.experiment,
-        dvc_experiment_sha=dvc_experiment_sha,
-        stage=args.stage,
+    (
+        source_artifact_ref,
+        source_artifact_digest,
+        run_id,
+    ) = create_source_artifact(
         entity=entity,
         project=project,
+        model_variant=model_variant,
+        model_path=model_path,
+        dvc_experiment=experiment,
+        dvc_sha=dvc_sha,
+    )
+
+    # ------------------------------------------------------------------
+    # 4. Link exact source artifact to W&B Registry.
+    #
+    # This returns the FULLY QUALIFIED Registry artifact reference
+    # and the Registry artifact's own digest.
+    # ------------------------------------------------------------------
+
+    (
+        registry_artifact_ref,
+        registry_artifact_digest,
+    ) = link_to_registry(
+        source_artifact_ref=source_artifact_ref,
+        entity=entity,
         registry_name=registry_name,
         registry_collection=registry_collection,
         registry_alias=registry_alias,
     )
 
     # ------------------------------------------------------------------
-    # 4. Write promotion-level provenance.
+    # 5. Write immutable promotion provenance.
+    #
+    # IMPORTANT:
+    #
+    # artifact_digest receives registry_artifact_digest.
+    #
+    # artifact_ref receives the FULLY QUALIFIED Registry reference.
+    #
+    # Neither value comes from the source project artifact.
     # ------------------------------------------------------------------
 
-    promotion_file = write_promotion_provenance(
-        model=args.model,
-        stage=args.stage,
-        dvc_experiment=args.experiment,
-        dvc_experiment_sha=dvc_experiment_sha,
-        artifact_info=artifact_info,
+    provenance_path = write_promotion_provenance(
+        cfg,
+        model_variant=model_variant,
+        stage=stage,
+        experiment=experiment,
+        dvc_sha=dvc_sha,
+        entity=entity,
+        project=project,
+        source_artifact_ref=source_artifact_ref,
+        source_artifact_digest=source_artifact_digest,
+        registry_artifact_ref=registry_artifact_ref,
+        registry_artifact_digest=registry_artifact_digest,
+        artifact_name=artifact_name,
+        registry_name=registry_name,
+        registry_collection=registry_collection,
+        registry_alias=registry_alias,
+        run_id=run_id,
+    )
+
+    # ------------------------------------------------------------------
+    # 6. Final summary.
+    # ------------------------------------------------------------------
+
+    logger.info("=" * 58)
+    logger.info("W&B MODEL PROMOTION SUCCESSFUL")
+    logger.info("=" * 58)
+
+    logger.info(
+        "Model:              %s",
+        model_variant,
     )
 
     logger.info(
-        "=========================================================="
+        "DVC experiment:     %s",
+        experiment,
     )
+
     logger.info(
-        "W&B MODEL PROMOTION SUCCESSFUL"
+        "DVC SHA:            %s",
+        dvc_sha,
     )
+
     logger.info(
-        "=========================================================="
+        "Source artifact:    %s",
+        source_artifact_ref,
     )
+
     logger.info(
-        "Model:             %s",
-        args.model,
+        "Source digest:      %s",
+        source_artifact_digest,
     )
+
     logger.info(
-        "DVC experiment:    %s",
-        args.experiment,
+        "Registry artifact:  %s",
+        registry_artifact_ref,
     )
+
     logger.info(
-        "DVC SHA:           %s",
-        dvc_experiment_sha,
+        "Artifact digest:    %s",
+        registry_artifact_digest,
     )
+
     logger.info(
-        "Source artifact:   %s",
-        artifact_info["source_artifact_ref"],
-    )
-    logger.info(
-        "Registry artifact: %s",
-        artifact_info["registry_artifact_ref"],
-    )
-    logger.info(
-        "Artifact digest:   %s",
-        artifact_info["artifact_digest"],
-    )
-    logger.info(
-        "Production alias:  %s",
+        "Production alias:   %s",
         registry_alias,
     )
+
     logger.info(
-        "Provenance file:   %s",
-        promotion_file,
+        "Provenance file:    %s",
+        provenance_path,
     )
-    logger.info(
-        "=========================================================="
-    )
+
+    logger.info("=" * 58)
 
 
 if __name__ == "__main__":
