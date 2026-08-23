@@ -58,7 +58,7 @@ def load_promotion_record(
     during promotion.
     """
 
-    promotion_path = Path(cfg.project_dir) / "provenance"/ PROMOTION_FILE
+    promotion_path = Path(cfg.project_dir) / "provenance" / PROMOTION_FILE
 
     if not promotion_path.is_file():
         raise FileNotFoundError(
@@ -72,9 +72,7 @@ def load_promotion_record(
     )
 
     try:
-        promotion = json.loads(
-            promotion_path.read_text(encoding="utf-8")
-        )
+        promotion = json.loads(promotion_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"Invalid JSON in promotion record: {promotion_path}"
@@ -86,11 +84,7 @@ def load_promotion_record(
         "model_variant",
     )
 
-    missing = [
-        field
-        for field in required_fields
-        if not promotion.get(field)
-    ]
+    missing = [field for field in required_fields if not promotion.get(field)]
 
     if missing:
         raise RuntimeError(
@@ -134,9 +128,7 @@ def load_promotion_record(
 
     artifact_digest = promotion["artifact_digest"]
 
-    logger.info(
-        "Promotion record validated successfully."
-    )
+    logger.info("Promotion record validated successfully.")
     logger.info(
         "Promoted model variant: %s",
         model_variant,
@@ -178,9 +170,7 @@ def resolve_and_verify_artifact(
     wandb_project = os.environ.get("WANDB_PROJECT")
 
     if not wandb_entity or not wandb_project:
-        raise RuntimeError(
-            "WANDB_ENTITY and WANDB_PROJECT must be set."
-        )
+        raise RuntimeError("WANDB_ENTITY and WANDB_PROJECT must be set.")
 
     logger.info(
         "Resolving promoted W&B artifact: %s",
@@ -195,8 +185,7 @@ def resolve_and_verify_artifact(
         )
     except Exception as exc:
         raise RuntimeError(
-            f"Failed to resolve promoted W&B artifact "
-            f"'{artifact_ref}'."
+            f"Failed to resolve promoted W&B artifact " f"'{artifact_ref}'."
         ) from exc
 
     actual_digest = getattr(
@@ -228,9 +217,7 @@ def resolve_and_verify_artifact(
             f"'{actual_digest}'. Deployment aborted."
         )
 
-    logger.info(
-        "W&B artifact digest verification PASSED."
-    )
+    logger.info("W&B artifact digest verification PASSED.")
 
     return artifact, artifact_ref
 
@@ -264,9 +251,7 @@ def push_datasets(
         path = data_dir / filename
 
         if not path.is_file():
-            raise FileNotFoundError(
-                f"Required dataset file does not exist: {path}"
-            )
+            raise FileNotFoundError(f"Required dataset file does not exist: {path}")
 
     # ------------------------------------------------------------------
     # SFT
@@ -276,16 +261,12 @@ def push_datasets(
         {
             "train": load_dataset(
                 "json",
-                data_files=str(
-                    data_dir / "sft_train.jsonl"
-                ),
+                data_files=str(data_dir / "sft_train.jsonl"),
                 split="train",
             ),
             "validation": load_dataset(
                 "json",
-                data_files=str(
-                    data_dir / "sft_val.jsonl"
-                ),
+                data_files=str(data_dir / "sft_val.jsonl"),
                 split="train",
             ),
         }
@@ -309,16 +290,12 @@ def push_datasets(
         {
             "train": load_dataset(
                 "json",
-                data_files=str(
-                    data_dir / "dpo_train.jsonl"
-                ),
+                data_files=str(data_dir / "dpo_train.jsonl"),
                 split="train",
             ),
             "validation": load_dataset(
                 "json",
-                data_files=str(
-                    data_dir / "dpo_val.jsonl"
-                ),
+                data_files=str(data_dir / "dpo_val.jsonl"),
                 split="train",
             ),
         }
@@ -368,11 +345,7 @@ def generate_model_card(
         "",
     )
 
-    release_text = (
-        f"- **Release:** `{release_tag}`\n"
-        if release_tag
-        else ""
-    )
+    release_text = f"- **Release:** `{release_tag}`\n" if release_tag else ""
 
     training_descriptions = {
         "sft_only": "Supervised Fine-Tuning (SFT)",
@@ -380,8 +353,7 @@ def generate_model_card(
         "sft": "Supervised Fine-Tuning (SFT)",
         "dpo": "Direct Preference Optimization (DPO)",
         "sft_dpo": (
-            "Supervised Fine-Tuning followed by "
-            "Direct Preference Optimization"
+            "Supervised Fine-Tuning followed by " "Direct Preference Optimization"
         ),
         "grpo": "Group Relative Policy Optimization (GRPO)",
         "orpo": "Odds Ratio Preference Optimization (ORPO)",
@@ -394,16 +366,10 @@ def generate_model_card(
 
     leaderboard_content = ""
 
-    leaderboard_path = (
-        Path(cfg.project_dir)
-        / "results"
-        / "leaderboard.md"
-    )
+    leaderboard_path = Path(cfg.project_dir) / "results" / "leaderboard.md"
 
     if leaderboard_path.is_file():
-        leaderboard_content = leaderboard_path.read_text(
-            encoding="utf-8"
-        ).strip()
+        leaderboard_content = leaderboard_path.read_text(encoding="utf-8").strip()
 
     return f"""---
 language:
@@ -644,6 +610,7 @@ def push_model(
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 @hydra.main(
     version_base="1.3",
     config_path="../configs",
@@ -654,13 +621,9 @@ def main(cfg: DictConfig) -> None:
     hf_token = os.environ.get("HF_TOKEN")
 
     if not hf_token:
-        raise RuntimeError(
-            "HF_TOKEN environment variable is not set."
-        )
+        raise RuntimeError("HF_TOKEN environment variable is not set.")
 
-    logger.info(
-        "Starting Hugging Face deployment."
-    )
+    logger.info("Starting Hugging Face deployment.")
 
     api = HfApi(
         token=hf_token,
@@ -707,7 +670,7 @@ def main(cfg: DictConfig) -> None:
         api,
         artifact,
         promotion,
-     )
+    )
 
     logger.info(
         "🚀 Successfully published promoted model '%s' "
@@ -718,4 +681,4 @@ def main(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-   main()
+    main()

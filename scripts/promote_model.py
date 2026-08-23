@@ -203,8 +203,7 @@ def verify_artifact(
             ) from exc
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(
-                "Model verification command FAILED. "
-                "Artifact will not be promoted."
+                "Model verification command FAILED. " "Artifact will not be promoted."
             ) from exc
 
         logger.info("Model verification command: PASSED")
@@ -287,9 +286,7 @@ def promote_artifact(
         registry_ref,
     )
 
-    logger.info(
-        "Production alias assigned to verified artifact."
-    )
+    logger.info("Production alias assigned to verified artifact.")
 
     return linked_artifact, registry_ref
 
@@ -337,16 +334,12 @@ def verify_registry_promotion(
             f"expected alias '{production_alias}'."
         )
 
-    logger.info(
-        "Registry artifact digest verification: PASSED"
-    )
+    logger.info("Registry artifact digest verification: PASSED")
     logger.info(
         "Registry alias verification: PASSED (%s)",
         production_alias,
     )
-    logger.info(
-        "Promotion verification: PASSED"
-    )
+    logger.info("Promotion verification: PASSED")
     logger.info("====================================")
 
     return registry_artifact
@@ -409,9 +402,7 @@ def write_promotion_provenance(
         "verification": {
             "artifact_integrity": True,
             "verification_command": verification_command,
-            "digest_match": (
-                source_artifact.digest == registry_artifact.digest
-            ),
+            "digest_match": (source_artifact.digest == registry_artifact.digest),
         },
         "git": {
             "commit": get_git_commit(),
@@ -442,14 +433,10 @@ def main() -> None:
     wandb_project = os.environ.get("WANDB_PROJECT")
 
     if not wandb_entity:
-        raise RuntimeError(
-            "WANDB_ENTITY environment variable is not set."
-        )
+        raise RuntimeError("WANDB_ENTITY environment variable is not set.")
 
     if not wandb_project:
-        raise RuntimeError(
-            "WANDB_PROJECT environment variable is not set."
-        )
+        raise RuntimeError("WANDB_PROJECT environment variable is not set.")
 
     validate_artifact_ref(args.artifact_ref)
 
