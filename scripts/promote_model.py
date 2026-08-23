@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,17 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+VERSION_PATTERN = re.compile(r"^v\d+$")
+
+FORBIDDEN_ALIASES = {
+    "latest",
+    "production",
+    "staging",
+    "development",
+    "dev",
+    "test",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -74,29 +86,27 @@ def parse_args() -> argparse.Namespace:
 
 
 def validate_artifact_ref(artifact_ref: str) -> None:
-    """Reject mutable or ambiguous artifact references."""
+    """Reject mutable, ambiguous, or non-versioned artifact references."""
 
     if ":" not in artifact_ref:
         raise ValueError(
-            "The artifact reference must include an explicit version. "
-            "For example: rl4aa/ask-before-answer/Clarifier-grpo:v17"
+            "The artifact reference must include an explicit artifact "
+            "version such as ':v17'."
         )
 
-    alias = artifact_ref.rsplit(":", 1)[1]
+    version = artifact_ref.rsplit(":", 1)[1]
 
-    forbidden_aliases = {
-        "latest",
-        "production",
-        "staging",
-        "development",
-        "dev",
-        "test",
-    }
+    if not VERSION_PATTERN.fullmatch(version):
+        raise ValueError(
+            f"Artifact reference '{artifact_ref}' does not contain an "
+            "explicit immutable W&B artifact version. Expected ':vN', "
+            "for example ':v17'."
+        )
 
-    if alias in forbidden_aliases:
+    if version in FORBIDDEN_ALIASES:
         raise ValueError(
             f"Artifact reference '{artifact_ref}' uses mutable alias "
-            f"'{alias}'. Promotion requires an immutable artifact version."
+            f"'{version}'. Promotion requires an immutable artifact version."
         )
 
 
@@ -106,10 +116,7 @@ def resolve_artifact(
 ) -> Any:
     """Resolve the exact source artifact."""
 
-    logger.info(
-        "Resolving candidate artifact: %s",
-        artifact_ref,
-    )
+    logger.info("Resolving candidate artifact: %s", artifact_ref)
 
     try:
         artifact = api.artifact(artifact_ref)
@@ -130,17 +137,9 @@ def resolve_artifact(
             f"Candidate artifact '{artifact_ref}' does not expose a digest."
         )
 
-    logger.info(
-        "Candidate artifact resolved successfully."
-    )
-    logger.info(
-        "Artifact: %s",
-        artifact.qualified_name,
-    )
-    logger.info(
-        "Digest: %s",
-        artifact.digest,
-    )
+    logger.info("Candidate artifact resolved successfully.")
+    logger.info("Artifact: %s", artifact.qualified_name)
+    logger.info("Digest: %s", artifact.digest)
 
     return artifact
 
@@ -152,39 +151,39 @@ def verify_artifact(
     """
     Verify the candidate artifact.
 
-    The artifact must first be resolved by exact version and digest.
-    An optional project-specific verification command can then perform
-    model evaluation.
+    Verification consists of:
+
+    1. W&B artifact integrity verification.
+    2. Optional project-specific model verification command.
     """
 
     logger.info("=== MODEL VERIFICATION ===")
+    logger.info("Verifying artifact: %s", artifact.qualified_name)
+    logger.info("Artifact digest: %s", artifact.digest)
 
-    logger.info(
-        "Verifying artifact: %s",
-        artifact.qualified_name,
-    )
+    # ---------------------------------------------------------------
+    # W&B artifact integrity
+    # ---------------------------------------------------------------
 
-    logger.info(
-        "Artifact digest: %s",
-        artifact.digest,
-    )
-
-    # Verify the artifact manifest/content integrity.
     try:
         verified = artifact.verify()
     except Exception as exc:
         raise RuntimeError(
-            f"W&B artifact integrity verification failed for "
+            "W&B artifact integrity verification failed for "
             f"'{artifact.qualified_name}'."
         ) from exc
 
     if verified is False:
         raise RuntimeError(
-            f"W&B artifact integrity verification failed for "
+            "W&B artifact integrity verification failed for "
             f"'{artifact.qualified_name}'."
         )
 
     logger.info("W&B artifact integrity verification: PASSED")
+
+    # ---------------------------------------------------------------
+    # Optional model-level verification
+    # ---------------------------------------------------------------
 
     if verification_command:
         logger.info(
@@ -197,6 +196,11 @@ def verify_artifact(
                 verification_command,
                 check=True,
             )
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                "Model verification command could not be executed: "
+                f"'{verification_command[0]}'."
+            ) from exc
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(
                 "Model verification command FAILED. "
@@ -207,6 +211,15 @@ def verify_artifact(
 
     logger.info("MODEL VERIFICATION: PASSED")
     logger.info("==========================")
+
+
+def build_registry_path(
+    registry_name: str,
+    registry_collection: str,
+) -> str:
+    """Build the W&B Registry collection path."""
+
+    return f"wandb-registry-{registry_name}/{registry_collection}"
 
 
 def promote_artifact(
@@ -220,14 +233,16 @@ def promote_artifact(
 
     Returns:
         linked_artifact:
-            The Registry-linked artifact.
+            The Registry-linked artifact returned by W&B.
+
         registry_ref:
             Immutable Registry reference such as:
             wandb-registry-Model/AskBeforeAnswer-Models:v17
     """
 
-    target_path = (
-        f"wandb-registry-{registry_name}/{registry_collection}"
+    target_path = build_registry_path(
+        registry_name=registry_name,
+        registry_collection=registry_collection,
     )
 
     logger.info(
@@ -251,18 +266,21 @@ def promote_artifact(
             f"to '{target_path}'."
         ) from exc
 
-    registry_name_with_version = linked_artifact.name
-
-    # W&B's linked artifact name should contain a concrete version.
-    if ":" not in registry_name_with_version:
+    if not linked_artifact.name or ":" not in linked_artifact.name:
         raise RuntimeError(
             "W&B returned a Registry artifact without an explicit "
-            f"version: {registry_name_with_version}"
+            f"version: {linked_artifact.name}"
         )
 
-    registry_ref = (
-        f"{target_path}:{registry_name_with_version.rsplit(':', 1)[1]}"
-    )
+    registry_version = linked_artifact.name.rsplit(":", 1)[1]
+
+    if not VERSION_PATTERN.fullmatch(registry_version):
+        raise RuntimeError(
+            "W&B returned an unexpected Registry artifact version: "
+            f"{registry_version}"
+        )
+
+    registry_ref = f"{target_path}:{registry_version}"
 
     logger.info(
         "Registry artifact created: %s",
@@ -276,6 +294,80 @@ def promote_artifact(
     return linked_artifact, registry_ref
 
 
+def verify_registry_promotion(
+    api: wandb.Api,
+    source_digest: str,
+    registry_ref: str,
+    production_alias: str,
+) -> Any:
+    """
+    Re-fetch the Registry artifact and verify that the exact source
+    artifact was promoted.
+
+    This deliberately performs a fresh API lookup instead of trusting
+    the object returned by Artifact.link().
+    """
+
+    logger.info("=== VERIFYING REGISTRY PROMOTION ===")
+    logger.info("Registry artifact: %s", registry_ref)
+
+    try:
+        registry_artifact = api.artifact(registry_ref)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not re-fetch promoted Registry artifact '{registry_ref}'."
+        ) from exc
+
+    promoted_digest = registry_artifact.digest
+
+    logger.info("Source digest:   %s", source_digest)
+    logger.info("Registry digest: %s", promoted_digest)
+
+    if promoted_digest != source_digest:
+        raise RuntimeError(
+            "Registry promotion digest does not match the verified "
+            "source artifact digest."
+        )
+
+    aliases = set(getattr(registry_artifact, "aliases", []) or [])
+
+    if production_alias not in aliases:
+        raise RuntimeError(
+            f"Registry artifact '{registry_ref}' does not expose the "
+            f"expected alias '{production_alias}'."
+        )
+
+    logger.info(
+        "Registry artifact digest verification: PASSED"
+    )
+    logger.info(
+        "Registry alias verification: PASSED (%s)",
+        production_alias,
+    )
+    logger.info(
+        "Promotion verification: PASSED"
+    )
+    logger.info("====================================")
+
+    return registry_artifact
+
+
+def get_git_commit() -> str | None:
+    """Return the current Git commit when available."""
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    return result.stdout.strip() or None
+
+
 def write_promotion_provenance(
     path: str,
     source_artifact: Any,
@@ -285,10 +377,12 @@ def write_promotion_provenance(
     registry_name: str,
     registry_collection: str,
     production_alias: str,
+    verification_command: list[str] | None,
 ) -> Path:
     """Write an immutable record of the promotion operation."""
 
     output_path = Path(path)
+
     output_path.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -296,18 +390,32 @@ def write_promotion_provenance(
 
     provenance = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "source_artifact_ref": source_artifact_ref,
-        "source_artifact_digest": source_artifact.digest,
-        "source_artifact_name": source_artifact.name,
-        "source_artifact_qualified_name": (
-            source_artifact.qualified_name
-        ),
-        "registry_name": registry_name,
-        "registry_collection": registry_collection,
-        "registry_alias": production_alias,
-        "registry_artifact_ref": registry_ref,
-        "registry_artifact_name": registry_artifact.name,
-        "registry_artifact_digest": registry_artifact.digest,
+        "operation": "model_promotion",
+        "status": "verified",
+        "source": {
+            "artifact_ref": source_artifact_ref,
+            "artifact_name": source_artifact.name,
+            "qualified_name": source_artifact.qualified_name,
+            "digest": source_artifact.digest,
+        },
+        "registry": {
+            "name": registry_name,
+            "collection": registry_collection,
+            "alias": production_alias,
+            "artifact_ref": registry_ref,
+            "artifact_name": registry_artifact.name,
+            "digest": registry_artifact.digest,
+        },
+        "verification": {
+            "artifact_integrity": True,
+            "verification_command": verification_command,
+            "digest_match": (
+                source_artifact.digest == registry_artifact.digest
+            ),
+        },
+        "git": {
+            "commit": get_git_commit(),
+        },
     }
 
     output_path.write_text(
@@ -352,20 +460,14 @@ def main() -> None:
     logger.info("W&B project: %s", wandb_project)
     logger.info("Candidate artifact: %s", args.artifact_ref)
     logger.info("Registry: %s", args.registry_name)
-    logger.info(
-        "Collection: %s",
-        args.registry_collection,
-    )
-    logger.info(
-        "Production alias: %s",
-        args.production_alias,
-    )
+    logger.info("Collection: %s", args.registry_collection)
+    logger.info("Production alias: %s", args.production_alias)
     logger.info("==========================================")
 
     api = wandb.Api()
 
     # ---------------------------------------------------------------
-    # 1. Resolve the exact candidate artifact.
+    # 1. Resolve exact candidate artifact.
     # ---------------------------------------------------------------
 
     artifact = resolve_artifact(
@@ -373,11 +475,10 @@ def main() -> None:
         artifact_ref=args.artifact_ref,
     )
 
-    # Capture the digest BEFORE doing anything with the Registry.
     source_digest = artifact.digest
 
     # ---------------------------------------------------------------
-    # 2. Verify the candidate artifact.
+    # 2. Verify candidate artifact.
     # ---------------------------------------------------------------
 
     verify_artifact(
@@ -385,8 +486,10 @@ def main() -> None:
         verification_command=args.verification_command,
     )
 
-    # Ensure the object we promote is still the exact artifact we
-    # originally resolved.
+    # ---------------------------------------------------------------
+    # 3. Ensure the exact artifact survived verification.
+    # ---------------------------------------------------------------
+
     if artifact.digest != source_digest:
         raise RuntimeError(
             "Candidate artifact digest changed during verification. "
@@ -394,10 +497,10 @@ def main() -> None:
         )
 
     # ---------------------------------------------------------------
-    # 3. Promote the exact verified artifact.
+    # 4. Promote exact verified artifact.
     # ---------------------------------------------------------------
 
-    linked_artifact, registry_ref = promote_artifact(
+    _, registry_ref = promote_artifact(
         artifact=artifact,
         registry_name=args.registry_name,
         registry_collection=args.registry_collection,
@@ -405,51 +508,35 @@ def main() -> None:
     )
 
     # ---------------------------------------------------------------
-    # 4. Verify Registry promotion.
+    # 5. Re-fetch Registry artifact and verify promotion.
     # ---------------------------------------------------------------
 
-    logger.info("=== VERIFYING PROMOTION ===")
-
-    promoted_digest = linked_artifact.digest
-
-    logger.info(
-        "Source digest:   %s",
-        source_digest,
-    )
-    logger.info(
-        "Registry digest: %s",
-        promoted_digest,
-    )
-
-    if promoted_digest != source_digest:
-        raise RuntimeError(
-            "Registry promotion digest does not match the verified "
-            "source artifact digest."
-        )
-
-    logger.info(
-        "Registry artifact: %s",
-        registry_ref,
-    )
-
-    logger.info(
-        "Promotion verification: PASSED"
+    registry_artifact = verify_registry_promotion(
+        api=api,
+        source_digest=source_digest,
+        registry_ref=registry_ref,
+        production_alias=args.production_alias,
     )
 
     # ---------------------------------------------------------------
-    # 5. Record exact promotion provenance.
+    # 6. Record exact promotion provenance.
     # ---------------------------------------------------------------
 
     write_promotion_provenance(
         path=args.provenance_file,
         source_artifact=artifact,
-        registry_artifact=linked_artifact,
+        registry_artifact=registry_artifact,
         source_artifact_ref=args.artifact_ref,
         registry_ref=registry_ref,
         registry_name=args.registry_name,
         registry_collection=args.registry_collection,
         production_alias=args.production_alias,
+        verification_command=args.verification_command,
     )
+
+    # ---------------------------------------------------------------
+    # 7. Final result.
+    # ---------------------------------------------------------------
 
     logger.info("==========================================")
     logger.info("MODEL PROMOTION SUCCESSFUL")
@@ -469,6 +556,10 @@ def main() -> None:
     logger.info(
         "Production alias: %s",
         args.production_alias,
+    )
+    logger.info(
+        "Provenance: %s",
+        args.provenance_file,
     )
     logger.info("==========================================")
 
