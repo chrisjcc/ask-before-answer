@@ -20,4 +20,13 @@ promotion_provenance: "provenance/model_promotion.json"
 #
 # If production has moved since verification, deployment fails rather than
 # publishing a different model.
+# verify_production_alias: true
+
+# Exact immutable W&B artifact that was verified and approved for deployment.
+#
+# This is populated by the promotion workflow and consumed by push_to_hub.py.
+verified_artifact_ref: ""
+
+# When enabled, deployment verifies that the mutable production alias still
+# points to the exact same W&B artifact digest as verified_artifact_ref.
 verify_production_alias: true
