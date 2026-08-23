@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 Publish a promoted DVC model artifact to Weights & Biases.
 
@@ -29,9 +30,17 @@ Important:
     - The source artifact digest is stored separately for provenance.
     - The provenance artifact_ref is ALWAYS the fully qualified
       W&B Registry reference:
+
           wandb-registry-<registry_name>/<collection>:<version>
+
     - push_to_hub.py must verify the Registry artifact against
       artifact_digest, never against the source artifact digest.
+
+    - Publication is idempotent. If the exact DVC experiment has
+      already been published and the recorded Registry artifact still
+      passes integrity verification, the script exits successfully
+      without creating another W&B run, artifact version, or Registry
+      link.
 """
 
 from __future__ import annotations
@@ -65,14 +74,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 PROMOTION_FILE = "provenance/model_promotion.json"
-
 DEFAULT_WANDB_ENTITY = "rl4aa"
 DEFAULT_WANDB_PROJECT = "ask-before-answer"
-
 DEFAULT_REGISTRY_NAME = "Model"
 DEFAULT_REGISTRY_COLLECTION = "AskBeforeAnswer-Models"
 DEFAULT_REGISTRY_ALIAS = "production"
-
 MODEL_ARTIFACT_PREFIX = "Clarifier"
 
 
@@ -87,7 +93,6 @@ def run_command(
     cwd: Path | None = None,
 ) -> str:
     """Run a command and return stdout."""
-
     logger.debug(
         "Running command: %s",
         " ".join(command),
@@ -115,7 +120,6 @@ def run_command(
 
 def project_root(cfg: DictConfig) -> Path:
     """Return the project root."""
-
     return Path(
         OmegaConf.select(
             cfg,
@@ -131,7 +135,6 @@ def get_wandb_config(cfg: DictConfig) -> dict[str, str]:
 
     This deliberately does not require cfg.wandb to exist.
     """
-
     wandb_cfg = OmegaConf.select(
         cfg,
         "wandb",
@@ -210,7 +213,6 @@ def build_registry_ref(
 
     can be resolved ambiguously by the W&B API.
     """
-
     return (
         f"wandb-registry-{registry_name}/"
         f"{registry_collection}:"
@@ -231,7 +233,6 @@ def build_registry_alias_ref(
 
         wandb-registry-Model/AskBeforeAnswer-Models:production
     """
-
     return (
         f"wandb-registry-{registry_name}/"
         f"{registry_collection}:"
@@ -249,7 +250,6 @@ def validate_model_output(
     model_variant: str,
 ) -> Path:
     """Validate the local DVC model output."""
-
     root = project_root(cfg)
 
     model_path = (
@@ -303,7 +303,6 @@ def resolve_dvc_experiment_sha(
 
     We therefore inspect Git refs first and fall back to DVC output.
     """
-
     root = project_root(cfg)
 
     logger.info(
@@ -557,8 +556,7 @@ def resolve_dvc_experiment_sha(
                 if (
                     len(token) >= 7
                     and all(
-                        char
-                        in "0123456789abcdef"
+                        char in "0123456789abcdef"
                         for char in token.lower()
                     )
                 ):
@@ -605,7 +603,6 @@ def create_source_artifact(
     The source artifact digest is deliberately kept separate from
     the Registry artifact digest.
     """
-
     artifact_name = (
         f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
     )
@@ -764,7 +761,6 @@ def link_to_registry(
     The fully-qualified reference is what downstream deployment code
     must use to prevent W&B from resolving an unrelated artifact.
     """
-
     logger.info(
         "Linking artifact to W&B Registry collection: %s",
         registry_collection,
@@ -853,8 +849,6 @@ def link_to_registry(
 
     # ------------------------------------------------------------------
     # Construct the FULLY QUALIFIED immutable Registry reference.
-    #
-    # This is the critical fix.
     # ------------------------------------------------------------------
 
     registry_ref = build_registry_ref(
@@ -935,6 +929,228 @@ def link_to_registry(
 # ---------------------------------------------------------------------------
 
 
+def verify_existing_promotion(
+    cfg: DictConfig,
+    *,
+    model_variant: str,
+    stage: str,
+    experiment: str,
+    dvc_sha: str,
+    entity: str,
+    registry_name: str,
+    registry_collection: str,
+    registry_alias: str,
+) -> Path | None:
+    """
+    Check whether this exact DVC promotion has already been completed.
+
+    Returns:
+
+        The existing provenance path if a valid identical promotion exists.
+        None if no provenance file exists.
+
+    Raises:
+
+        RuntimeError:
+
+            If provenance exists but does not describe the requested
+            promotion, or if the recorded Registry artifact fails
+            integrity verification.
+    """
+    root = project_root(cfg)
+    provenance_path = root / PROMOTION_FILE
+
+    if not provenance_path.exists():
+        return None
+
+    logger.info(
+        "Existing promotion provenance found: %s",
+        provenance_path,
+    )
+
+    try:
+        record = json.loads(
+            provenance_path.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            f"Could not read existing promotion provenance: "
+            f"{provenance_path}"
+        ) from exc
+
+    # ------------------------------------------------------------------
+    # Verify that the provenance belongs to this exact promotion request.
+    # ------------------------------------------------------------------
+
+    expected = {
+        "model_variant": model_variant,
+        "dvc_stage": stage,
+        "dvc_experiment": experiment,
+        "dvc_experiment_sha": dvc_sha,
+    }
+
+    mismatches: list[str] = []
+
+    for key, expected_value in expected.items():
+        actual_value = record.get(key)
+
+        if actual_value != expected_value:
+            mismatches.append(
+                f"{key}: expected '{expected_value}', "
+                f"found '{actual_value}'"
+            )
+
+    if mismatches:
+        raise RuntimeError(
+            "Promotion provenance already exists, but it does not "
+            "match the requested promotion:\n"
+            + "\n".join(
+                f"  - {mismatch}"
+                for mismatch in mismatches
+            )
+            + "\nRefusing to overwrite existing provenance."
+        )
+
+    # ------------------------------------------------------------------
+    # Extract the canonical immutable Registry reference and digest.
+    # ------------------------------------------------------------------
+
+    registry_artifact_ref = record.get("artifact_ref")
+    registry_artifact_digest = record.get("artifact_digest")
+
+    if not registry_artifact_ref:
+        raise RuntimeError(
+            "Existing promotion provenance does not contain "
+            "'artifact_ref'."
+        )
+
+    if not registry_artifact_digest:
+        raise RuntimeError(
+            "Existing promotion provenance does not contain "
+            "'artifact_digest'."
+        )
+
+    expected_prefix = (
+        f"wandb-registry-{registry_name}/"
+        f"{registry_collection}:"
+    )
+
+    if not registry_artifact_ref.startswith(expected_prefix):
+        raise RuntimeError(
+            "Existing promotion provenance contains an unexpected "
+            f"Registry artifact reference:\n"
+            f"  {registry_artifact_ref}\n"
+            f"Expected prefix:\n"
+            f"  {expected_prefix}"
+        )
+
+    # ------------------------------------------------------------------
+    # Verify the immutable Registry artifact.
+    # ------------------------------------------------------------------
+
+    logger.info(
+        "Verifying existing immutable Registry artifact: %s",
+        registry_artifact_ref,
+    )
+
+    api = wandb.Api()
+
+    try:
+        registry_artifact = api.artifact(
+            registry_artifact_ref,
+            type="model",
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Existing promotion provenance references a Registry "
+            f"artifact that could not be resolved:\n"
+            f"  {registry_artifact_ref}"
+        ) from exc
+
+    actual_digest = registry_artifact.digest
+
+    if not actual_digest:
+        raise RuntimeError(
+            "Existing Registry artifact has no digest:\n"
+            f"  {registry_artifact_ref}"
+        )
+
+    logger.info(
+        "Recorded Registry digest: %s",
+        registry_artifact_digest,
+    )
+
+    logger.info(
+        "Resolved Registry digest: %s",
+        actual_digest,
+    )
+
+    if actual_digest != registry_artifact_digest:
+        raise RuntimeError(
+            "Existing promotion provenance failed its Registry "
+            "integrity check.\n"
+            f"  Recorded digest: {registry_artifact_digest}\n"
+            f"  Actual digest:   {actual_digest}"
+        )
+
+    # ------------------------------------------------------------------
+    # Verify that the production alias still points to the same artifact.
+    # ------------------------------------------------------------------
+
+    registry_alias_ref = build_registry_alias_ref(
+        registry_name=registry_name,
+        registry_collection=registry_collection,
+        registry_alias=registry_alias,
+    )
+
+    logger.info(
+        "Verifying production alias: %s",
+        registry_alias_ref,
+    )
+
+    try:
+        aliased_artifact = api.artifact(
+            registry_alias_ref,
+            type="model",
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Existing promotion provenance is valid, but the "
+            f"'{registry_alias}' Registry alias could not be resolved."
+        ) from exc
+
+    alias_digest = aliased_artifact.digest
+
+    if not alias_digest:
+        raise RuntimeError(
+            f"Registry alias '{registry_alias}' resolved without "
+            "a digest."
+        )
+
+    logger.info(
+        "Production alias digest: %s",
+        alias_digest,
+    )
+
+    if alias_digest != registry_artifact_digest:
+        raise RuntimeError(
+            "The production alias no longer points to the artifact "
+            "recorded in promotion provenance.\n"
+            f"  Provenance artifact: {registry_artifact_ref}\n"
+            f"  Provenance digest:   {registry_artifact_digest}\n"
+            f"  Alias digest:        {alias_digest}\n"
+            "\n"
+            "Refusing to silently republish or overwrite the "
+            "existing promotion."
+        )
+
+    logger.info(
+        "Existing promotion verified successfully."
+    )
+
+    return provenance_path
+
+
 def write_promotion_provenance(
     cfg: DictConfig,
     *,
@@ -970,7 +1186,6 @@ def write_promotion_provenance(
 
     push_to_hub.py consumes artifact_ref and artifact_digest directly.
     """
-
     root = project_root(cfg)
 
     provenance_dir = root / "provenance"
@@ -1194,7 +1409,74 @@ def main(cfg: DictConfig) -> None:
     )
 
     # ------------------------------------------------------------------
-    # 3. Create/reuse project-level W&B artifact.
+    # 3. Check for an existing identical promotion.
+    #
+    # This makes publication idempotent. If the exact DVC experiment
+    # has already been promoted and its Registry artifact remains
+    # valid, do not create another W&B run, artifact version, or
+    # Registry link.
+    # ------------------------------------------------------------------
+
+    existing_provenance = verify_existing_promotion(
+        cfg,
+        model_variant=model_variant,
+        stage=stage,
+        experiment=experiment,
+        dvc_sha=dvc_sha,
+        entity=entity,
+        registry_name=registry_name,
+        registry_collection=registry_collection,
+        registry_alias=registry_alias,
+    )
+
+    if existing_provenance is not None:
+        logger.info("=" * 58)
+        logger.info("W&B MODEL ARTIFACT ALREADY PUBLISHED")
+        logger.info("=" * 58)
+
+        logger.info(
+            "Model:              %s",
+            model_variant,
+        )
+
+        logger.info(
+            "DVC experiment:     %s",
+            experiment,
+        )
+
+        logger.info(
+            "DVC SHA:            %s",
+            dvc_sha,
+        )
+
+        logger.info(
+            "Provenance file:    %s",
+            existing_provenance,
+        )
+
+        logger.info(
+            "No new W&B artifact or Registry version was created."
+        )
+
+        logger.info(
+            "Existing promotion is valid and remains the deployment target."
+        )
+
+        logger.info("=" * 58)
+
+        return
+
+    # ------------------------------------------------------------------
+    # 4. Create/reuse project-level W&B artifact.
+    #
+    # This is the block that must exist after the idempotency check.
+    #
+    # It produces the three values needed by the Registry and
+    # provenance stages:
+    #
+    #     source_artifact_ref
+    #     source_artifact_digest
+    #     run_id
     # ------------------------------------------------------------------
 
     (
@@ -1211,7 +1493,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     # ------------------------------------------------------------------
-    # 4. Link exact source artifact to W&B Registry.
+    # 5. Link exact source artifact to W&B Registry.
     #
     # This returns the FULLY QUALIFIED Registry artifact reference
     # and the Registry artifact's own digest.
@@ -1229,7 +1511,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     # ------------------------------------------------------------------
-    # 5. Write immutable promotion provenance.
+    # 6. Write immutable promotion provenance.
     #
     # IMPORTANT:
     #
@@ -1260,7 +1542,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     # ------------------------------------------------------------------
-    # 6. Final summary.
+    # 7. Final summary.
     # ------------------------------------------------------------------
 
     logger.info("=" * 58)
