@@ -64,7 +64,7 @@ help:
 	@echo "  make promote-model ARTIFACT_REF=<exact-wandb-artifact-ref>"
 	@echo "                              Verify and promote exact W&B artifact"
 	@echo "                              to Model Registry + production alias"
-        @echo ""
+	@echo ""
 	@echo "Deployment:"
 	@echo "  make deploy-hf              Deploy Registry-verified model to Hugging Face"
 	@echo "                              using provenance/model_promotion.json"
