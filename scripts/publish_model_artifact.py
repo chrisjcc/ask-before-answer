@@ -53,9 +53,8 @@ from pathlib import Path
 from typing import Any
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
-
 import wandb
+from omegaconf import DictConfig, OmegaConf
 
 # ---------------------------------------------------------------------------
 # Logging
