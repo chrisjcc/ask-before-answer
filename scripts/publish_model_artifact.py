@@ -212,11 +212,7 @@ def build_registry_ref(
 
     can be resolved ambiguously by the W&B API.
     """
-    return (
-        f"wandb-registry-{registry_name}/"
-        f"{registry_collection}:"
-        f"{version}"
-    )
+    return f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{version}"
 
 
 def build_registry_alias_ref(
@@ -233,9 +229,7 @@ def build_registry_alias_ref(
         wandb-registry-Model/AskBeforeAnswer-Models:production
     """
     return (
-        f"wandb-registry-{registry_name}/"
-        f"{registry_collection}:"
-        f"{registry_alias}"
+        f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{registry_alias}"
     )
 
 
@@ -251,28 +245,15 @@ def validate_model_output(
     """Validate the local DVC model output."""
     root = project_root(cfg)
 
-    model_path = (
-        root
-        / "models"
-        / model_variant
-        / "final"
-    )
+    model_path = root / "models" / model_variant / "final"
 
     if not model_path.is_dir():
-        raise RuntimeError(
-            f"DVC model output does not exist: {model_path}"
-        )
+        raise RuntimeError(f"DVC model output does not exist: {model_path}")
 
-    files = [
-        path
-        for path in model_path.rglob("*")
-        if path.is_file()
-    ]
+    files = [path for path in model_path.rglob("*") if path.is_file()]
 
     if not files:
-        raise RuntimeError(
-            f"DVC model output is empty: {model_path}"
-        )
+        raise RuntimeError(f"DVC model output is empty: {model_path}")
 
     logger.info(
         "Validated DVC model output: %s",
@@ -390,10 +371,7 @@ def resolve_dvc_experiment_sha(
                 ):
                     candidate = value.get(key)
 
-                    if (
-                        isinstance(candidate, str)
-                        and candidate
-                    ):
+                    if isinstance(candidate, str) and candidate:
                         logger.info(
                             "DVC experiment SHA: %s",
                             candidate,
@@ -406,9 +384,7 @@ def resolve_dvc_experiment_sha(
                     continue
 
                 name = (
-                    item.get("name")
-                    or item.get("experiment")
-                    or item.get("exp_name")
+                    item.get("name") or item.get("experiment") or item.get("exp_name")
                 )
 
                 if name != experiment:
@@ -422,10 +398,7 @@ def resolve_dvc_experiment_sha(
                 ):
                     candidate = item.get(key)
 
-                    if (
-                        isinstance(candidate, str)
-                        and candidate
-                    ):
+                    if isinstance(candidate, str) and candidate:
                         logger.info(
                             "DVC experiment SHA: %s",
                             candidate,
@@ -474,17 +447,10 @@ def resolve_dvc_experiment_sha(
                         ):
                             candidate = value.get(key)
 
-                            if (
-                                isinstance(candidate, str)
-                                and candidate
-                            ):
+                            if isinstance(candidate, str) and candidate:
                                 return candidate
 
-                name = (
-                    obj.get("name")
-                    or obj.get("experiment")
-                    or obj.get("exp_name")
-                )
+                name = obj.get("name") or obj.get("experiment") or obj.get("exp_name")
 
                 if name == experiment:
                     for key in (
@@ -495,10 +461,7 @@ def resolve_dvc_experiment_sha(
                     ):
                         candidate = obj.get(key)
 
-                        if (
-                            isinstance(candidate, str)
-                            and candidate
-                        ):
+                        if isinstance(candidate, str) and candidate:
                             return candidate
 
                 for value in obj.values():
@@ -552,12 +515,8 @@ def resolve_dvc_experiment_sha(
             tokens = line.split()
 
             for token in tokens:
-                if (
-                    len(token) >= 7
-                    and all(
-                        char in "0123456789abcdef"
-                        for char in token.lower()
-                    )
+                if len(token) >= 7 and all(
+                    char in "0123456789abcdef" for char in token.lower()
                 ):
                     logger.info(
                         "DVC experiment SHA: %s",
@@ -602,9 +561,7 @@ def create_source_artifact(
     The source artifact digest is deliberately kept separate from
     the Registry artifact digest.
     """
-    artifact_name = (
-        f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
-    )
+    artifact_name = f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
 
     logger.info(
         "Creating W&B artifact: %s",
@@ -634,9 +591,7 @@ def create_source_artifact(
             },
         )
 
-        logger.info(
-            "Adding DVC model output to W&B artifact..."
-        )
+        logger.info("Adding DVC model output to W&B artifact...")
 
         artifact.add_dir(
             local_path=str(model_path),
@@ -654,9 +609,7 @@ def create_source_artifact(
             ],
         )
 
-        logger.info(
-            "Waiting for W&B artifact upload to complete..."
-        )
+        logger.info("Waiting for W&B artifact upload to complete...")
 
         try:
             logged_artifact.wait()
@@ -667,10 +620,7 @@ def create_source_artifact(
         # Resolve the actual project artifact explicitly.
         # --------------------------------------------------------------
 
-        source_latest_ref = (
-            f"{entity}/{project}/"
-            f"{artifact_name}:latest"
-        )
+        source_latest_ref = f"{entity}/{project}/" f"{artifact_name}:latest"
 
         logger.info(
             "Resolving project artifact: %s",
@@ -690,11 +640,7 @@ def create_source_artifact(
                 "but no immutable artifact version was returned."
             )
 
-        source_ref = (
-            f"{entity}/{project}/"
-            f"{artifact_name}:"
-            f"{resolved.version}"
-        )
+        source_ref = f"{entity}/{project}/" f"{artifact_name}:" f"{resolved.version}"
 
         source_digest = resolved.digest
 
@@ -787,18 +733,13 @@ def link_to_registry(
     )
 
     if not source_artifact.digest:
-        raise RuntimeError(
-            "Source W&B artifact has no digest."
-        )
+        raise RuntimeError("Source W&B artifact has no digest.")
 
     # ------------------------------------------------------------------
     # Link source artifact to Registry.
     # ------------------------------------------------------------------
 
-    target_path = (
-        f"{registry_name}/"
-        f"{registry_collection}"
-    )
+    target_path = f"{registry_name}/" f"{registry_collection}"
 
     logger.info(
         "Registry target path: %s",
@@ -810,9 +751,7 @@ def link_to_registry(
         aliases=[registry_alias],
     )
 
-    logger.info(
-        "Artifact linked to W&B Registry collection."
-    )
+    logger.info("Artifact linked to W&B Registry collection.")
 
     # ------------------------------------------------------------------
     # Resolve the Registry alias using the FULL namespace.
@@ -916,9 +855,7 @@ def link_to_registry(
             f"'{registry_ref}' resolved to '{verified_digest}'."
         )
 
-    logger.info(
-        "Registry artifact reference and digest verified."
-    )
+    logger.info("Registry artifact reference and digest verified.")
 
     return registry_ref, verified_digest
 
@@ -968,13 +905,10 @@ def verify_existing_promotion(
     )
 
     try:
-        record = json.loads(
-            provenance_path.read_text(encoding="utf-8")
-        )
+        record = json.loads(provenance_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(
-            f"Could not read existing promotion provenance: "
-            f"{provenance_path}"
+            f"Could not read existing promotion provenance: " f"{provenance_path}"
         ) from exc
 
     # ------------------------------------------------------------------
@@ -995,18 +929,14 @@ def verify_existing_promotion(
 
         if actual_value != expected_value:
             mismatches.append(
-                f"{key}: expected '{expected_value}', "
-                f"found '{actual_value}'"
+                f"{key}: expected '{expected_value}', " f"found '{actual_value}'"
             )
 
     if mismatches:
         raise RuntimeError(
             "Promotion provenance already exists, but it does not "
             "match the requested promotion:\n"
-            + "\n".join(
-                f"  - {mismatch}"
-                for mismatch in mismatches
-            )
+            + "\n".join(f"  - {mismatch}" for mismatch in mismatches)
             + "\nRefusing to overwrite existing provenance."
         )
 
@@ -1019,20 +949,15 @@ def verify_existing_promotion(
 
     if not registry_artifact_ref:
         raise RuntimeError(
-            "Existing promotion provenance does not contain "
-            "'artifact_ref'."
+            "Existing promotion provenance does not contain " "'artifact_ref'."
         )
 
     if not registry_artifact_digest:
         raise RuntimeError(
-            "Existing promotion provenance does not contain "
-            "'artifact_digest'."
+            "Existing promotion provenance does not contain " "'artifact_digest'."
         )
 
-    expected_prefix = (
-        f"wandb-registry-{registry_name}/"
-        f"{registry_collection}:"
-    )
+    expected_prefix = f"wandb-registry-{registry_name}/" f"{registry_collection}:"
 
     if not registry_artifact_ref.startswith(expected_prefix):
         raise RuntimeError(
@@ -1070,8 +995,7 @@ def verify_existing_promotion(
 
     if not actual_digest:
         raise RuntimeError(
-            "Existing Registry artifact has no digest:\n"
-            f"  {registry_artifact_ref}"
+            "Existing Registry artifact has no digest:\n" f"  {registry_artifact_ref}"
         )
 
     logger.info(
@@ -1122,8 +1046,7 @@ def verify_existing_promotion(
 
     if not alias_digest:
         raise RuntimeError(
-            f"Registry alias '{registry_alias}' resolved without "
-            "a digest."
+            f"Registry alias '{registry_alias}' resolved without " "a digest."
         )
 
     logger.info(
@@ -1143,9 +1066,7 @@ def verify_existing_promotion(
             "existing promotion."
         )
 
-    logger.info(
-        "Existing promotion verified successfully."
-    )
+    logger.info("Existing promotion verified successfully.")
 
     return provenance_path
 
@@ -1204,39 +1125,31 @@ def write_promotion_provenance(
         "dvc_stage": stage,
         "dvc_experiment": experiment,
         "dvc_experiment_sha": dvc_sha,
-
         # ------------------------------------------------------------------
         # Deployment artifact.
         #
         # These MUST refer to the fully-qualified W&B Registry artifact.
         # ------------------------------------------------------------------
-
         "artifact_ref": registry_artifact_ref,
         "artifact_digest": registry_artifact_digest,
-
         "wandb": {
             "entity": entity,
             "project": project,
             "run_id": run_id,
-
             # Canonical deployment artifact.
             "artifact_ref": registry_artifact_ref,
             "artifact_digest": registry_artifact_digest,
-
             # Source project artifact.
             "source_artifact_ref": source_artifact_ref,
             "source_artifact_digest": source_artifact_digest,
-
             # Registry artifact.
             "registry_artifact_ref": registry_artifact_ref,
             "registry_artifact_digest": registry_artifact_digest,
-
             "artifact_name": artifact_name,
             "registry_name": registry_name,
             "registry_collection": registry_collection,
             "registry_alias": registry_alias,
         },
-
         "promoted_at": now,
     }
 
@@ -1244,9 +1157,7 @@ def write_promotion_provenance(
     # Final provenance sanity checks.
     # ------------------------------------------------------------------
 
-    if not registry_artifact_ref.startswith(
-        f"wandb-registry-{registry_name}/"
-    ):
+    if not registry_artifact_ref.startswith(f"wandb-registry-{registry_name}/"):
         raise RuntimeError(
             "Refusing to write provenance because the Registry "
             "artifact reference is not fully qualified: "
@@ -1316,15 +1227,11 @@ def main(cfg: DictConfig) -> None:
 
     if not experiment:
         raise RuntimeError(
-            "No DVC experiment was supplied. "
-            "Use experiment=<experiment-name>."
+            "No DVC experiment was supplied. " "Use experiment=<experiment-name>."
         )
 
     if not stage:
-        raise RuntimeError(
-            "No DVC stage was supplied. "
-            "Use stage=<stage-name>."
-        )
+        raise RuntimeError("No DVC stage was supplied. " "Use stage=<stage-name>.")
 
     wandb_cfg = get_wandb_config(cfg)
 
@@ -1334,9 +1241,7 @@ def main(cfg: DictConfig) -> None:
     registry_collection = wandb_cfg["registry_collection"]
     registry_alias = wandb_cfg["registry_alias"]
 
-    artifact_name = (
-        f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
-    )
+    artifact_name = f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
 
     logger.info("=" * 58)
     logger.info("W&B MODEL ARTIFACT PUBLICATION")
@@ -1453,13 +1358,9 @@ def main(cfg: DictConfig) -> None:
             existing_provenance,
         )
 
-        logger.info(
-            "No new W&B artifact or Registry version was created."
-        )
+        logger.info("No new W&B artifact or Registry version was created.")
 
-        logger.info(
-            "Existing promotion is valid and remains the deployment target."
-        )
+        logger.info("Existing promotion is valid and remains the deployment target.")
 
         logger.info("=" * 58)
 
