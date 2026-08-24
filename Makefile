@@ -42,6 +42,7 @@ help:
 	@echo "  make run-pipeline            Run full DVC pipeline"
 	@echo "  make train                   Alias for run-pipeline"
 	@echo ""
+
 	@echo "Training variants (DVC stages):"
 	@echo "  make train-sft               Run SFT stage"
 	@echo "  make train-dpo               Run DPO stage (requires SFT)"
@@ -52,45 +53,60 @@ help:
 	@echo "  make train-grpo-dpo          Run GRPO->DPO pipeline"
 	@echo "  make ablation-suite          Run all experimental variants"
 	@echo ""
+
 	@echo "Evaluation & Inference:"
 	@echo "  make evaluate                Run evaluation scripts"
 	@echo "  make infer                   Run inference"
 	@echo ""
+
 	@echo "Model Promotion & Publication:"
-	@echo "  make promote-dvc MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"
-	@echo "                              Promote a DVC experiment"
-	@echo "  make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
-	@echo "                              Publish promoted DVC model to W&B"
+	@echo ""
+	@echo "Release workflow:"
+	@echo "  1. make promote-dvc MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"
+	@echo "     Promote a DVC experiment to the promoted model"
+	@echo "  2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
+	@echo "     Publish and promote the verified DVC model to W&B production"
+	@echo "  3. make deploy-hf"
+	@echo "     Verify production provenance and deploy to Hugging Face"
+	@echo ""
+	@echo "Direct/alternative W&B promotion:"
 	@echo "  make promote-model ARTIFACT_REF=<exact-wandb-artifact-ref>"
-	@echo "                              Verify and promote exact W&B artifact"
-	@echo "                              to Model Registry + production alias"
+	@echo "     Directly promote an existing W&B artifact"
+	@echo "     (alternative to publish-model-artifact)"
 	@echo ""
-	@echo "Deployment:"
-	@echo "  make deploy-hf              Deploy Registry-verified model to Hugging Face"
-	@echo "                              using provenance/model_promotion.json"
-	@echo ""
+
 	@echo "W&B promotion requires an immutable :vN artifact reference."
 	@echo "Example: rl4aa/ask-before-answer/Clarifier-grpo:v17"
 	@echo ""
+
+	@echo "Deployment:"
+	@echo "  make deploy-hf"
+	@echo "     Deploy the verified production artifact to Hugging Face"
+	@echo "     Requires $(PROVENANCE_FILE)"
+	@echo ""
+
 	@echo "Hyperparameter Optimization (Sweeps):"
-	@echo "  make sweep-sft              Run hyperparameter sweep for SFT stage"
-	@echo "  make sweep-dpo              Run hyperparameter sweep for DPO stage"
-	@echo "  make sweep-grpo             Run hyperparameter sweep for GRPO stage"
-	@echo "                              Override trial count with COUNT=<n>"
+	@echo "  make sweep-sft               Run hyperparameter sweep for SFT stage"
+	@echo "  make sweep-dpo               Run hyperparameter sweep for DPO stage"
+	@echo "  make sweep-grpo              Run hyperparameter sweep for GRPO stage"
+	@echo "                               Override trial count with COUNT=<n>"
 	@echo ""
+
 	@echo "Dev tools:"
-	@echo "  make format                 Format code with isort, black, and ruff"
-	@echo "  make lint                   Check code style and linting"
-	@echo "  make test                   Run pytest test suite"
+	@echo "  make format                  Format code with isort, black, and ruff"
+	@echo "  make lint                    Check code style and linting"
+	@echo "  make test                    Run pytest test suite"
 	@echo ""
+
 	@echo "App & Docker:"
-	@echo "  make run-app                Launch the Streamlit demo application"
-	@echo "  make docker-build           Build the Docker container image"
+	@echo "  make run-app                 Launch the Streamlit demo application"
+	@echo "  make docker-build            Build the Docker container image"
 	@echo ""
+
 	@echo "Cleanup:"
-	@echo "  make clean                  Remove all outputs, models, and W&B cache"
-	@echo "  make clean-cache            Prune old DVC cache"
-	@echo "  make clean-locks            Forcefully remove DVC lock files"
+	@echo "  make clean                   Remove all outputs, models, and W&B cache"
+	@echo "  make clean-cache             Prune old DVC cache"
+	@echo "  make clean-locks             Forcefully remove DVC lock files"
 	@echo ""
 
 # -------------------------
@@ -193,25 +209,21 @@ promote-dvc:
 # -------------------------
 
 publish-model-artifact:
-
 	@if [ -z "$(MODEL)" ]; then \
 		echo "ERROR: MODEL is required."; \
 		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
-
 	@if [ -z "$(EXPERIMENT)" ]; then \
 		echo "ERROR: EXPERIMENT is required."; \
 		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
-
 	@if [ -z "$(STAGE)" ]; then \
 		echo "ERROR: STAGE is required."; \
 		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
-
 	@echo "=========================================================="
 	@echo "Publishing promoted model to W&B"
 	@echo "=========================================================="
@@ -219,12 +231,10 @@ publish-model-artifact:
 	@echo "Experiment:  $(EXPERIMENT)"
 	@echo "Stage:       $(STAGE)"
 	@echo "=========================================================="
-
 	@python scripts/publish_model_artifact.py \
-		publication-model="$(MODEL)" \
+		publication_model="$(MODEL)" \
 		experiment="$(EXPERIMENT)" \
 		stage="$(STAGE)"
-
 	@echo "=========================================================="
 	@echo "W&B model artifact publication complete."
 	@echo "=========================================================="
@@ -234,7 +244,6 @@ publish-model-artifact:
 # -------------------------
 
 promote-model:
-
 	@if [ -z "$(ARTIFACT_REF)" ]; then \
 		echo "ERROR: ARTIFACT_REF is required."; \
 		echo "Usage:"; \
@@ -243,24 +252,21 @@ promote-model:
 		echo "  make promote-model ARTIFACT_REF=rl4aa/ask-before-answer/Clarifier-grpo:v17"; \
 		exit 1; \
 	fi
-
 	@echo "=========================================================="
 	@echo "W&B Model Registry Promotion"
 	@echo "=========================================================="
 	@echo "Source artifact: $(ARTIFACT_REF)"
-	@echo "Registry:         $(REGISTRY_NAME)"
-	@echo "Collection:       $(REGISTRY_COLLECTION)"
-	@echo "Alias:            $(PRODUCTION_ALIAS)"
-	@echo "Provenance:       $(PROVENANCE_FILE)"
+	@echo "Registry:        $(REGISTRY_NAME)"
+	@echo "Collection:      $(REGISTRY_COLLECTION)"
+	@echo "Alias:           $(PRODUCTION_ALIAS)"
+	@echo "Provenance:      $(PROVENANCE_FILE)"
 	@echo "=========================================================="
-
 	@python scripts/promote_model.py \
 		--artifact-ref "$(ARTIFACT_REF)" \
 		--registry-name "$(REGISTRY_NAME)" \
 		--registry-collection "$(REGISTRY_COLLECTION)" \
 		--production-alias "$(PRODUCTION_ALIAS)" \
 		--provenance-file "$(PROVENANCE_FILE)"
-
 	@echo "=========================================================="
 	@echo "W&B Model Registry promotion complete."
 	@echo "=========================================================="
@@ -338,14 +344,14 @@ deploy-hf:
 	@echo "➔ Dataset: https://huggingface.co/datasets/chrisjcc/ask-before-answer-dataset"
 	@echo "➔ Model:   https://huggingface.co/chrisjcc/ask-before-answer"
 	@echo "=========================================================="
-	@test -f "provenance/model_promotion.json" || ( \
-		echo "ERROR: provenance/model_promotion.json not found."; \
+	@test -f "$(PROVENANCE_FILE)" || ( \
+		echo "ERROR: $(PROVENANCE_FILE) not found."; \
 		echo "Run 'make promote-model ARTIFACT_REF=<exact-artifact-ref>' first."; \
 		exit 1; \
 	)
 	@RELEASE_TAG=$$(git describe --tags --abbrev=0) && \
 	echo "Detected latest release tag: $$RELEASE_TAG" && \
-	echo "Using W&B promotion provenance: provenance/model_promotion.json" && \
+	echo "Using W&B promotion provenance: $(PROVENANCE_FILE)" && \
 	python scripts/push_to_hub.py \
 		deployment.release_tag="$$RELEASE_TAG"
 	@echo "=========================================================="
