@@ -1,3 +1,5 @@
+-include .env
+
 export
 
 # Default sweep agent trial count
@@ -276,6 +278,14 @@ promote-model:
 # -------------------------
 
 sweep-sft:
+	@if [ -z "$(WANDB_ENTITY)" ]; then \
+		echo "ERROR: WANDB_ENTITY is not set."; \
+		exit 1; \
+	fi
+	@if [ -z "$(WANDB_PROJECT)" ]; then \
+		echo "ERROR: WANDB_PROJECT is not set."; \
+		exit 1; \
+	fi
 	@echo "Initializing SFT W&B Sweep and launching agent..."
 	@OUTPUT=$$(wandb sweep sweeps/sft.yaml 2>&1); \
 	echo "$$OUTPUT"; \
@@ -290,6 +300,14 @@ sweep-sft:
 	python scripts/generate_sweep_report.py
 
 sweep-dpo:
+	@if [ -z "$(WANDB_ENTITY)" ]; then \
+		echo "ERROR: WANDB_ENTITY is not set."; \
+		exit 1; \
+	fi
+	@if [ -z "$(WANDB_PROJECT)" ]; then \
+		echo "ERROR: WANDB_PROJECT is not set."; \
+		exit 1; \
+	fi
 	@echo "Initializing DPO W&B Sweep and launching agent..."
 	@OUTPUT=$$(wandb sweep sweeps/dpo.yaml 2>&1); \
 	echo "$$OUTPUT"; \
@@ -304,6 +322,14 @@ sweep-dpo:
 	python scripts/generate_sweep_report.py
 
 sweep-grpo:
+	@if [ -z "$(WANDB_ENTITY)" ]; then \
+		echo "ERROR: WANDB_ENTITY is not set."; \
+		exit 1; \
+	fi
+	@if [ -z "$(WANDB_PROJECT)" ]; then \
+		echo "ERROR: WANDB_PROJECT is not set."; \
+		exit 1; \
+	fi
 	@echo "Initializing GRPO W&B Sweep and launching agent..."
 	@OUTPUT=$$(wandb sweep sweeps/grpo.yaml 2>&1); \
 	echo "$$OUTPUT"; \
