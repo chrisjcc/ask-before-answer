@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import json
 import logging
 import os
@@ -6,11 +8,12 @@ from pathlib import Path
 from typing import Any
 
 import hydra
-import wandb
 from datasets import DatasetDict, load_dataset
 from dotenv import load_dotenv
 from huggingface_hub import HfApi
 from omegaconf import DictConfig
+
+import wandb
 
 load_dotenv()
 
@@ -39,6 +42,10 @@ MODEL_PATHS = {
 
 PROMOTION_FILE = "model_promotion.json"
 
+DEFAULT_REGISTRY_NAME = "Model"
+DEFAULT_REGISTRY_COLLECTION = "AskBeforeAnswer-Models"
+DEFAULT_REGISTRY_ALIAS = "production"
+
 
 # ---------------------------------------------------------------------------
 # Promotion record
@@ -50,12 +57,22 @@ def load_promotion_record(
 ) -> dict[str, Any]:
     """Load and validate the immutable model promotion record.
 
-    The promotion record is produced by promote_model.py and is the
+    The promotion record is produced by publish_model_artifact.py and is the
     deployment source of truth.
 
-    push_to_hub.py deliberately does not resolve the W&B production alias.
-    Instead, it consumes the exact artifact reference and digest recorded
-    during promotion.
+    Deployment requires:
+
+        artifact_ref
+            Fully qualified immutable W&B Registry artifact reference.
+
+        artifact_digest
+            Digest of that immutable Registry artifact.
+
+        wandb.registry_alias
+            Must be the production alias.
+
+    The production alias is verified separately against artifact_digest before
+    deployment proceeds.
     """
 
     promotion_path = Path(cfg.project_dir) / "provenance" / PROMOTION_FILE
@@ -63,7 +80,7 @@ def load_promotion_record(
     if not promotion_path.is_file():
         raise FileNotFoundError(
             f"Promotion record does not exist: {promotion_path}. "
-            "Run promote_model.py before publishing to Hugging Face."
+            "Run make publish-model-artifact before deploying to Hugging Face."
         )
 
     logger.info(
@@ -72,7 +89,9 @@ def load_promotion_record(
     )
 
     try:
-        promotion = json.loads(promotion_path.read_text(encoding="utf-8"))
+        promotion = json.loads(
+            promotion_path.read_text(encoding="utf-8")
+        )
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"Invalid JSON in promotion record: {promotion_path}"
@@ -82,9 +101,14 @@ def load_promotion_record(
         "artifact_ref",
         "artifact_digest",
         "model_variant",
+        "wandb",
     )
 
-    missing = [field for field in required_fields if not promotion.get(field)]
+    missing = [
+        field
+        for field in required_fields
+        if not promotion.get(field)
+    ]
 
     if missing:
         raise RuntimeError(
@@ -94,8 +118,11 @@ def load_promotion_record(
 
     artifact_ref = promotion["artifact_ref"]
 
+    # ------------------------------------------------------------------
     # A promotion record must contain an immutable artifact version.
     # Explicitly reject aliases as deployment references.
+    # ------------------------------------------------------------------
+
     rejected_aliases = {
         "production",
         "staging",
@@ -117,6 +144,76 @@ def load_promotion_record(
             "'wandb-registry-Model/AskBeforeAnswer-Models:v17'."
         )
 
+    # ------------------------------------------------------------------
+    # Validate W&B provenance metadata.
+    # ------------------------------------------------------------------
+
+    wandb_record = promotion["wandb"]
+
+    if not isinstance(wandb_record, dict):
+        raise RuntimeError(
+            "Promotion record field 'wandb' must be an object."
+        )
+
+    required_wandb_fields = (
+        "entity",
+        "project",
+        "registry_name",
+        "registry_collection",
+        "registry_alias",
+    )
+
+    missing_wandb = [
+        field
+        for field in required_wandb_fields
+        if not wandb_record.get(field)
+    ]
+
+    if missing_wandb:
+        raise RuntimeError(
+            "Promotion record W&B metadata is incomplete. Missing fields: "
+            + ", ".join(missing_wandb)
+        )
+
+    registry_name = str(
+        wandb_record["registry_name"]
+    )
+
+    registry_collection = str(
+        wandb_record["registry_collection"]
+    )
+
+    registry_alias = str(
+        wandb_record["registry_alias"]
+    )
+
+    # ------------------------------------------------------------------
+    # Step 8 release-gate requirement:
+    #
+    # Deployment is only allowed from a promotion whose Registry alias
+    # was explicitly recorded as production.
+    # ------------------------------------------------------------------
+
+    if registry_alias != DEFAULT_REGISTRY_ALIAS:
+        raise RuntimeError(
+            "Promotion record does not identify the production Registry alias. "
+            f"Expected '{DEFAULT_REGISTRY_ALIAS}', "
+            f"found '{registry_alias}'. Deployment aborted."
+        )
+
+    expected_registry_prefix = (
+        f"wandb-registry-{registry_name}/"
+        f"{registry_collection}:"
+    )
+
+    if not artifact_ref.startswith(expected_registry_prefix):
+        raise RuntimeError(
+            "Promotion record artifact_ref does not match its recorded "
+            "W&B Registry namespace.\n"
+            f"  Artifact reference: {artifact_ref}\n"
+            f"  Expected prefix:    {expected_registry_prefix}"
+        )
+
     model_variant = promotion["model_variant"]
 
     if model_variant not in MODEL_PATHS:
@@ -127,6 +224,11 @@ def load_promotion_record(
         )
 
     artifact_digest = promotion["artifact_digest"]
+
+    if not isinstance(artifact_digest, str) or not artifact_digest:
+        raise RuntimeError(
+            "Promotion record contains an invalid or empty artifact_digest."
+        )
 
     logger.info("Promotion record validated successfully.")
     logger.info(
@@ -140,6 +242,10 @@ def load_promotion_record(
     logger.info(
         "Promoted W&B digest: %s",
         artifact_digest,
+    )
+    logger.info(
+        "Recorded Registry alias: %s",
+        registry_alias,
     )
 
     return promotion
@@ -156,7 +262,7 @@ def resolve_and_verify_artifact(
     """Resolve the exact promoted W&B artifact and verify its digest.
 
     The artifact reference comes from model_promotion.json, not from a
-    mutable registry alias.
+    mutable Registry alias.
 
     Returns:
         artifact: The exact W&B Artifact object.
@@ -166,11 +272,13 @@ def resolve_and_verify_artifact(
     artifact_ref = promotion["artifact_ref"]
     expected_digest = promotion["artifact_digest"]
 
-    wandb_entity = os.environ.get("WANDB_ENTITY")
-    wandb_project = os.environ.get("WANDB_PROJECT")
+    wandb_entity = promotion["wandb"]["entity"]
+    wandb_project = promotion["wandb"]["project"]
 
     if not wandb_entity or not wandb_project:
-        raise RuntimeError("WANDB_ENTITY and WANDB_PROJECT must be set.")
+        raise RuntimeError(
+            "Promotion record must contain W&B entity and project."
+        )
 
     logger.info(
         "Resolving promoted W&B artifact: %s",
@@ -182,10 +290,12 @@ def resolve_and_verify_artifact(
 
         artifact = wandb_api.artifact(
             artifact_ref,
+            type="model",
         )
     except Exception as exc:
         raise RuntimeError(
-            f"Failed to resolve promoted W&B artifact " f"'{artifact_ref}'."
+            f"Failed to resolve promoted W&B artifact "
+            f"'{artifact_ref}'."
         ) from exc
 
     actual_digest = getattr(
@@ -217,9 +327,115 @@ def resolve_and_verify_artifact(
             f"'{actual_digest}'. Deployment aborted."
         )
 
-    logger.info("W&B artifact digest verification PASSED.")
+    logger.info(
+        "W&B immutable artifact digest verification PASSED."
+    )
 
     return artifact, artifact_ref
+
+
+def verify_production_alias(
+    promotion: dict[str, Any],
+) -> None:
+    """Verify that the W&B production alias still points to the promoted artifact.
+
+    This is a release-gate check.
+
+    Deployment uses the immutable versioned artifact from artifact_ref.
+    The mutable production alias is never used to download the model.
+
+    The alias is nevertheless verified because the promotion record states
+    that this artifact was promoted to production. If the alias no longer
+    points to the recorded digest, deployment is aborted rather than silently
+    deploying a release whose production state has changed.
+    """
+
+    wandb_record = promotion["wandb"]
+
+    registry_name = str(
+        wandb_record["registry_name"]
+    )
+
+    registry_collection = str(
+        wandb_record["registry_collection"]
+    )
+
+    registry_alias = str(
+        wandb_record["registry_alias"]
+    )
+
+    expected_digest = promotion["artifact_digest"]
+
+    if registry_alias != DEFAULT_REGISTRY_ALIAS:
+        raise RuntimeError(
+            "Production alias verification requires the 'production' alias. "
+            f"Found '{registry_alias}'."
+        )
+
+    registry_alias_ref = (
+        f"wandb-registry-{registry_name}/"
+        f"{registry_collection}:"
+        f"{registry_alias}"
+    )
+
+    logger.info(
+        "Verifying W&B production alias: %s",
+        registry_alias_ref,
+    )
+
+    try:
+        wandb_api = wandb.Api()
+
+        production_artifact = wandb_api.artifact(
+            registry_alias_ref,
+            type="model",
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "W&B Registry production alias could not be resolved.\n"
+            f"  Alias: {registry_alias_ref}\n"
+            "Deployment aborted because the production release gate "
+            "could not be verified."
+        ) from exc
+
+    production_digest = getattr(
+        production_artifact,
+        "digest",
+        None,
+    )
+
+    if not production_digest:
+        raise RuntimeError(
+            "W&B Registry production alias resolved without a digest.\n"
+            f"  Alias: {registry_alias_ref}\n"
+            "Deployment aborted because production artifact identity "
+            "could not be verified."
+        )
+
+    logger.info(
+        "Expected production digest: %s",
+        expected_digest,
+    )
+    logger.info(
+        "Resolved production digest: %s",
+        production_digest,
+    )
+
+    if production_digest != expected_digest:
+        raise RuntimeError(
+            "W&B production Registry integrity check failed.\n"
+            f"  Promotion artifact: {promotion['artifact_ref']}\n"
+            f"  Promotion digest:  {expected_digest}\n"
+            f"  Production alias:  {registry_alias_ref}\n"
+            f"  Production digest: {production_digest}\n"
+            "\n"
+            "The production alias no longer points to the artifact recorded "
+            "in the promotion provenance. Deployment aborted."
+        )
+
+    logger.info(
+        "W&B production alias verification PASSED."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +467,9 @@ def push_datasets(
         path = data_dir / filename
 
         if not path.is_file():
-            raise FileNotFoundError(f"Required dataset file does not exist: {path}")
+            raise FileNotFoundError(
+                f"Required dataset file does not exist: {path}"
+            )
 
     # ------------------------------------------------------------------
     # SFT
@@ -261,12 +479,16 @@ def push_datasets(
         {
             "train": load_dataset(
                 "json",
-                data_files=str(data_dir / "sft_train.jsonl"),
+                data_files=str(
+                    data_dir / "sft_train.jsonl"
+                ),
                 split="train",
             ),
             "validation": load_dataset(
                 "json",
-                data_files=str(data_dir / "sft_val.jsonl"),
+                data_files=str(
+                    data_dir / "sft_val.jsonl"
+                ),
                 split="train",
             ),
         }
@@ -290,12 +512,16 @@ def push_datasets(
         {
             "train": load_dataset(
                 "json",
-                data_files=str(data_dir / "dpo_train.jsonl"),
+                data_files=str(
+                    data_dir / "dpo_train.jsonl"
+                ),
                 split="train",
             ),
             "validation": load_dataset(
                 "json",
-                data_files=str(data_dir / "dpo_val.jsonl"),
+                data_files=str(
+                    data_dir / "dpo_val.jsonl"
+                ),
                 split="train",
             ),
         }
@@ -332,12 +558,11 @@ def generate_model_card(
     artifact_ref = promotion["artifact_ref"]
     artifact_digest = promotion["artifact_digest"]
 
-    registry_alias = promotion.get(
+    wandb_record = promotion["wandb"]
+
+    registry_alias = wandb_record.get(
         "registry_alias",
-        cfg.deployment.get(
-            "registry_alias",
-            "production",
-        ),
+        DEFAULT_REGISTRY_ALIAS,
     )
 
     release_tag = cfg.deployment.get(
@@ -345,7 +570,11 @@ def generate_model_card(
         "",
     )
 
-    release_text = f"- **Release:** `{release_tag}`\n" if release_tag else ""
+    release_text = (
+        f"- **Release:** `{release_tag}`\n"
+        if release_tag
+        else ""
+    )
 
     training_descriptions = {
         "sft_only": "Supervised Fine-Tuning (SFT)",
@@ -353,7 +582,8 @@ def generate_model_card(
         "sft": "Supervised Fine-Tuning (SFT)",
         "dpo": "Direct Preference Optimization (DPO)",
         "sft_dpo": (
-            "Supervised Fine-Tuning followed by " "Direct Preference Optimization"
+            "Supervised Fine-Tuning followed by "
+            "Direct Preference Optimization"
         ),
         "grpo": "Group Relative Policy Optimization (GRPO)",
         "orpo": "Odds Ratio Preference Optimization (ORPO)",
@@ -366,10 +596,18 @@ def generate_model_card(
 
     leaderboard_content = ""
 
-    leaderboard_path = Path(cfg.project_dir) / "results" / "leaderboard.md"
+    leaderboard_path = (
+        Path(cfg.project_dir)
+        / "results"
+        / "leaderboard.md"
+    )
 
     if leaderboard_path.is_file():
-        leaderboard_content = leaderboard_path.read_text(encoding="utf-8").strip()
+        leaderboard_content = (
+            leaderboard_path
+            .read_text(encoding="utf-8")
+            .strip()
+        )
 
     return f"""---
 language:
@@ -442,15 +680,15 @@ selection, verification, and promotion procedure.
 
 The training pipeline supports:
 
-- Supervised Fine-Tuning (SFT)
-- Direct Preference Optimization (DPO)
-- Group Relative Policy Optimization (GRPO)
-- Odds Ratio Preference Optimization (ORPO)
+Supervised Fine-Tuning (SFT)
+Direct Preference Optimization (DPO)
+Group Relative Policy Optimization (GRPO)
+Odds Ratio Preference Optimization (ORPO)
 
 This repository corresponds specifically to the model variant recorded in
 the promotion record.
 
-## Evaluation
+Evaluation
 
 {
 leaderboard_content
@@ -515,11 +753,9 @@ used for deployment.
 The local DVC training artifact is treated as immutable during deployment.
 """
 
-
 # ---------------------------------------------------------------------------
 # Model publication
 # ---------------------------------------------------------------------------
-
 
 def push_model(
     cfg: DictConfig,
@@ -605,11 +841,9 @@ def push_model(
         model_repo,
     )
 
-
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-
 
 @hydra.main(
     version_base="1.3",
@@ -621,22 +855,36 @@ def main(cfg: DictConfig) -> None:
     hf_token = os.environ.get("HF_TOKEN")
 
     if not hf_token:
-        raise RuntimeError("HF_TOKEN environment variable is not set.")
+        raise RuntimeError(
+            "HF_TOKEN environment variable is not set."
+        )
 
-    logger.info("Starting Hugging Face deployment.")
+    logger.info(
+        "Starting Hugging Face deployment."
+    )
 
     api = HfApi(
         token=hf_token,
     )
 
     # ------------------------------------------------------------------
-    # 1. Load promotion record.
+    # 1. Load and validate promotion record.
+    #
+    # This establishes:
+    #
+    #   - immutable artifact_ref
+    #   - artifact_digest
+    #   - Registry namespace
+    #   - production alias requirement
     # ------------------------------------------------------------------
 
     promotion = load_promotion_record(cfg)
 
     # ------------------------------------------------------------------
-    # 2. Resolve the exact W&B artifact and verify its digest.
+    # 2. Resolve the exact immutable W&B artifact and verify its digest.
+    #
+    # Deployment is tied to this immutable artifact, never to the
+    # mutable production alias.
     # ------------------------------------------------------------------
 
     artifact, _ = resolve_and_verify_artifact(
@@ -644,7 +892,25 @@ def main(cfg: DictConfig) -> None:
     )
 
     # ------------------------------------------------------------------
-    # 3. Publish datasets.
+    # 3. Verify that the W&B production alias still points to the
+    # exact digest recorded in promotion provenance.
+    #
+    # This is the additional release gate introduced in Step 8.
+    #
+    # IMPORTANT:
+    #
+    # The production alias is NOT used to download the model.
+    #
+    # It is only checked to ensure that the W&B Registry's production
+    # state is still consistent with the promotion record.
+    # ------------------------------------------------------------------
+
+    verify_production_alias(
+        promotion,
+    )
+
+    # ------------------------------------------------------------------
+    # 4. Publish datasets.
     #
     # Dataset publication is independent of model artifact resolution.
     # ------------------------------------------------------------------
@@ -652,17 +918,17 @@ def main(cfg: DictConfig) -> None:
     push_datasets(cfg)
 
     # ------------------------------------------------------------------
-    # 4. Publish the exact promoted W&B artifact.
+    # 5. Publish the exact promoted W&B artifact.
     #
     # IMPORTANT:
     #
     # We deliberately do NOT:
     #
-    #   - resolve the mutable production alias
+    #   - resolve the mutable production alias for deployment
     #   - select a local DVC model directory
     #   - modify models/<variant>/final/
     #
-    # The promotion record identifies the deployment artifact.
+    # The immutable promotion artifact is the deployment source.
     # ------------------------------------------------------------------
 
     push_model(
@@ -678,7 +944,6 @@ def main(cfg: DictConfig) -> None:
         promotion["model_variant"],
         promotion["artifact_ref"],
     )
-
 
 if __name__ == "__main__":
     main()
