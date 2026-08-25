@@ -23,7 +23,7 @@ PROVENANCE_FILE ?= provenance/model_promotion.json
 	train-grpo train-grpo-dpo ablation-suite \
 	evaluate infer \
 	promote-dvc publish-model-artifact promote-model \
-	sweep-sft sweep-dpo sweep-grpo \
+	sweep \
 	format lint test \
 	deploy-hf \
 	docker-build run-app \
@@ -66,7 +66,7 @@ help:
 	@echo "Release workflow:"
 	@echo "  1. make promote-dvc MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"
 	@echo "     Promote a DVC experiment to the promoted model"
-	@echo "  2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
+	@echo "  2. make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"
 	@echo "     Publish and promote the verified DVC model to W&B production"
 	@echo "  3. make deploy-hf"
 	@echo "     Verify production provenance and deploy to Hugging Face"
@@ -88,10 +88,9 @@ help:
 	@echo ""
 
 	@echo "Hyperparameter Optimization (Sweeps):"
-	@echo "  make sweep-sft               Run hyperparameter sweep for SFT stage"
-	@echo "  make sweep-dpo               Run hyperparameter sweep for DPO stage"
-	@echo "  make sweep-grpo              Run hyperparameter sweep for GRPO stage"
-	@echo "                               Override trial count with COUNT=<n>"
+	@echo "  make sweep FINE_TUNE_METHOD=<sft|dpo|orpo|grpo> COUNT=<n>"
+	@echo "                               Run W&B hyperparameter sweep"
+	@echo "                               COUNT defaults to $(COUNT)"
 	@echo ""
 
 	@echo "Dev tools:"
@@ -213,17 +212,17 @@ promote-dvc:
 publish-model-artifact:
 	@if [ -z "$(MODEL)" ]; then \
 		echo "ERROR: MODEL is required."; \
-		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
+		echo "Usage: make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
 	@if [ -z "$(EXPERIMENT)" ]; then \
 		echo "ERROR: EXPERIMENT is required."; \
-		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
+		echo "Usage: make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
 	@if [ -z "$(STAGE)" ]; then \
 		echo "ERROR: STAGE is required."; \
-		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
+		echo "Usage: make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
 	@echo "=========================================================="
@@ -277,29 +276,21 @@ promote-model:
 # Hyperparameter Optimization
 # -------------------------
 
-sweep-sft:
-	@if [ -z "$(WANDB_ENTITY)" ]; then \
-		echo "ERROR: WANDB_ENTITY is not set."; \
-		exit 1; \
-	fi
-	@if [ -z "$(WANDB_PROJECT)" ]; then \
-		echo "ERROR: WANDB_PROJECT is not set."; \
-		exit 1; \
-	fi
-	@echo "Initializing SFT W&B Sweep and launching agent..."
-	@OUTPUT=$$(wandb sweep sweeps/sft.yaml 2>&1); \
-	echo "$$OUTPUT"; \
-	SWEEP_ID=$$(echo "$$OUTPUT" | grep -oE "ID: [a-zA-Z0-9]+" | awk '{print $$2}' | tail -1); \
-	if [ -z "$$SWEEP_ID" ]; then \
-		echo "Failed to extract Sweep ID from wandb output."; \
-		exit 1; \
-	fi; \
-	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
-	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
-	@echo "Sweep complete! Generating sweep report..."
-	python scripts/generate_sweep_report.py
+# Supported fine-tuning methods.
+# These are training algorithms/methods, not models.
+FINE_TUNE_METHODS := sft dpo orpo grpo
 
-sweep-dpo:
+sweep:
+	@if [ -z "$(FINE_TUNE_METHOD)" ]; then \
+		echo "ERROR: FINE_TUNE_METHOD is required."; \
+		echo "Usage: make sweep FINE_TUNE_METHOD=<sft|dpo|orpo|grpo> [COUNT=<n>]"; \
+		exit 1; \
+	fi
+	@if ! echo "$(FINE_TUNE_METHODS)" | grep -qw "$(FINE_TUNE_METHOD)"; then \
+		echo "ERROR: Unsupported fine-tuning method='$(FINE_TUNE_METHOD)'."; \
+		echo "Supported fine-tuning methods: $(FINE_TUNE_METHODS)"; \
+		exit 1; \
+	fi
 	@if [ -z "$(WANDB_ENTITY)" ]; then \
 		echo "ERROR: WANDB_ENTITY is not set."; \
 		exit 1; \
@@ -308,40 +299,40 @@ sweep-dpo:
 		echo "ERROR: WANDB_PROJECT is not set."; \
 		exit 1; \
 	fi
-	@echo "Initializing DPO W&B Sweep and launching agent..."
-	@OUTPUT=$$(wandb sweep sweeps/dpo.yaml 2>&1); \
+	@if [ ! -f "sweeps/$(FINE_TUNE_METHOD).yaml" ]; then \
+		echo "ERROR: Sweep configuration not found: sweeps/$(FINE_TUNE_METHOD).yaml"; \
+		exit 1; \
+	fi
+	@echo "=========================================================="
+	@echo "Initializing W&B Sweep"
+	@echo "=========================================================="
+	@echo "Fine-tune method: $(FINE_TUNE_METHOD)"
+	@echo "Sweep config:     sweeps/$(FINE_TUNE_METHOD).yaml"
+	@echo "Entity:           $(WANDB_ENTITY)"
+	@echo "Project:          $(WANDB_PROJECT)"
+	@echo "Trial count:      $(COUNT)"
+	@echo "=========================================================="
+	@OUTPUT=$$(wandb sweep sweeps/$(FINE_TUNE_METHOD).yaml 2>&1) || { \
+		echo "$$OUTPUT"; \
+		echo "ERROR: Failed to create W&B sweep."; \
+		exit 1; \
+	}; \
 	echo "$$OUTPUT"; \
 	SWEEP_ID=$$(echo "$$OUTPUT" | grep -oE "ID: [a-zA-Z0-9]+" | awk '{print $$2}' | tail -1); \
 	if [ -z "$$SWEEP_ID" ]; then \
-		echo "Failed to extract Sweep ID from wandb output."; \
+		echo "ERROR: Failed to extract Sweep ID from wandb output."; \
 		exit 1; \
 	fi; \
-	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
-	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
-	@echo "Sweep complete! Generating sweep report..."
-	python scripts/generate_sweep_report.py
-
-sweep-grpo:
-	@if [ -z "$(WANDB_ENTITY)" ]; then \
-		echo "ERROR: WANDB_ENTITY is not set."; \
+	echo "Parsed Sweep ID: $$SWEEP_ID"; \
+	echo "Starting W&B sweep agent..."; \
+	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT) || { \
+		echo "ERROR: W&B sweep agent failed."; \
 		exit 1; \
-	fi
-	@if [ -z "$(WANDB_PROJECT)" ]; then \
-		echo "ERROR: WANDB_PROJECT is not set."; \
-		exit 1; \
-	fi
-	@echo "Initializing GRPO W&B Sweep and launching agent..."
-	@OUTPUT=$$(wandb sweep sweeps/grpo.yaml 2>&1); \
-	echo "$$OUTPUT"; \
-	SWEEP_ID=$$(echo "$$OUTPUT" | grep -oE "ID: [a-zA-Z0-9]+" | awk '{print $$2}' | tail -1); \
-	if [ -z "$$SWEEP_ID" ]; then \
-		echo "Failed to extract Sweep ID from wandb output."; \
-		exit 1; \
-	fi; \
-	echo "Parsed Sweep ID: $$SWEEP_ID. Starting agent..."; \
-	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT)
-	@echo "Sweep complete! Generating sweep report..."
-	python scripts/generate_sweep_report.py
+	}; \
+	echo "Generating sweep report..."; \
+	python scripts/generate_sweep_report.py \
+		--fine-tune-method "$(FINE_TUNE_METHOD)" \
+		--sweep-id "$$SWEEP_ID"
 
 # -------------------------
 # Dev tools
