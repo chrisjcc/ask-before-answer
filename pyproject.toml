@@ -6,7 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "askbeforeanswer"
 version = "0.1.0"
 description = "A production-grade LLM system for clarification-seeking and disambiguation."
-authors = [{ name = "Christian Contreras-Campana", email = "christian@example.com" }]
+authors = [
+    { name = "Christian Contreras-Campana", email = "christian@example.com" }
+]
 requires-python = ">=3.9"
 
 [tool.setuptools.packages.find]
@@ -15,11 +17,11 @@ include = ["src*"]
 
 [tool.black]
 line-length = 88
-target-version = ["py39"]
+target-version = ["py310"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
