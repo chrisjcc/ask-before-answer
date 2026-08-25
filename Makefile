@@ -20,7 +20,7 @@ PROVENANCE_FILE ?= provenance/model_promotion.json
 	install install-dvc \
 	preprocess run-pipeline train \
 	train-sft train-dpo train-sft-only train-dpo-only train-orpo \
-	train-grpo train-grpo-dpo ablation-suite \
+	train-grpo ablation-suite \
 	evaluate infer \
 	promote-dvc publish-model-artifact promote-model \
 	sweep \
@@ -42,17 +42,19 @@ help:
 	@echo "  make install-dvc             Install DVC"
 	@echo "  make preprocess              Run data preprocessing"
 	@echo "  make run-pipeline            Run full DVC pipeline"
-	@echo "  make train                   Alias for run-pipeline"
 	@echo ""
 
 	@echo "Training variants (DVC stages):"
-	@echo "  make train-sft               Run SFT stage"
-	@echo "  make train-dpo               Run DPO stage (requires SFT)"
+	@echo "  make train TRAIN_VARIANT=<variant>"
+	@echo "                               Run selected DVC training variant"
+	@echo "                               Supported: sft, dpo, sft-only, dpo-only, orpo, grpo"
+	@echo ""
+	@echo "  make train-sft               Run SFT training variant"
+	@echo "  make train-dpo               Run DPO training variant (requires SFT)"
 	@echo "  make train-sft-only          Run SFT-only baseline"
 	@echo "  make train-dpo-only          Run DPO-only baseline"
 	@echo "  make train-orpo              Run ORPO baseline"
 	@echo "  make train-grpo              Run GRPO baseline"
-	@echo "  make train-grpo-dpo          Run GRPO->DPO pipeline"
 	@echo "  make ablation-suite          Run all experimental variants"
 	@echo ""
 
@@ -64,9 +66,9 @@ help:
 	@echo "Model Promotion & Publication:"
 	@echo ""
 	@echo "Release workflow:"
-	@echo "  1. make promote-dvc MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"
+	@echo "  1. make promote-dvc MODEL=<model> EXPERIMENT=<id>"
 	@echo "     Promote a DVC experiment to the promoted model"
-	@echo "  2. make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"
+	@echo "  2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
 	@echo "     Publish and promote the verified DVC model to W&B production"
 	@echo "  3. make deploy-hf"
 	@echo "     Verify production provenance and deploy to Hugging Face"
@@ -138,8 +140,6 @@ install-dvc:
 run-pipeline:
 	dvc repro
 
-train: run-pipeline
-
 preprocess:
 	dvc repro preprocess
 
@@ -147,26 +147,48 @@ preprocess:
 # DVC training targets
 # -------------------------
 
+# Supported DVC training variants.
+# These describe training configurations/variants, not models.
+TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
+
+# Generic training interface.
+#
+# TRAIN_VARIANT uses hyphens for CLI readability while the corresponding
+# DVC stage uses underscores, e.g.:
+#
+#   sft-only -> train_sft_only
+#   dpo-only -> train_dpo_only
+train:
+	@if [ -z "$(TRAIN_VARIANT)" ]; then \
+		echo "ERROR: TRAIN_VARIANT is required."; \
+		echo "Usage: make train TRAIN_VARIANT=<sft|dpo|sft-only|dpo-only|orpo|grpo>"; \
+		exit 1; \
+	fi
+	@if ! echo "$(TRAIN_VARIANTS)" | grep -qw "$(TRAIN_VARIANT)"; then \
+		echo "ERROR: Unsupported training variant='$(TRAIN_VARIANT)'."; \
+		echo "Supported training variants: $(TRAIN_VARIANTS)"; \
+		exit 1; \
+	fi
+	dvc repro train_$(subst -,_,$(TRAIN_VARIANT))
+
+# Convenience aliases for the generic training interface.
 train-sft:
-	dvc repro train_sft
+	$(MAKE) train TRAIN_VARIANT=sft
 
 train-dpo:
-	dvc repro train_dpo
+	$(MAKE) train TRAIN_VARIANT=dpo
 
 train-sft-only:
-	dvc repro train_sft_only
+	$(MAKE) train TRAIN_VARIANT=sft-only
 
 train-dpo-only:
-	dvc repro train_dpo_only
+	$(MAKE) train TRAIN_VARIANT=dpo-only
 
 train-orpo:
-	dvc repro train_orpo
+	$(MAKE) train TRAIN_VARIANT=orpo
 
 train-grpo:
-	dvc repro train_grpo
-
-train-grpo-dpo:
-	dvc repro train_grpo train_dpo
+	$(MAKE) train TRAIN_VARIANT=grpo
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
@@ -193,12 +215,12 @@ infer:
 promote-dvc:
 	@if [ -z "$(MODEL)" ]; then \
 		echo "ERROR: MODEL is required."; \
-		echo "Usage: make promote-dvc MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"; \
+		echo "Usage: make promote-dvc MODEL=<model> EXPERIMENT=<id>"; \
 		exit 1; \
 	fi
 	@if [ -z "$(EXPERIMENT)" ]; then \
 		echo "ERROR: EXPERIMENT is required."; \
-		echo "Usage: make promote-dvc MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id>"; \
+		echo "Usage: make promote-dvc MODEL=<model> EXPERIMENT=<id>"; \
 		exit 1; \
 	fi
 	@python scripts/promote_experiment.py \
@@ -212,17 +234,17 @@ promote-dvc:
 publish-model-artifact:
 	@if [ -z "$(MODEL)" ]; then \
 		echo "ERROR: MODEL is required."; \
-		echo "Usage: make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"; \
+		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
 	@if [ -z "$(EXPERIMENT)" ]; then \
 		echo "ERROR: EXPERIMENT is required."; \
-		echo "Usage: make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"; \
+		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
 	@if [ -z "$(STAGE)" ]; then \
 		echo "ERROR: STAGE is required."; \
-		echo "Usage: make publish-model-artifact MODEL=<sft|dpo|grpo|orpo> EXPERIMENT=<id> STAGE=<stage>"; \
+		echo "Usage: make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"; \
 		exit 1; \
 	fi
 	@echo "=========================================================="

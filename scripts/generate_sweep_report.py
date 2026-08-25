@@ -87,36 +87,23 @@ def generate_sweep_report(model, sweep_id):
     try:
         sweep = api.sweep(sweep_path)
     except Exception as exc:
-        logger.error(
-            f"Error fetching sweep {sweep_path}: {exc}"
-        )
+        logger.error(f"Error fetching sweep {sweep_path}: {exc}")
         return
 
-    sweep_name = (
-        getattr(sweep, "name", None)
-        or f"Sweep {sweep_id}"
-    )
+    sweep_name = getattr(sweep, "name", None) or f"Sweep {sweep_id}"
 
     parameter_names = get_sweep_parameters(sweep)
     metric_name, metric_goal = get_sweep_metric(sweep)
 
     if not metric_name:
-        raise RuntimeError(
-            f"Sweep {sweep_id} does not define a metric."
-        )
+        raise RuntimeError(f"Sweep {sweep_id} does not define a metric.")
 
     if not parameter_names:
-        logger.warning(
-            f"Sweep {sweep_id} does not define optimized parameters."
-        )
+        logger.warning(f"Sweep {sweep_id} does not define optimized parameters.")
 
-    logger.info(
-        f"Sweep objective: {metric_name} ({metric_goal})"
-    )
+    logger.info(f"Sweep objective: {metric_name} ({metric_goal})")
 
-    logger.info(
-        f"Sweep parameters: {parameter_names}"
-    )
+    logger.info(f"Sweep parameters: {parameter_names}")
 
     runs = []
 
@@ -133,8 +120,8 @@ def generate_sweep_report(model, sweep_id):
         }
 
         for parameter_name in parameter_names:
-            row[format_parameter_name(parameter_name)] = (
-                run.config.get(parameter_name, "N/A")
+            row[format_parameter_name(parameter_name)] = run.config.get(
+                parameter_name, "N/A"
             )
 
         row["Objective"] = run.summary.get(
@@ -147,10 +134,7 @@ def generate_sweep_report(model, sweep_id):
         runs.append(row)
 
     if not runs:
-        logger.info(
-            f"No completed runs with {metric_name} "
-            f"found for sweep {sweep_id}."
-        )
+        logger.info(f"No completed runs with {metric_name} found for sweep {sweep_id}.")
         return
 
     df = pd.DataFrame(runs)
@@ -177,11 +161,9 @@ def generate_sweep_report(model, sweep_id):
         "",
         f"**W&B:** {sweep_path}",
         "",
-        f"**Objective:** `{metric_name}` "
-        f"({metric_goal})",
+        f"**Objective:** `{metric_name}` ({metric_goal})",
         "",
-        "This report is dynamically generated from "
-        "Weights & Biases telemetry.",
+        "This report is dynamically generated from Weights & Biases telemetry.",
         "",
         "## Optimized Parameters",
         "",
@@ -189,13 +171,9 @@ def generate_sweep_report(model, sweep_id):
 
     if parameter_names:
         for parameter_name in parameter_names:
-            report_content.append(
-                f"- `{parameter_name}`"
-            )
+            report_content.append(f"- `{parameter_name}`")
     else:
-        report_content.append(
-            "No optimized parameters were detected."
-        )
+        report_content.append("No optimized parameters were detected.")
 
     report_content.extend(
         [
@@ -213,9 +191,7 @@ def generate_sweep_report(model, sweep_id):
         parameter_name = parameter_names[0]
         column_name = format_parameter_name(parameter_name)
 
-        valid_runs = df[
-            df[column_name] != "N/A"
-        ].copy()
+        valid_runs = df[df[column_name] != "N/A"].copy()
 
         if not valid_runs.empty:
             valid_runs[column_name] = pd.to_numeric(
@@ -228,9 +204,7 @@ def generate_sweep_report(model, sweep_id):
                 errors="coerce",
             )
 
-            valid_runs = valid_runs.dropna(
-                subset=[column_name, "Objective"]
-            )
+            valid_runs = valid_runs.dropna(subset=[column_name, "Objective"])
 
             if not valid_runs.empty:
                 plt.figure(figsize=(8, 6))
@@ -248,19 +222,14 @@ def generate_sweep_report(model, sweep_id):
                 ):
                     plt.xscale("log")
 
-                plt.title(
-                    f"Sweep: {sweep_name}"
-                )
+                plt.title(f"Sweep: {sweep_name}")
 
                 plt.xlabel(column_name)
                 plt.ylabel(metric_name)
 
                 plt.tight_layout()
 
-                plot_path = (
-                    f"docs/plots/"
-                    f"sweep_val_curve_{sweep_id}.png"
-                )
+                plot_path = f"docs/plots/sweep_val_curve_{sweep_id}.png"
 
                 plt.savefig(plot_path)
                 plt.close()
@@ -276,17 +245,12 @@ def generate_sweep_report(model, sweep_id):
                     ]
                 )
 
-    report_path = (
-        f"docs/sweep_report_{model}_{sweep_id}.md"
-    )
+    report_path = f"docs/sweep_report_{model}_{sweep_id}.md"
 
     with open(report_path, "w") as file:
         file.write("\n".join(report_content))
 
-    logger.info(
-        f"Sweep report successfully generated at "
-        f"{report_path}"
-    )
+    logger.info(f"Sweep report successfully generated at {report_path}")
 
 
 if __name__ == "__main__":
