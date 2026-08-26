@@ -20,8 +20,7 @@ import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
-from transformers import (AutoModelForCausalLM, AutoTokenizer,
-                          BitsAndBytesConfig)
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
 
 logger = logging.getLogger(__name__)
