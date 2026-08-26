@@ -1,48 +1,42 @@
-# ============================================================
-# AskBeforeAnswer - Hugging Face Demo / Inference Runtime
-# ============================================================
-#
-# CPU-only runtime for the Streamlit demonstration application.
-#
-# This environment is intentionally separate from the GPU
-# training environment.
-# ============================================================
+# ------------------------------------------------------------
+# AskBeforeAnswer HF Space
+# CPU-only inference and Streamlit demo dependencies
+# ------------------------------------------------------------
 
 # ------------------------------------------------------------
-# Inference / model loading
+# PyTorch
 # ------------------------------------------------------------
+
+# CPU-only PyTorch
+--extra-index-url https://download.pytorch.org/whl/cpu
 
 torch==2.6.0
+
+# ------------------------------------------------------------
+# Hugging Face inference
+# ------------------------------------------------------------
 
 transformers==4.57.6
 git+https://github.com/huggingface/peft.git
 accelerate>=1.4.0
 
+# ------------------------------------------------------------
+# Tokenization / serialization
+# ------------------------------------------------------------
+
 sentencepiece
 protobuf
-safetensors
 
 # ------------------------------------------------------------
-# Configuration
-# ------------------------------------------------------------
-
-PyYAML
-python-dotenv
-
-# ------------------------------------------------------------
-# Application
+# Application / UI
 # ------------------------------------------------------------
 
 streamlit>=1.30.0
+python-dotenv
+PyYAML
 
 # ------------------------------------------------------------
 # Observability
 # ------------------------------------------------------------
 
 weave>=0.52.43
-
-# ------------------------------------------------------------
-# External API
-# ------------------------------------------------------------
-
-google-genai

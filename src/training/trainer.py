@@ -20,7 +20,8 @@ import torch
 from datasets import load_dataset
 from omegaconf import DictConfig
 from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig)
 from transformers.trainer_utils import get_last_checkpoint
 
 logger = logging.getLogger(__name__)
@@ -95,7 +96,7 @@ def load_model_and_tokenizer(
     tokenizer.padding_side = "right"
 
     kwargs = {
-        "torch_dtype": getattr(torch, model_cfg.torch_dtype),
+        "dtype": getattr(torch, model_cfg.torch_dtype),
         "trust_remote_code": model_cfg.trust_remote_code,
     }
 
