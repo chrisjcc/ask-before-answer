@@ -76,7 +76,7 @@ The overall lifecycle is:
                          │
                          ▼
                     Deployment
-                     deploy-hf
+                     publish-hf-release
 ```
 
 The workflow separates **model development** from **model release**.
@@ -496,7 +496,7 @@ W&B Model Registry
 Production alias
       │
       ▼
-deploy-hf
+publish-hf-release
       │
       ▼
 Hugging Face
@@ -575,7 +575,7 @@ rather than an ambiguous or mutable model reference.
 Deployment is deliberately downstream of model promotion.
 
 ```bash
-make deploy-hf
+make publish-hf-release
 ```
 
 does not select an arbitrary training output.
@@ -600,7 +600,7 @@ W&B Production Artifact
 Provenance Verification
    │
    ▼
-make deploy-hf
+make publish-hf-release
    │
    ▼
 Hugging Face
@@ -705,7 +705,7 @@ This bypasses the DVC experiment publication step when an existing immutable W&B
 After production promotion:
 
 ```bash
-make deploy-hf
+make publish-hf-release
 ```
 
 Deployment consumes the verified production artifact rather than an arbitrary local training directory.
@@ -747,7 +747,7 @@ make train-sft
 make evaluate
 make sweep FINE_TUNE_METHOD=sft COUNT=10
 make promote-dvc MODEL=<model> EXPERIMENT=<id>
-make deploy-hf
+make publish-hf-release
 ```
 
 The underlying implementation can evolve while these high-level commands remain stable.
@@ -958,7 +958,7 @@ make promote-model \
 ### Deploy the verified production model
 
 ```bash
-make deploy-hf
+make publish-hf-release
 ```
 
 ---
@@ -1016,7 +1016,7 @@ The complete architecture can be summarized as:
                        W&B Production
                               │
                               ▼
-                         deploy-hf
+                         publish-hf-release
                               │
                               ▼
                        Production Model
