@@ -1,13 +1,42 @@
-# Inference & UI Dependencies for Hugging Face Spaces
+# ------------------------------------------------------------
+# AskBeforeAnswer HF Space
+# CPU-only inference and Streamlit demo dependencies
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+# PyTorch
+# ------------------------------------------------------------
+
+# CPU-only PyTorch
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 torch==2.6.0
-torchvision==0.21.0
-torchaudio==2.6.0
+
+# ------------------------------------------------------------
+# Hugging Face inference
+# ------------------------------------------------------------
+
 transformers==4.57.6
-datasets<4.4.0,>=3.4.1
 git+https://github.com/huggingface/peft.git
 accelerate>=1.4.0
-bitsandbytes>=0.49.2
+
+# ------------------------------------------------------------
+# Tokenization / serialization
+# ------------------------------------------------------------
+
+sentencepiece
+protobuf
+
+# ------------------------------------------------------------
+# Application / UI
+# ------------------------------------------------------------
+
 streamlit>=1.30.0
-google-genai
-wandb>=0.27.2
+python-dotenv
+PyYAML
+
+# ------------------------------------------------------------
+# Observability
+# ------------------------------------------------------------
+
 weave>=0.52.43

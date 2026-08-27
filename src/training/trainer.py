@@ -95,7 +95,7 @@ def load_model_and_tokenizer(
     tokenizer.padding_side = "right"
 
     kwargs = {
-        "torch_dtype": getattr(torch, model_cfg.torch_dtype),
+        "dtype": getattr(torch, model_cfg.torch_dtype),
         "trust_remote_code": model_cfg.trust_remote_code,
     }
 

@@ -25,7 +25,7 @@ PROVENANCE_FILE ?= provenance/model_promotion.json
 	promote-dvc publish-model-artifact promote-model \
 	sweep \
 	format lint test \
-	deploy-hf \
+	publish-hf-release \
 	docker-build run-app \
 	clean clean-cache clean-locks
 
@@ -70,8 +70,8 @@ help:
 	@echo "     Promote a DVC experiment to the promoted model"
 	@echo "  2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
 	@echo "     Publish and promote the verified DVC model to W&B production"
-	@echo "  3. make deploy-hf"
-	@echo "     Verify production provenance and deploy to Hugging Face"
+	@echo "  3. make publish-hf-release"
+	@echo "     Verify production provenance and duplish Model and Data cards to Hugging Face"
 	@echo ""
 	@echo "Direct/alternative W&B promotion:"
 	@echo "  make promote-model ARTIFACT_REF=<exact-wandb-artifact-ref>"
@@ -84,8 +84,8 @@ help:
 	@echo ""
 
 	@echo "Deployment:"
-	@echo "  make deploy-hf"
-	@echo "     Deploy the verified production artifact to Hugging Face"
+	@echo "  make publish-hf-release"
+	@echo "     Publish the verified production artifact to Hugging Face"
 	@echo "     Requires $(PROVENANCE_FILE)"
 	@echo ""
 
@@ -377,7 +377,7 @@ test:
 # Deployment
 # -------------------------
 
-deploy-hf:
+publish-hf-release:
 	@echo "=========================================================="
 	@echo "🚀 Deploying verified production model to Hugging Face"
 	@echo "➔ Dataset: https://huggingface.co/datasets/chrisjcc/ask-before-answer-dataset"

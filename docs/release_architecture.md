@@ -30,7 +30,7 @@ publish-model-artifact
       └── record provenance
       │
       ▼
-deploy-hf
+publish-hf-release
       │
       ├── validate provenance
       ├── verify immutable artifact digest
@@ -122,7 +122,7 @@ The `:vN` version is important because release promotion operates on an exact ar
 ## 3. Deploy the verified production artifact to Hugging Face
 
 ```bash
-make deploy-hf
+make publish-hf-release
 ```
 
 The deployment process does not simply deploy whatever artifact currently has the W&B `production` alias.
@@ -379,12 +379,12 @@ The important property is that the production state is established **before** Hu
 
 # Deployment Gate
 
-`make deploy-hf` is the final release gate.
+`make publish-hf-release` is the final release gate.
 
 The deployment process uses `push_to_hub.py` and performs the following logical sequence:
 
 ```text
-make deploy-hf
+make publish-hf-release
        │
        ▼
 push_to_hub.py
@@ -444,7 +444,7 @@ publish-model-artifact
 provenance/model_promotion.json
       │
       ▼
-deploy-hf validation
+publish-hf-release validation
       │
       ├── provenance valid
       ├── artifact_ref resolves
@@ -494,7 +494,7 @@ The normal release workflow consists of three commands:
                          └── write provenance
                          │
                          ▼
-3. make deploy-hf
+3. make publish-hf-release
                          │
                          ├── validate provenance
                          ├── verify artifact digest
@@ -523,7 +523,7 @@ immutable W&B artifact
 production + provenance
  │
  ▼
-deploy-hf
+publish-hf-release
  │
  ▼
 Hugging Face
@@ -554,12 +554,12 @@ Existing immutable W&B artifact :vN
               └── write provenance
               │
               ▼
-          deploy-hf
+          publish-hf-release
 ```
 
 The direct path does not bypass the deployment gate.
 
-`deploy-hf` still reads the resulting provenance and performs the same artifact and production digest verification before deployment.
+`publish-hf-release` still reads the resulting provenance and performs the same artifact and production digest verification before deployment.
 
 Therefore:
 
@@ -575,7 +575,7 @@ promote-dvc
 publish-model-artifact
  │
  ▼
-deploy-hf
+publish-hf-release
 ```
 
 while:
@@ -589,7 +589,7 @@ existing immutable W&B artifact
 promote-model
  │
  ▼
-deploy-hf
+publish-hf-release
 ```
 
 ---
@@ -645,7 +645,7 @@ Each component has a clearly defined responsibility.
 | `publish-model-artifact` | Resolves and validates the promoted model, creates/verifies the immutable W&B artifact, verifies Registry state, verifies the production alias, and records release provenance |
 | `promote-model`          | Provides a direct/alternative W&B artifact promotion path for an already-existing immutable artifact                                                                           |
 | `model_promotion.json`   | Persistent release record containing artifact identity, digest, registry information, and promotion time                                                                       |
-| `deploy-hf`              | Executes the final deployment gate and deploys only after W&B provenance verification                                                                                          |
+| `publish-hf-release`              | Executes the final deployment gate and deploys only after W&B provenance verification                                                                                          |
 | Hugging Face             | Final deployed model artifact                                                                                                                                                  |
 
 This separation gives each system a clear role.
@@ -747,7 +747,7 @@ Release workflow:
   2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>
      Publish the promoted DVC model as an immutable W&B artifact
 
-  3. make deploy-hf
+  3. make publish-hf-release
      Verify production provenance and deploy to Hugging Face
 
 Direct/alternative W&B promotion:
@@ -799,7 +799,7 @@ The resulting architecture can be summarized as:
                            ▼
               model_promotion.json
                            │
-                           │ deploy-hf
+                           │ publish-hf-release
                            ▼
                     Deployment gate
                            │
@@ -841,7 +841,7 @@ The result is a release process in which:
 1. **DVC identifies the model being released.**
 2. **W&B establishes and verifies the immutable production artifact.**
 3. **Provenance records the exact artifact and digest approved for deployment.**
-4. **`deploy-hf` independently verifies that W&B still resolves to that exact artifact.**
+4. **`publish-hf-release` independently verifies that W&B still resolves to that exact artifact.**
 5. **Hugging Face is updated only after all release integrity checks pass.**
 
 This makes the immutable W&B artifact and its digest, rather than the mutable `production` alias alone, the basis of deployment trust.
