@@ -67,12 +67,12 @@ class ClarifyOrActPipeline:
                 )
 
             base_model = AutoModelForCausalLM.from_pretrained(
-                base_model_id, torch_dtype=torch.bfloat16, device_map=d_map
+                base_model_id, dtype=torch.bfloat16, device_map=d_map
             )
             self.model = PeftModel.from_pretrained(base_model, model_path)
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_path, torch_dtype=torch.bfloat16, device_map="auto"
+                model_path, dtype=torch.bfloat16, device_map="auto"
             )
 
         self.model.eval()
