@@ -10,7 +10,7 @@ import os
 import hydra
 from omegaconf import DictConfig
 
-from src.inference.pipeline import ClarifyOrActPipeline
+from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
