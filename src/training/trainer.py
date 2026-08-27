@@ -255,7 +255,7 @@ def run_sft_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
-        run_name="sft_training",
+        run_name=os.environ.get("WANDB_RUN_ID", "sft_training"),
         dataset_text_field="text",
         max_length=cfg.training.max_seq_length,
         packing=cfg.training.packing,
@@ -355,7 +355,7 @@ def run_dpo_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
-        run_name="dpo_training",
+        run_name=os.environ.get("WANDB_RUN_ID", "dpo_training"),
         beta=cfg.training.beta,
         max_prompt_length=cfg.training.max_prompt_length,
         max_length=cfg.training.max_length,
@@ -452,7 +452,7 @@ def run_orpo_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
-        run_name="orpo_training",
+        run_name=os.environ.get("WANDB_RUN_ID", "orpo_training"),
         beta=cfg.training.beta,
         max_prompt_length=cfg.training.max_prompt_length,
         max_length=cfg.training.max_length,
@@ -706,7 +706,7 @@ def run_grpo_training(cfg: DictConfig):
         save_total_limit=cfg.training.save_total_limit,
         optim=cfg.training.optim,
         report_to=cfg.training.report_to,
-        run_name="grpo_training",
+        run_name=os.environ.get("WANDB_RUN_ID", "grpo_training"),
         beta=cfg.training.beta,
         max_prompt_length=cfg.training.max_prompt_length,
         max_completion_length=cfg.training.max_completion_length,
@@ -732,18 +732,58 @@ def run_grpo_training(cfg: DictConfig):
 
     model.generate = patched_generate
 
-    from functools import partial
+    def make_reward_functions(reward_weights: dict[str, Any]) -> list[Any]:
+        """Create GRPO reward functions with bound reward weights.
+
+        The returned objects are regular Python functions rather than
+        functools.partial instances because Unsloth expects reward functions
+        to expose a __name__ attribute.
+        """
+
+        def format_reward(prompts, completions, **kwargs):
+            return format_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        def action_reward(prompts, completions, **kwargs):
+            return action_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        def facet_logic_reward(prompts, completions, **kwargs):
+            return facet_logic_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        def accuracy_reward(prompts, completions, **kwargs):
+            return accuracy_reward_func(
+                prompts,
+                completions,
+                reward_weights=reward_weights,
+                **kwargs,
+            )
+
+        return [
+            format_reward,
+            action_reward,
+            facet_logic_reward,
+            accuracy_reward,
+        ]
 
     reward_weights = cfg.training.get("reward_weights", {})
 
     trainer = GRPOTrainer(
         model=model,
-        reward_funcs=[
-            partial(format_reward_func, reward_weights=reward_weights),
-            partial(action_reward_func, reward_weights=reward_weights),
-            partial(facet_logic_reward_func, reward_weights=reward_weights),
-            partial(accuracy_reward_func, reward_weights=reward_weights),
-        ],
+        reward_funcs=make_reward_functions(reward_weights),
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,

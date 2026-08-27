@@ -19,15 +19,19 @@ stages:
   # FULL PIPELINE (SFT → DPO)
   # ----------------------------
   train_sft:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_sft.py
+      training.learning_rate=${training.sft.learning_rate}
     deps:
       - data/sft_train.jsonl
       - data/sft_val.jsonl
       - configs/training/sft.yaml
       - configs/model/qwen2_5_7b.yaml
+    params:
+      - training.sft.learning_rate
     outs:
-      - models/sft/final:
-          persist: false
+      - models/sft/final
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
@@ -38,15 +42,23 @@ stages:
           cache: false
 
   train_dpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo model.name=models/sft/final
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_dpo.py
+      training=dpo
+      model.name=models/sft/final
+      training.learning_rate=${training.dpo.learning_rate}
+      training.beta=${training.dpo.beta}
     deps:
       - models/sft/final
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
       - configs/training/dpo.yaml
+    params:
+      - training.dpo.learning_rate
+      - training.dpo.beta
     outs:
-      - models/dpo/final:
-          persist: false
+      - models/dpo/final
 
   evaluate_dpo:
     cmd: python scripts/evaluate.py model_name=dpo
@@ -81,7 +93,11 @@ stages:
   # ABLATION: DPO ONLY
   # ----------------------------
   train_dpo_only:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_dpo.py training=dpo training.output_dir=models/dpo_only
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_dpo.py
+      training=dpo
+      training.output_dir=models/dpo_only
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
@@ -102,12 +118,20 @@ stages:
   # ABLATION: ORPO ONLY
   # ----------------------------
   train_orpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_orpo.py training=orpo
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_orpo.py
+      training=orpo
+      training.learning_rate=${training.orpo.learning_rate}
+      training.beta=${training.orpo.beta}
     deps:
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
       - configs/training/orpo.yaml
       - configs/model/qwen2_5_7b.yaml
+    params:
+      - training.orpo.learning_rate
+      - training.orpo.beta
     outs:
       - models/orpo/final
 
@@ -115,6 +139,7 @@ stages:
     cmd: python scripts/evaluate.py model_name=orpo
     deps:
       - models/orpo/final
+      - configs/training/orpo.yaml
     metrics:
       - results/orpo_metrics.json:
           cache: false
@@ -123,15 +148,23 @@ stages:
   # ABLATION: GRPO ONLY
   # ----------------------------
   train_grpo:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_grpo.py training=grpo model.name=models/sft/final
+    cmd: >
+      CUDA_VISIBLE_DEVICES=0
+      python scripts/train_grpo.py
+      training=grpo
+      model.name=models/sft/final
+      training.learning_rate=${training.grpo.learning_rate}
+      training.beta=${training.grpo.beta}
     deps:
       - models/sft/final
       - data/dpo_train.jsonl
       - data/dpo_val.jsonl
       - configs/training/grpo.yaml
+    params:
+      - training.grpo.learning_rate
+      - training.grpo.beta
     outs:
-      - models/grpo/final:
-          persist: false
+      - models/grpo/final
 
   evaluate_grpo:
     cmd: python scripts/evaluate.py model_name=grpo
@@ -140,6 +173,3 @@ stages:
     metrics:
       - results/grpo_metrics.json:
           cache: false
-
-
-

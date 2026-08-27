@@ -11,7 +11,7 @@ This repository fully automates this process using **Weights & Biases (W&B) Swee
 Our codebase completely isolates the hyperparameter sweep trials from your final baseline model evaluations. 
 
 ### Step 1: The Sweep Report
-1. When you run a sweep command (e.g., `make sweep-dpo COUNT=10`), it launches a W&B Agent that executes `scripts/run_sweep_trial.py`.
+1. When you run a sweep command (e.g., `make sweep FINE_TUNE_METHOD=dpo COUNT=10`), it launches a W&B Agent that executes `scripts/run_sweep_trial.py`.
 2. That script injects specific hyperparameters into your YAML configs and runs a full DVC training trial, streaming metrics live to the W&B servers.
 3. Once the trials complete, the Makefile automatically triggers `scripts/generate_sweep_report.py`. This script pulls the raw metrics from the cloud, groups them by Sweep ID, plots the Validation Curves, and statelessly regenerates the `docs/sweep_report.md` leaderboard.
 
