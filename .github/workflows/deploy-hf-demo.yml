@@ -17,12 +17,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
 
-      - name: Validate release tag
+      - name: Validate release
         run: |
+          set -e
+
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          RELEASE_SHA="$(git rev-parse HEAD)"
+
           echo "Deploying GitHub release:"
-          echo "  Tag: ${{ github.event.release.tag_name }}"
-          echo "  Commit: ${{ github.event.release.target_commitish }}"
+          echo "  Tag: ${RELEASE_TAG}"
+          echo "  Commit: ${RELEASE_SHA}"
+
+          echo "Released source tree:"
+          git status --short
 
       - name: Configure Git
         run: |
@@ -38,56 +47,116 @@ jobs:
           delay=15
 
           for i in {1..6}; do
-            git clone \
+            if git clone \
               "https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo" \
-              hf_space && break
+              hf_space; then
+              break
+            fi
 
             echo "Clone failed, retrying in ${delay}s..."
             sleep "${delay}"
             delay=$((delay * 2))
           done
 
-          if [ ! -d "hf_space" ]; then
+          if [ ! -d "hf_space/.git" ]; then
             echo "ERROR: Failed to clone Hugging Face Space."
             exit 1
           fi
 
-      - name: Deploy application
+      - name: Deploy minimal inference application
         run: |
           set -e
 
           cd hf_space
 
-          # Remove the previous application contents while
-          # preserving the Space's Git metadata.
+          # Remove the previous application contents while preserving
+          # the Hugging Face Space Git repository metadata.
           find . -maxdepth 1 \
             ! -name '.git' \
             ! -name '.' \
             ! -name '..' \
             -exec rm -rf {} +
 
-          # Deploy the released application/runtime.
+          # ----------------------------------------------------------
+          # Root runtime files
+          # ----------------------------------------------------------
+
           cp ../Dockerfile .
           cp ../pyproject.toml .
-          cp -r ../app .
-          cp -r ../src .
 
-          # Deploy the Space-specific README.
+          # ----------------------------------------------------------
+          # Streamlit application
+          # ----------------------------------------------------------
+
+          mkdir -p app
+          cp ../app/app.py app/
+          cp ../app/requirements.txt app/
+
+          # ----------------------------------------------------------
+          # Minimal inference package
+          #
+          # The HF Space must contain only the source code required
+          # to execute inference. Training, preprocessing, and
+          # evaluation modules are intentionally excluded.
+          # ----------------------------------------------------------
+
+          mkdir -p src/inference
+
+          touch src/__init__.py
+          touch src/inference/__init__.py
+
+          cp ../src/inference/pipeline.py src/inference/
+
+          # ----------------------------------------------------------
+          # Space-specific documentation
+          # ----------------------------------------------------------
+
           if [ -f ../.github/hf_space_readme.md ]; then
             cp ../.github/hf_space_readme.md README.md
           fi
+
+          # ----------------------------------------------------------
+          # Verify deployment payload
+          # ----------------------------------------------------------
+
+          echo ""
+          echo "HF Space deployment payload:"
+          find . \
+            -not -path './.git/*' \
+            -not -path './.git' \
+            -type f \
+            | sort
+
+          echo ""
+          echo "Verifying required inference files..."
+
+          test -f Dockerfile
+          test -f pyproject.toml
+          test -f app/app.py
+          test -f app/requirements.txt
+          test -f src/__init__.py
+          test -f src/inference/__init__.py
+          test -f src/inference/pipeline.py
+
+          echo "Deployment payload validation passed."
 
       - name: Commit deployment
         working-directory: hf_space
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SHA: ${{ github.event.release.target_commitish }}
         run: |
+          set -e
+
           git add .
 
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
           git commit \
-            -m "Deploy AskBeforeAnswer demo ${RELEASE_TAG} (${RELEASE_SHA})" \
-            || echo "No changes to commit"
+            -m "Deploy AskBeforeAnswer demo ${RELEASE_TAG} (${RELEASE_SHA})"
 
       - name: Push deployment
         working-directory: hf_space
@@ -97,7 +166,10 @@ jobs:
           delay=15
 
           for i in {1..6}; do
-            git push origin main && exit 0
+            if git push origin main; then
+              echo "Hugging Face Space deployment successful."
+              exit 0
+            fi
 
             echo "Push failed, retrying in ${delay}s..."
             sleep "${delay}"
