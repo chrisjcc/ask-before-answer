@@ -10,7 +10,7 @@ import hydra
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.training.trainer import run_dpo_training
+from ask_before_answer.training.trainer import run_dpo_training
 
 load_dotenv()
 

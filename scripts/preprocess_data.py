@@ -10,7 +10,7 @@ import os
 import hydra
 from omegaconf import DictConfig
 
-from src.data.preprocess import (
+from ask_before_answer.data.preprocess import (
     extract_qa_data,
     prepare_dpo_dataset,
     prepare_sft_dataset,

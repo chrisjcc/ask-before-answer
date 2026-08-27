@@ -100,12 +100,16 @@ jobs:
           # evaluation modules are intentionally excluded.
           # ----------------------------------------------------------
 
-          mkdir -p src/inference
+          mkdir -p src/ask_before_answer/inference
 
-          touch src/__init__.py
-          touch src/inference/__init__.py
+          cp ../src/ask_before_answer/__init__.py \
+              src/ask_before_answer/__init__.py
 
-          cp ../src/inference/pipeline.py src/inference/
+          cp ../src/ask_before_answer/inference/__init__.py \
+              src/ask_before_answer/inference/__init__.py
+
+          cp ../src/ask_before_answer/inference/pipeline.py \
+              src/ask_before_answer/inference/pipeline.py
 
           # ----------------------------------------------------------
           # Space-specific documentation

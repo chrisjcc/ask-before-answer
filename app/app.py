@@ -5,7 +5,7 @@ import streamlit as st
 import weave
 import yaml
 
-from src.inference.pipeline import ClarifyOrActPipeline
+from ask_before_answer import ClarifyOrActPipeline
 
 # Load environment variables for W&B authentication (useful for local testing)
 try:
