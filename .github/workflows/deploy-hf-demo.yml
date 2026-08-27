@@ -1,0 +1,108 @@
+name: Deploy HF Demo
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-hf-demo:
+    name: Deploy Streamlit demo to Hugging Face Space
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out released version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Validate release tag
+        run: |
+          echo "Deploying GitHub release:"
+          echo "  Tag: ${{ github.event.release.tag_name }}"
+          echo "  Commit: ${{ github.event.release.target_commitish }}"
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Clone Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -e
+
+          delay=15
+
+          for i in {1..6}; do
+            git clone \
+              "https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo" \
+              hf_space && break
+
+            echo "Clone failed, retrying in ${delay}s..."
+            sleep "${delay}"
+            delay=$((delay * 2))
+          done
+
+          if [ ! -d "hf_space" ]; then
+            echo "ERROR: Failed to clone Hugging Face Space."
+            exit 1
+          fi
+
+      - name: Deploy application
+        run: |
+          set -e
+
+          cd hf_space
+
+          # Remove the previous application contents while
+          # preserving the Space's Git metadata.
+          find . -maxdepth 1 \
+            ! -name '.git' \
+            ! -name '.' \
+            ! -name '..' \
+            -exec rm -rf {} +
+
+          # Deploy the released application/runtime.
+          cp ../Dockerfile .
+          cp ../pyproject.toml .
+          cp -r ../app .
+          cp -r ../src .
+
+          # Deploy the Space-specific README.
+          if [ -f ../.github/hf_space_readme.md ]; then
+            cp ../.github/hf_space_readme.md README.md
+          fi
+
+      - name: Commit deployment
+        working-directory: hf_space
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          git add .
+
+          git commit \
+            -m "Deploy AskBeforeAnswer demo ${RELEASE_TAG} (${RELEASE_SHA})" \
+            || echo "No changes to commit"
+
+      - name: Push deployment
+        working-directory: hf_space
+        run: |
+          set -e
+
+          delay=15
+
+          for i in {1..6}; do
+            git push origin main && exit 0
+
+            echo "Push failed, retrying in ${delay}s..."
+            sleep "${delay}"
+            delay=$((delay * 2))
+          done
+
+          echo "ERROR: Failed to push Hugging Face Space deployment."
+          exit 1
