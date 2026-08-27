@@ -102,6 +102,9 @@ jobs:
 
           mkdir -p src/ask_before_answer/inference
 
+          cp ../src/__init__.py \
+              src/__init__.py
+
           cp ../src/ask_before_answer/__init__.py \
               src/ask_before_answer/__init__.py
 
@@ -139,8 +142,9 @@ jobs:
           test -f app/app.py
           test -f app/requirements.txt
           test -f src/__init__.py
-          test -f src/inference/__init__.py
-          test -f src/inference/pipeline.py
+          test -f src/ask_before_answer/__init__.py
+          test -f src/ask_before_answer/inference/__init__.py
+          test -f src/ask_before_answer/inference/pipeline.py
 
           echo "Deployment payload validation passed."
 
