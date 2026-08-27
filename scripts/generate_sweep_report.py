@@ -1,20 +1,37 @@
+"""Generate a Markdown report for a W&B hyperparameter sweep.
+
+The report is generated from sweep metadata and completed run telemetry
+retrieved through the Weights & Biases API.
+
+Usage:
+    python scripts/generate_sweep_report.py \
+        --fine-tune-method sft \
+        --sweep-id <sweep-id>
+"""
+
 import argparse
 import logging
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import wandb
+from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-SUPPORTED_FINE_TUNE_METHOD = ["sft", "dpo", "orpo", "grpo"]
+SUPPORTED_FINE_TUNE_METHODS = ["sft", "dpo", "orpo", "grpo"]
 
 
 def parse_args():
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Generate a report for a W&B hyperparameter sweep."
     )
@@ -22,8 +39,8 @@ def parse_args():
     parser.add_argument(
         "--fine-tune-method",
         required=True,
-        choices=SUPPORTED_FINE_TUNE_METHOD,
-        help="Training method associated with the sweep.",
+        choices=SUPPORTED_FINE_TUNE_METHODS,
+        help="Fine-tuning method associated with the sweep.",
     )
 
     parser.add_argument(
@@ -37,7 +54,6 @@ def parse_args():
 
 def get_sweep_parameters(sweep):
     """Return the parameters actually optimized by the sweep."""
-
     config = getattr(sweep, "config", {}) or {}
     parameters = config.get("parameters", {}) or {}
 
@@ -46,7 +62,6 @@ def get_sweep_parameters(sweep):
 
 def get_sweep_metric(sweep):
     """Return the sweep objective metric and optimization goal."""
-
     config = getattr(sweep, "config", {}) or {}
     metric = config.get("metric", {}) or {}
 
@@ -62,11 +77,16 @@ def get_sweep_metric(sweep):
 
 def format_parameter_name(name):
     """Convert a W&B parameter name into a readable table heading."""
-
     return name.replace("_", " ").title()
 
 
-def generate_sweep_report(model, sweep_id):
+def generate_sweep_report(fine_tune_method, sweep_id):
+    """Generate a Markdown report for a W&B hyperparameter sweep.
+
+    Args:
+        fine_tune_method: Fine-tuning method associated with the sweep.
+        sweep_id: W&B sweep ID.
+    """
     entity = os.environ.get("WANDB_ENTITY")
     project = os.environ.get("WANDB_PROJECT")
 
@@ -102,7 +122,6 @@ def generate_sweep_report(model, sweep_id):
         logger.warning(f"Sweep {sweep_id} does not define optimized parameters.")
 
     logger.info(f"Sweep objective: {metric_name} ({metric_goal})")
-
     logger.info(f"Sweep parameters: {parameter_names}")
 
     runs = []
@@ -121,7 +140,8 @@ def generate_sweep_report(model, sweep_id):
 
         for parameter_name in parameter_names:
             row[format_parameter_name(parameter_name)] = run.config.get(
-                parameter_name, "N/A"
+                parameter_name,
+                "N/A",
             )
 
         row["Objective"] = run.summary.get(
@@ -153,13 +173,13 @@ def generate_sweep_report(model, sweep_id):
     report_content = [
         "# Parameter Sweep Report",
         "",
-        f"**Model:** `{model}`",
+        f"**Fine-tuning method:** `{fine_tune_method}`",
         "",
         f"**Sweep:** `{sweep_name}`",
         "",
         f"**Sweep ID:** `{sweep_id}`",
         "",
-        f"**W&B:** {sweep_path}",
+        f"**W&B:** `{sweep_path}`",
         "",
         f"**Objective:** `{metric_name}` ({metric_goal})",
         "",
@@ -223,10 +243,8 @@ def generate_sweep_report(model, sweep_id):
                     plt.xscale("log")
 
                 plt.title(f"Sweep: {sweep_name}")
-
                 plt.xlabel(column_name)
                 plt.ylabel(metric_name)
-
                 plt.tight_layout()
 
                 plot_path = f"docs/plots/sweep_val_curve_{sweep_id}.png"
@@ -239,13 +257,12 @@ def generate_sweep_report(model, sweep_id):
                         "### Parameter vs Objective",
                         "",
                         f"![Parameter vs Objective]"
-                        f"(plots/"
-                        f"sweep_val_curve_{sweep_id}.png)",
+                        f"(plots/sweep_val_curve_{sweep_id}.png)",
                         "",
                     ]
                 )
 
-    report_path = f"docs/sweep_report_{model}_{sweep_id}.md"
+    report_path = f"docs/sweep_report_{fine_tune_method}_{sweep_id}.md"
 
     with open(report_path, "w") as file:
         file.write("\n".join(report_content))
@@ -257,6 +274,6 @@ if __name__ == "__main__":
     args = parse_args()
 
     generate_sweep_report(
-        model=args.model,
+        fine_tune_method=args.fine_tune_method,
         sweep_id=args.sweep_id,
     )
