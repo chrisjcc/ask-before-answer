@@ -71,7 +71,7 @@ help:
 	@echo "  2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
 	@echo "     Publish and promote the verified DVC model to W&B production"
 	@echo "  3. make publish-hf-release"
-	@echo "     Verify production provenance and duplish Model and Data cards to Hugging Face"
+	@echo "     Verify production provenance and publish Model and Data cards to Hugging Face"
 	@echo ""
 	@echo "Direct/alternative W&B promotion:"
 	@echo "  make promote-model ARTIFACT_REF=<exact-wandb-artifact-ref>"
@@ -79,7 +79,7 @@ help:
 	@echo "     (alternative to publish-model-artifact)"
 	@echo ""
 
-	@echo "W&B promotion requires an immutable :vN artifact reference."
+	@echo "W&B promotion requires an immutable: vN artifact reference."
 	@echo "Example: rl4aa/ask-before-answer/Clarifier-grpo:v17"
 	@echo ""
 
@@ -133,7 +133,7 @@ install-dvc:
 	fi
 
 # -------------------------
-# Core pipeline / data
+# Core pipeline / data (DVC is source of truth)
 # DVC is the source of truth
 # -------------------------
 
