@@ -21,20 +21,26 @@ logger = logging.getLogger(__name__)
 # =====================================================================
 # vLLM Singleton Engine
 # =====================================================================
+
 _VLLM_ENGINE = None
 
 
 def get_vllm_engine():
-    """Initialize the vLLM engine exactly once to save massive VRAM overhead."""
+    """Initialize the vLLM engine exactly once to save VRAM overhead."""
     global _VLLM_ENGINE
+
     if _VLLM_ENGINE is None:
         if LLM is None:
             raise ImportError("vLLM is not installed. Please pip install vllm.")
 
         base_model_id = "unsloth/Qwen2.5-7B-Instruct"
-        logger.info(f"Initializing vLLM base engine with {base_model_id}...")
 
-        # Load the base model with LoRA support enabled for dynamic swapping
+        logger.info(
+            "Initializing vLLM base engine with %s...",
+            base_model_id,
+        )
+
+        # Load the base model with LoRA support enabled for dynamic swapping.
         _VLLM_ENGINE = LLM(
             model=base_model_id,
             enable_lora=True,
@@ -46,6 +52,7 @@ def get_vllm_engine():
                 else "float16"
             ),
         )
+
     return _VLLM_ENGINE
 
 
@@ -53,42 +60,55 @@ def get_vllm_engine():
 
 
 class ClarifyOrActPipeline:
-    """A dual-routing inference pipeline for ambiguity resolution via vLLM.
+    """Inference pipeline for ambiguity resolution using vLLM.
 
-    This class wraps the vLLM engine to dynamically swap LoRA adapters
-    and process massive batches of inference requests concurrently using PagedAttention.
+    This class wraps a singleton vLLM engine and dynamically attaches
+    a LoRA adapter for PEFT inference. vLLM handles batched generation
+    using PagedAttention for high-throughput inference.
     """
 
     def __init__(self, model_path: str, is_peft: bool = True) -> None:
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if not torch.cuda.is_available():
+            raise RuntimeError("vLLM inference requires a CUDA-capable GPU.")
+
+        self.device = "cuda"
         self.is_peft = is_peft
         self.model_path = model_path
 
-        if self.device == "cpu":
-            logger.warning(
-                "vLLM requires a GPU! CPU fallback is not supported. This will crash."
-            )
+        logger.info(
+            "Binding vLLM pipeline to model: %s (is_peft=%s)",
+            model_path,
+            is_peft,
+        )
 
-        logger.info(f"Binding vLLM pipeline to model: {model_path} (is_peft={is_peft})")
-
-        # Ensure the global engine is initialized
+        # Ensure the global engine is initialized.
         self.llm = get_vllm_engine()
 
-        # Initialize standard sampling parameters
+        # Initialize standard sampling parameters.
         self.sampling_params = SamplingParams(
             temperature=0.0,
             max_tokens=300,
             skip_special_tokens=True,
         )
 
-    def generate(self, question: str, system_prompt: Optional[str] = None) -> str:
-        """Run single-turn inference (Not recommended for high throughput)."""
+    def generate(
+        self,
+        question: str,
+        system_prompt: Optional[str] = None,
+    ) -> str:
+        """Run single-turn inference.
+
+        For high-throughput workloads, prefer ``batch_generate``.
+        """
         return self.batch_generate([question], system_prompt)[0]
 
     def batch_generate(
-        self, questions: List[str], system_prompt: Optional[str] = None
+        self,
+        questions: List[str],
+        system_prompt: Optional[str] = None,
     ) -> List[str]:
-        """Run high-throughput continuous batch inference using vLLM PagedAttention."""
+        """Run high-throughput batched inference using vLLM."""
+
         if system_prompt is None:
             system_prompt = (
                 "You are a helpful assistant. "
@@ -103,24 +123,29 @@ class ClarifyOrActPipeline:
         tokenizer = self.llm.get_tokenizer()
 
         prompts = []
-        for q in questions:
+
+        for question in questions:
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": q},
+                {"role": "user", "content": question},
             ]
+
             prompts.append(
                 tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
                 )
             )
 
         if self.is_peft:
-            # Dynamically attach the LoRA adapter just for this batch!
+            # Dynamically attach the LoRA adapter for this batch.
             lora_request = LoRARequest(
                 lora_name="current_adapter",
                 lora_int_id=1,
                 lora_local_path=self.model_path,
             )
+
             outputs = self.llm.generate(
                 prompts,
                 sampling_params=self.sampling_params,
@@ -128,9 +153,11 @@ class ClarifyOrActPipeline:
                 use_tqdm=False,
             )
         else:
-            # Raw base model generation
+            # Generate directly with the base model.
             outputs = self.llm.generate(
-                prompts, sampling_params=self.sampling_params, use_tqdm=False
+                prompts,
+                sampling_params=self.sampling_params,
+                use_tqdm=False,
             )
 
         return [output.outputs[0].text.strip() for output in outputs]

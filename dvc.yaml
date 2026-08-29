@@ -7,7 +7,7 @@ stages:
     cmd: python scripts/preprocess_data.py
     deps:
       - scripts/preprocess_data.py
-      - src/data/preprocess.py
+      - src/ask_before_answer/data/preprocess.py
       - configs/data/ambignq.yaml
     outs:
       - data/sft_train.jsonl
@@ -31,8 +31,7 @@ stages:
     params:
       - training.sft.learning_rate
     outs:
-      - models/sft/final:
-          persist: false
+      - models/sft/final
 
   evaluate_sft:
     cmd: python scripts/evaluate.py model_name=sft
@@ -59,8 +58,7 @@ stages:
       - training.dpo.learning_rate
       - training.dpo.beta
     outs:
-      - models/dpo/final:
-          persist: false
+      - models/dpo/final
 
   evaluate_dpo:
     cmd: python scripts/evaluate.py model_name=dpo
@@ -166,8 +164,7 @@ stages:
       - training.grpo.learning_rate
       - training.grpo.beta
     outs:
-      - models/grpo/final:
-          persist: false
+      - models/grpo/final
 
   evaluate_grpo:
     cmd: python scripts/evaluate.py model_name=grpo

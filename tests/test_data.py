@@ -1,4 +1,4 @@
-from src.data.preprocess import clean_facets, clean_response
+from ask_before_answer.data.preprocess import clean_facets, clean_response
 
 
 def test_clean_facets():

@@ -15,9 +15,9 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.evaluation.judge import GeminiJudge, LocalGemmaJudge
-from src.evaluation.metrics import ActionScorer
-from src.inference.pipeline import ClarifyOrActPipeline
+from ask_before_answer.evaluation.judge import GeminiJudge, LocalGemmaJudge
+from ask_before_answer.evaluation.metrics import ActionScorer
+from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 load_dotenv()
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

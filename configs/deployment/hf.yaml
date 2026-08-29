@@ -1,8 +1,32 @@
 model_repo: "chrisjcc/ask-before-answer"
-dataset_repo: "chrisjcc/ask-before-answer-data"
 
-# Optional GitHub Release tag (e.g. "v0.0.1") to link in the Model/Dataset cards
-release_tag: v0.1.3
+dataset_repo: "chrisjcc/ask-before-answer-dataset"
 
-# W&B Model Registry alias to target for deployment (e.g. "production", "staging")
+# Optional GitHub Release tag to link in the Model/Dataset cards.
+release_tag: "v0.1.3"
+
+# W&B Model Registry configuration.
+registry_name: "Model"
+registry_collection: "AskBeforeAnswer-Models"
 registry_alias: "production"
+
+# Promotion provenance produced by scripts/promote_model.py.
+promotion_provenance: "provenance/model_promotion.json"
+
+# Verify that the mutable production alias still points to the exact
+# artifact approved by the promotion record.
+# When enabled, deployment verifies that the mutable production alias still
+# points to the exact same W&B artifact digest as verified_artifact_ref.
+#
+# If production has moved since verification, deployment fails rather than
+# publishing a different model.
+# verify_production_alias: true
+
+# Exact immutable W&B artifact that was verified and approved for deployment.
+#
+# This is populated by the promotion workflow and consumed by push_to_hub.py.
+verified_artifact_ref: ""
+
+# When enabled, deployment verifies that the mutable production alias still
+# points to the exact same W&B artifact digest as verified_artifact_ref.
+verify_production_alias: true

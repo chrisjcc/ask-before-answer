@@ -1,7 +1,10 @@
 import argparse
+import json
 import logging
 import os
 import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 
 import wandb
 from dotenv import load_dotenv
@@ -21,15 +24,181 @@ PARAM_MAP = {
 }
 
 
+def get_git_experiment_sha(experiment_name):
+    """
+    Find the Git commit SHA associated with a DVC experiment.
+
+    DVC stores experiments as Git refs under refs/exps/.
+    The experiment name is the final path component.
+    """
+    result = subprocess.run(
+        [
+            "git",
+            "for-each-ref",
+            "--format=%(objectname) %(refname)",
+            "refs/exps/",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+
+        sha, ref = line.split(" ", 1)
+
+        if ref.endswith(f"/{experiment_name}"):
+            return sha
+
+    return None
+
+
+def update_wandb_provenance(
+    run_id,
+    sweep_id,
+    project,
+    entity,
+    dvc_experiment,
+    dvc_experiment_sha,
+    stage,
+    sweep_params,
+):
+    """
+    Record the explicit W&B <-> DVC provenance relationship.
+
+    The provenance is written to the existing W&B sweep run.
+    """
+
+    api = wandb.Api()
+
+    run = api.run(f"{entity}/{project}/{run_id}")
+
+    provenance = {
+        # W&B identity
+        "provenance/wandb_run_id": run_id,
+        "provenance/wandb_sweep_id": sweep_id,
+        # DVC identity
+        "provenance/dvc_experiment": dvc_experiment,
+        "provenance/dvc_experiment_sha": dvc_experiment_sha,
+        "provenance/dvc_stage": stage,
+    }
+
+    # Record the exact sweep parameters used by this DVC experiment.
+    for key, value in sweep_params.items():
+        provenance[f"provenance/dvc_param/{key}"] = value
+
+    logger.info("=== W&B/DVC PROVENANCE ===")
+
+    for key, value in provenance.items():
+        logger.info("%s=%s", key, value)
+
+    logger.info("==========================")
+
+    # Update the existing W&B run's summary.
+    run.summary.update(provenance)
+
+    # Explicitly persist the API update.
+    run.update()
+
+    logger.info(
+        "Recorded DVC provenance in W&B run %s",
+        run_id,
+    )
+
+
+def verify_wandb_provenance(
+    run_id,
+    sweep_id,
+    project,
+    entity,
+    dvc_experiment,
+    dvc_experiment_sha,
+):
+    """
+    Re-read the W&B run and verify that provenance persisted.
+    """
+    api = wandb.Api()
+    run = api.run(f"{entity}/{project}/{run_id}")
+
+    expected = {
+        "provenance/wandb_run_id": run_id,
+        "provenance/wandb_sweep_id": sweep_id,
+        "provenance/dvc_experiment": dvc_experiment,
+        "provenance/dvc_experiment_sha": dvc_experiment_sha,
+    }
+
+    logger.info("=== VERIFY W&B PROVENANCE ===")
+
+    failed = False
+
+    for key, expected_value in expected.items():
+        actual_value = run.summary.get(key)
+
+        logger.info(
+            "%s: expected=%s actual=%s",
+            key,
+            expected_value,
+            actual_value,
+        )
+
+        if actual_value != expected_value:
+            failed = True
+
+    logger.info("=============================")
+
+    if failed:
+        raise RuntimeError(
+            f"W&B provenance verification failed for run {run_id}."
+        )
+
+    logger.info(
+        "W&B provenance verification PASSED for run %s",
+        run_id,
+    )
+
+
+def write_provenance_file(
+    run_id,
+    sweep_id,
+    entity,
+    project,
+    stage,
+):
+    """Write W&B sweep context to a local provenance file."""
+    Path("provenance").mkdir(exist_ok=True)
+
+    provenance = {
+        "wandb_run_id": run_id,
+        "wandb_sweep_id": sweep_id,
+        "wandb_entity": entity,
+        "wandb_project": project,
+        "dvc_stage": stage,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    path = Path("provenance/wandb_context.json")
+
+    with open(path, "w") as f:
+        json.dump(provenance, f, indent=2)
+
+    logger.info(
+        "Wrote provenance file: %s",
+        path,
+    )
+
+    return path
+
+
 def main():
-    # 1. Load environment variables, including WANDB_API_KEY.
+    # Load environment variables, including WANDB_API_KEY.
     load_dotenv()
 
-    # 1.1 Initialize W&B immediately.
-    #
-    # This is intentional. DVC may spend hours in preprocessing before
-    # train_sft.py/train_dpo.py/etc. starts, so we establish the W&B
-    # run immediately to prevent the sweep from being considered crashed.
+    # ---------------------------------------------------------------
+    # 1. Capture W&B sweep-run identity
+    # ---------------------------------------------------------------
+
     run_id = os.environ.get("WANDB_RUN_ID")
 
     if not run_id:
@@ -38,15 +207,33 @@ def main():
             "This script is intended to be launched by a W&B sweep agent."
         )
 
+    sweep_id = os.environ.get("WANDB_SWEEP_ID")
+    entity = os.environ.get("WANDB_ENTITY", "rl4aa")
+    project = os.environ.get("WANDB_PROJECT", "ask-before-answer")
+
     print("=== BEFORE TRAINING ===")
-    print(f"WANDB_RUN_ID={os.environ.get('WANDB_RUN_ID')}")
-
-    run =  wandb.init(id=run_id, resume="allow")
-
-    print(f"W&B active run ID={run.id}")
+    print(f"WANDB_RUN_ID={run_id}")
+    print(f"WANDB_SWEEP_ID={sweep_id}")
+    print(f"WANDB_ENTITY={entity}")
+    print(f"WANDB_PROJECT={project}")
     print("=======================")
 
-    # 2. Parse arguments.
+    # Initialize the existing W&B sweep run immediately.
+    #
+    # This is intentional. DVC may spend significant time in
+    # preprocessing before the training stage starts, so we establish
+    # the W&B run immediately.
+    run = wandb.init(
+        id=run_id,
+        resume="allow",
+    )
+
+    print(f"W&B active run ID={run.id}")
+
+    # ---------------------------------------------------------------
+    # 2. Parse arguments
+    # ---------------------------------------------------------------
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -56,20 +243,19 @@ def main():
         help="DVC stage to sweep",
     )
 
-    # W&B supplies sweep parameters as additional CLI arguments.
     args, unknown = parser.parse_known_args()
 
     stage = args.stage
 
     if stage not in PARAM_MAP:
         raise ValueError(
-            f"Unknown stage: {stage}. "
-            f"Must be one of {list(PARAM_MAP.keys())}"
+            f"Unknown stage: {stage}. Must be one of {list(PARAM_MAP.keys())}"
         )
 
-    # 3. Log the relevant W&B environment.
-    #
-    # Do NOT print WANDB_API_KEY.
+    # ---------------------------------------------------------------
+    # 3. Log W&B environment
+    # ---------------------------------------------------------------
+
     logger.info("========== W&B ENVIRONMENT ==========")
 
     for key in [
@@ -87,13 +273,10 @@ def main():
 
     logger.info("====================================")
 
-    # 4. Parse W&B sweep parameters.
-    #
-    # Example:
-    #   --learning_rate=7.632829697182058e-05
-    #
-    # becomes:
-    #   {"learning_rate": 7.632829697182058e-05}
+    # ---------------------------------------------------------------
+    # 4. Parse W&B sweep parameters
+    # ---------------------------------------------------------------
+
     sweep_params = {}
 
     for arg in unknown:
@@ -123,21 +306,10 @@ def main():
             f"No sweep parameters were received for stage '{stage}'."
         )
 
-    # 5. Construct DVC parameter overrides.
-    #
-    # W&B:
-    #   learning_rate=7.632829697182058e-05
-    #
-    # becomes:
-    #   -S training.sft.learning_rate=7.632829697182058e-05
-    #
-    # DVC then translates that parameter override into the Hydra
-    # command-line override defined in dvc.yaml:
-    #
-    #   training.learning_rate=7.632829697182058e-05
-    #
-    # IMPORTANT:
-    # We do NOT modify configs/training/*.yaml.
+    # ---------------------------------------------------------------
+    # 5. Construct DVC parameter overrides
+    # ---------------------------------------------------------------
+
     param_namespace = PARAM_MAP[stage]
 
     dvc_param_overrides = []
@@ -150,7 +322,18 @@ def main():
             ]
         )
 
-    # 6. Construct the DVC experiment command.
+    # ---------------------------------------------------------------
+    # 6. Construct deterministic W&B <-> DVC identity
+    # ---------------------------------------------------------------
+
+    # Example:
+    #
+    #   W&B run:
+    #       oglusx4l
+    #
+    #   DVC experiment:
+    #       sweep_oglusx4l
+
     run_name = f"sweep_{run_id}"
 
     cmd = [
@@ -164,29 +347,36 @@ def main():
     ]
 
     logger.info("=== W&B ENVIRONMENT BEFORE DVC ===")
-    logger.info("WANDB_RUN_ID=%s", os.environ.get("WANDB_RUN_ID"))
-    logger.info("WANDB_SWEEP_ID=%s", os.environ.get("WANDB_SWEEP_ID"))
-    logger.info("WANDB_PROJECT=%s", os.environ.get("WANDB_PROJECT"))
-    logger.info("WANDB_ENTITY=%s", os.environ.get("WANDB_ENTITY"))
+    logger.info("WANDB_RUN_ID=%s", run_id)
+    logger.info("WANDB_SWEEP_ID=%s", sweep_id)
+    logger.info("WANDB_PROJECT=%s", project)
+    logger.info("WANDB_ENTITY=%s", entity)
     logger.info("==================================")
 
-    logger.info("DVC parameter overrides: %s", dvc_param_overrides)
-    logger.info("DVC command: %s", " ".join(cmd))
     logger.info(
-        "Triggering DVC Experiment for Sweep Run: %s targeting stage: %s",
-        run_id,
-        stage,
+        "DVC parameter overrides: %s",
+        dvc_param_overrides,
     )
 
-    # 7. Handle stale DVC locks.
-    #
-    # This remains from the previous implementation because Hyperband
-    # can terminate a trial while DVC still has its lock.
+    logger.info(
+        "DVC experiment name: %s",
+        run_name,
+    )
+
+    logger.info(
+        "DVC command: %s",
+        " ".join(cmd),
+    )
+
+    # ---------------------------------------------------------------
+    # 7. Handle stale DVC locks
+    # ---------------------------------------------------------------
+
     dvc_lock_file = ".dvc/tmp/rwlock"
 
     if os.path.exists(dvc_lock_file):
         logger.warning(
-            "Found stale DVC lock at %s. Removing it to prevent deadlock.",
+            "Found stale DVC lock at %s. Removing it.",
             dvc_lock_file,
         )
 
@@ -195,12 +385,29 @@ def main():
         except OSError:
             pass
 
-    # 8. Execute DVC.
+    # ---------------------------------------------------------------
+    # 8. Write provenance context and execute DVC experiment
+    # ---------------------------------------------------------------
+
     try:
-        subprocess.run(cmd, check=True)
+        write_provenance_file(
+            run_id=run_id,
+            sweep_id=sweep_id,
+            entity=entity,
+            project=project,
+            stage=stage,
+        )
+
+        subprocess.run(
+            cmd,
+            check=True,
+        )
 
     except Exception as e:
-        logger.error("DVC Experiment failed: %s", e)
+        logger.error(
+            "DVC experiment failed: %s",
+            e,
+        )
 
         if os.path.exists(dvc_lock_file):
             try:
@@ -209,6 +416,66 @@ def main():
                 pass
 
         raise
+
+    # ---------------------------------------------------------------
+    # 9. Resolve immutable DVC experiment SHA
+    # ---------------------------------------------------------------
+
+    dvc_experiment_sha = get_git_experiment_sha(run_name)
+
+    if dvc_experiment_sha is None:
+        raise RuntimeError(
+            f"DVC experiment '{run_name}' completed, but its Git "
+            "experiment reference could not be found."
+        )
+
+    logger.info(
+        "DVC experiment '%s' resolved to SHA %s",
+        run_name,
+        dvc_experiment_sha,
+    )
+
+    # ---------------------------------------------------------------
+    # 10. Write DVC -> W&B provenance
+    # ---------------------------------------------------------------
+
+    update_wandb_provenance(
+        run_id=run_id,
+        sweep_id=sweep_id,
+        project=project,
+        entity=entity,
+        dvc_experiment=run_name,
+        dvc_experiment_sha=dvc_experiment_sha,
+        stage=stage,
+        sweep_params=sweep_params,
+    )
+
+    # ---------------------------------------------------------------
+    # 11. Verify provenance persisted in W&B
+    # ---------------------------------------------------------------
+
+    verify_wandb_provenance(
+        run_id=run_id,
+        sweep_id=sweep_id,
+        project=project,
+        entity=entity,
+        dvc_experiment=run_name,
+        dvc_experiment_sha=dvc_experiment_sha,
+    )
+
+    # ---------------------------------------------------------------
+    # 12. Final provenance report
+    # ---------------------------------------------------------------
+
+    logger.info("=== PROVENANCE COMPLETE ===")
+    logger.info("W&B entity:      %s", entity)
+    logger.info("W&B project:     %s", project)
+    logger.info("W&B sweep:       %s", sweep_id)
+    logger.info("W&B run:         %s", run_id)
+    logger.info("DVC experiment:  %s", run_name)
+    logger.info("DVC SHA:         %s", dvc_experiment_sha)
+    logger.info("DVC stage:       %s", stage)
+    logger.info("============================")
 
 
 if __name__ == "__main__":
