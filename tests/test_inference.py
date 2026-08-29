@@ -5,7 +5,12 @@ from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 
 @patch(
-    "ask_before_answer.inference.pipeline.torch.cuda.is_available", return_value=True
+    "ask_before_answer.inference.pipeline.torch.cuda.is_bf16_supported",
+    return_value=True,
+)
+@patch(
+    "ask_before_answer.inference.pipeline.torch.cuda.is_available",
+    return_value=True,
 )
 @patch("ask_before_answer.inference.pipeline.SamplingParams")
 @patch("ask_before_answer.inference.pipeline.LLM")
@@ -13,6 +18,7 @@ def test_pipeline_initialization(
     mock_llm,
     mock_sampling_params,
     mock_cuda_available,
+    mock_bf16_supported,
 ):
     # Reset the singleton state for the test.
     ask_before_answer.inference.pipeline._VLLM_ENGINE = None
@@ -28,4 +34,5 @@ def test_pipeline_initialization(
 
     assert pipeline is not None
     mock_cuda_available.assert_called_once()
+    mock_bf16_supported.assert_called_once()
     mock_llm.assert_called_once()
