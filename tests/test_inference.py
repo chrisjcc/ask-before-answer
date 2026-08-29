@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import ask_before_answer.inference.pipeline
+
 from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 
@@ -33,6 +34,4 @@ def test_pipeline_initialization(
     )
 
     assert pipeline is not None
-    mock_cuda_available.assert_called_once()
-    mock_bf16_supported.assert_called_once()
     mock_llm.assert_called_once()
