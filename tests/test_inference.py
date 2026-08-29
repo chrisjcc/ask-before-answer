@@ -1,11 +1,12 @@
 from unittest.mock import MagicMock, patch
 
 import ask_before_answer.inference.pipeline
-
 from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 
-@patch("ask_before_answer.inference.pipeline.torch.cuda.is_available", return_value=True)
+@patch(
+    "ask_before_answer.inference.pipeline.torch.cuda.is_available", return_value=True
+)
 @patch("ask_before_answer.inference.pipeline.SamplingParams")
 @patch("ask_before_answer.inference.pipeline.LLM")
 def test_pipeline_initialization(
