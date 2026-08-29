@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import ask_before_answer.inference.pipeline
-
 from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 
