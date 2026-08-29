@@ -16,7 +16,9 @@ try:
 except ImportError:
     LLM, SamplingParams, LoRARequest = None, None, None
 
+
 logger = logging.getLogger(__name__)
+
 
 # =====================================================================
 # vLLM Singleton Engine
@@ -108,7 +110,6 @@ class ClarifyOrActPipeline:
         system_prompt: Optional[str] = None,
     ) -> List[str]:
         """Run high-throughput batched inference using vLLM."""
-
         if system_prompt is None:
             system_prompt = (
                 "You are a helpful assistant. "
@@ -121,7 +122,6 @@ class ClarifyOrActPipeline:
             )
 
         tokenizer = self.llm.get_tokenizer()
-
         prompts = []
 
         for question in questions:
