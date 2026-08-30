@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_model_and_tokenizer(
-    model_cfg: DictConfig, is_train: bool = True
+    model_cfg: DictConfig, is_train: bool = True, fast_inference: bool = False
 ) -> Tuple[Any, Any]:
     """Load tokenizer and model with given configuration.
 
@@ -61,6 +61,7 @@ def load_model_and_tokenizer(
                 ),
                 load_in_4bit=load_in_4bit,
                 trust_remote_code=model_cfg.get("trust_remote_code", False),
+                fast_inference=fast_inference,
             )
 
             if is_train and "lora" in model_cfg:
@@ -638,7 +639,25 @@ def run_grpo_training(cfg: DictConfig):
     """Run Group Relative Policy Optimization."""
     logger.info("Initializing GRPO Training...")
 
-    model, tokenizer = load_model_and_tokenizer(cfg.model, is_train=True)
+    fast_inference = cfg.training.get("fast_inference", True)
+    if fast_inference:
+        try:
+            from unsloth import FastLanguageModel, PatchFastRL
+
+            PatchFastRL("GRPO", FastLanguageModel)
+            logger.info(
+                "Unsloth PatchFastRL activated for high-throughput vLLM rollouts."
+            )
+        except ImportError as e:
+            logger.warning(
+                f"Unsloth PatchFastRL not available or failed to load: {e}. "
+                "Falling back to standard generation."
+            )
+            fast_inference = False
+
+    model, tokenizer = load_model_and_tokenizer(
+        cfg.model, is_train=True, fast_inference=fast_inference
+    )
     from trl import GRPOConfig, GRPOTrainer
 
     logger.info(
@@ -715,22 +734,23 @@ def run_grpo_training(cfg: DictConfig):
     )
 
     # Bugfix for UnslothGRPOTrainer CPU/CUDA device mismatch during generation
-    original_generate = model.generate
+    if not fast_inference:
+        original_generate = model.generate
 
-    def patched_generate(*args, **kwargs):
-        if len(args) > 0 and isinstance(args[0], torch.Tensor):
-            args = list(args)
-            args[0] = args[0].to(model.device)
-            args = tuple(args)
-        if "input_ids" in kwargs and isinstance(kwargs["input_ids"], torch.Tensor):
-            kwargs["input_ids"] = kwargs["input_ids"].to(model.device)
-        if "attention_mask" in kwargs and isinstance(
-            kwargs["attention_mask"], torch.Tensor
-        ):
-            kwargs["attention_mask"] = kwargs["attention_mask"].to(model.device)
-        return original_generate(*args, **kwargs)
+        def patched_generate(*args, **kwargs):
+            if len(args) > 0 and isinstance(args[0], torch.Tensor):
+                args = list(args)
+                args[0] = args[0].to(model.device)
+                args = tuple(args)
+            if "input_ids" in kwargs and isinstance(kwargs["input_ids"], torch.Tensor):
+                kwargs["input_ids"] = kwargs["input_ids"].to(model.device)
+            if "attention_mask" in kwargs and isinstance(
+                kwargs["attention_mask"], torch.Tensor
+            ):
+                kwargs["attention_mask"] = kwargs["attention_mask"].to(model.device)
+            return original_generate(*args, **kwargs)
 
-    model.generate = patched_generate
+        model.generate = patched_generate
 
     def make_reward_functions(reward_weights: dict[str, Any]) -> list[Any]:
         """Create GRPO reward functions with bound reward weights.
