@@ -161,7 +161,12 @@ def main(cfg: DictConfig) -> None:
             "Pre-computing vLLM offline batch for "
             f"{len(weave_dataset_rows)} questions..."
         )
-        pipeline = ClarifyOrActPipeline(model_path, is_peft)
+        base_model_id = cfg.evaluation.get(
+            "base_model_id", "unsloth/Qwen2.5-7B-Instruct"
+        )
+        pipeline = ClarifyOrActPipeline(
+            model_path, is_peft, base_model_id=base_model_id
+        )
         all_questions = [row["question"] for row in weave_dataset_rows]
         all_answers = pipeline.batch_generate(all_questions)
 

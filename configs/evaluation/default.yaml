@@ -1,3 +1,5 @@
+base_model_id: "unsloth/Qwen2.5-7B-Instruct"
+
 dataset_name: "sewon/ambig_qa"
 split: "validation"
 config_name: "light"
@@ -5,7 +7,7 @@ max_samples: 50
 judge_model: "google/gemma-2-2b-it"
 models_to_evaluate:
   - name: "base"
-    path: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+    path: "${evaluation.base_model_id}"
     is_peft: false
   - name: "sft_only"
     path: "models/sft_only/final"

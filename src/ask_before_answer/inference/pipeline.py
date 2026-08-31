@@ -27,15 +27,13 @@ logger = logging.getLogger(__name__)
 _VLLM_ENGINE = None
 
 
-def get_vllm_engine():
+def get_vllm_engine(base_model_id: str):
     """Initialize the vLLM engine exactly once to save VRAM overhead."""
     global _VLLM_ENGINE
 
     if _VLLM_ENGINE is None:
         if LLM is None:
             raise ImportError("vLLM is not installed. Please pip install vllm.")
-
-        base_model_id = "unsloth/Qwen2.5-7B-Instruct"
 
         logger.info(
             "Initializing vLLM base engine with %s...",
@@ -69,22 +67,29 @@ class ClarifyOrActPipeline:
     using PagedAttention for high-throughput inference.
     """
 
-    def __init__(self, model_path: str, is_peft: bool = True) -> None:
+    def __init__(
+        self,
+        model_path: str,
+        is_peft: bool = True,
+        base_model_id: str = "unsloth/Qwen2.5-7B-Instruct",
+    ) -> None:
         if not torch.cuda.is_available():
             raise RuntimeError("vLLM inference requires a CUDA-capable GPU.")
 
         self.device = "cuda"
         self.is_peft = is_peft
         self.model_path = model_path
+        self.base_model_id = base_model_id
 
         logger.info(
-            "Binding vLLM pipeline to model: %s (is_peft=%s)",
+            "Binding vLLM pipeline to model: %s (is_peft=%s, base_model=%s)",
             model_path,
             is_peft,
+            base_model_id,
         )
 
         # Ensure the global engine is initialized.
-        self.llm = get_vllm_engine()
+        self.llm = get_vllm_engine(self.base_model_id)
 
         # Initialize standard sampling parameters.
         self.sampling_params = SamplingParams(
