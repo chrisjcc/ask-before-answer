@@ -38,7 +38,12 @@ class ClarifyOrActPipeline:
     the input question's inherent ambiguity.
     """
 
-    def __init__(self, model_path: str, is_peft: bool = True) -> None:
+    def __init__(
+        self,
+        model_path: str,
+        is_peft: bool = True,
+        base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit",
+    ) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Loading inference model from {model_path} on {self.device}...")
 
@@ -56,10 +61,8 @@ class ClarifyOrActPipeline:
             from peft import PeftModel
 
             if torch.cuda.is_available():
-                base_model_id = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
                 d_map = "auto"
             else:
-                base_model_id = "unsloth/qwen2.5-7b-instruct"
                 d_map = "cpu"
                 logger.warning(
                     "No GPU detected! Loading full 7B base model on CPU. "

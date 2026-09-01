@@ -33,12 +33,15 @@ _PIPELINE_LOCK = threading.Lock()
 _INFERENCE_LOCK = threading.Lock()
 
 
-def get_cached_pipeline(model_path: str, is_peft: bool) -> ClarifyOrActPipeline:
+def get_cached_pipeline(
+    model_path: str, is_peft: bool, base_model_id: str
+) -> ClarifyOrActPipeline:
     """Retrieve or instantiate a cached inference pipeline.
 
     Args:
         model_path (str): Path to the model weights.
         is_peft (bool): Whether the model is a LoRA adapter.
+        base_model_id (str): The base model to use.
 
     Returns:
         ClarifyOrActPipeline: The loaded inference pipeline.
@@ -54,7 +57,9 @@ def get_cached_pipeline(model_path: str, is_peft: bool) -> ClarifyOrActPipeline:
             gc.collect()
             torch.cuda.empty_cache()
 
-            _PIPELINE_CACHE[model_path] = ClarifyOrActPipeline(model_path, is_peft)
+            _PIPELINE_CACHE[model_path] = ClarifyOrActPipeline(
+                model_path, is_peft, base_model_id=base_model_id
+            )
         return _PIPELINE_CACHE[model_path]
 
 
@@ -69,10 +74,13 @@ class ClarifyOrActModel(weave.Model):
     model_name: str
     model_path: str
     is_peft: bool
+    base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
 
     @weave.op()
     def predict(self, question: str) -> str:
-        pipeline = get_cached_pipeline(self.model_path, self.is_peft)
+        pipeline = get_cached_pipeline(
+            self.model_path, self.is_peft, self.base_model_id
+        )
         with _INFERENCE_LOCK:
             return pipeline.generate(question)
 
@@ -187,7 +195,12 @@ def main(cfg: DictConfig) -> None:
 
         # Instantiate Weave Model
         model = ClarifyOrActModel(
-            model_name=model_name, model_path=model_path, is_peft=is_peft
+            model_name=model_name,
+            model_path=model_path,
+            is_peft=is_peft,
+            base_model_id=cfg.evaluation.get(
+                "base_model_id", "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+            ),
         )
 
         # Run Evaluation
