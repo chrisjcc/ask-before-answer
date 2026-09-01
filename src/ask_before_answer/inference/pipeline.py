@@ -71,22 +71,32 @@ class ClarifyOrActPipeline:
         self,
         model_path: str,
         is_peft: bool = True,
-        base_model_id: str = "unsloth/Qwen2.5-7B-Instruct",
+        base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit",
     ) -> None:
-        if not torch.cuda.is_available():
-            raise RuntimeError("vLLM inference requires a CUDA-capable GPU.")
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Loading inference model from {model_path} on {self.device}...")
 
-        self.device = "cuda"
-        self.is_peft = is_peft
-        self.model_path = model_path
-        self.base_model_id = base_model_id
-
-        logger.info(
-            "Binding vLLM pipeline to model: %s (is_peft=%s, base_model=%s)",
-            model_path,
-            is_peft,
-            base_model_id,
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_path, trust_remote_code=True
         )
+        if self.tokenizer.chat_template is None:
+            logger.warning(
+                f"Tokenizer {model_path} missing chat_template. Falling back to Qwen."
+            )
+            base_tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+            self.tokenizer.chat_template = base_tokenizer.chat_template
+
+        if is_peft:
+            from peft import PeftModel
+
+            if torch.cuda.is_available():
+                d_map = "auto"
+            else:
+                d_map = "cpu"
+                logger.warning(
+                    "No GPU detected! Loading full 7B base model on CPU. "
+                    "This will be very slow and may exceed memory limits."
+                )
 
         # Ensure the global engine is initialized.
         self.llm = get_vllm_engine(self.base_model_id)

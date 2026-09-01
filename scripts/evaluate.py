@@ -27,7 +27,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-_VLLM_OFFLINE_CACHE = {}
+_PIPELINE_CACHE = {}
+_PIPELINE_LOCK = threading.Lock()
+_INFERENCE_LOCK = threading.Lock()
+
+
+def get_cached_pipeline(
+    model_path: str, is_peft: bool, base_model_id: str
+) -> ClarifyOrActPipeline:
+    """Retrieve or instantiate a cached inference pipeline.
+
+    Args:
+        model_path (str): Path to the model weights.
+        is_peft (bool): Whether the model is a LoRA adapter.
+        base_model_id (str): The base model to use.
+
+    Returns:
+        ClarifyOrActPipeline: The loaded inference pipeline.
+    """
+    with _PIPELINE_LOCK:
+        if model_path not in _PIPELINE_CACHE:
+            # Clear old models to free VRAM
+            _PIPELINE_CACHE.clear()
+            import gc
+
+            import torch
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            _PIPELINE_CACHE[model_path] = ClarifyOrActPipeline(
+                model_path, is_peft, base_model_id=base_model_id
+            )
+        return _PIPELINE_CACHE[model_path]
 
 
 class ClarifyOrActModel(weave.Model):
@@ -41,11 +73,15 @@ class ClarifyOrActModel(weave.Model):
     model_name: str
     model_path: str
     is_peft: bool
+    base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
 
     @weave.op()
     def predict(self, question: str) -> str:
-        # Instantly return the pre-computed vLLM answer!
-        return _VLLM_OFFLINE_CACHE.get(question, "")
+        pipeline = get_cached_pipeline(
+            self.model_path, self.is_peft, self.base_model_id
+        )
+        with _INFERENCE_LOCK:
+            return pipeline.generate(question)
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
@@ -176,7 +212,12 @@ def main(cfg: DictConfig) -> None:
 
         # Instantiate Weave Model
         model = ClarifyOrActModel(
-            model_name=model_name, model_path=model_path, is_peft=is_peft
+            model_name=model_name,
+            model_path=model_path,
+            is_peft=is_peft,
+            base_model_id=cfg.evaluation.get(
+                "base_model_id", "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+            ),
         )
 
         # Run Evaluation
