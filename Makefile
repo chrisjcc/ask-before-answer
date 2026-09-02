@@ -122,18 +122,25 @@ install:
 	pip install -e .
 
 install-dvc:
-	@echo "Installing DVC..."
-	@if command -v uv >/dev/null 2>&1; then \
-		uv tool install dvc; \
-	elif command -v pipx >/dev/null 2>&1; then \
-		pipx install dvc; \
+	@echo "Checking DVC installation..."
+	@if command -v dvc >/dev/null 2>&1; then \
+		echo "DVC already installed: $$(dvc --version)"; \
 	else \
-		echo "Install uv or pipx first."; \
-		exit 1; \
+		echo "DVC not found. Installing..."; \
+		if command -v uv >/dev/null 2>&1; then \
+			uv tool install dvc; \
+		elif command -v pipx >/dev/null 2>&1; then \
+			pipx install dvc; \
+		else \
+			echo "ERROR: Neither uv nor pipx is installed."; \
+			echo "Install uv or pipx first."; \
+			exit 1; \
+		fi; \
 	fi
 
 # -------------------------
 # Core pipeline / data (DVC is source of truth)
+
 # DVC is the source of truth
 # -------------------------
 
@@ -148,7 +155,7 @@ preprocess:
 # -------------------------
 
 # Supported DVC training variants.
-# These describe training configurations/variants, not models.
+
 TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
 
 # Generic training interface.
@@ -158,6 +165,7 @@ TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
 #
 #   sft-only -> train_sft_only
 #   dpo-only -> train_dpo_only
+
 train:
 	@if [ -z "$(TRAIN_VARIANT)" ]; then \
 		echo "ERROR: TRAIN_VARIANT is required."; \
@@ -172,6 +180,7 @@ train:
 	dvc repro train_$(subst -,_,$(TRAIN_VARIANT))
 
 # Convenience aliases for the generic training interface.
+
 train-sft:
 	$(MAKE) train TRAIN_VARIANT=sft
 
@@ -299,7 +308,7 @@ promote-model:
 # -------------------------
 
 # Supported fine-tuning methods.
-# These are training algorithms/methods, not models.
+
 FINE_TUNE_METHODS := sft dpo orpo grpo
 
 sweep:
