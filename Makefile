@@ -128,9 +128,9 @@ install-dvc:
 	else \
 		echo "DVC not found. Installing..."; \
 		if command -v uv >/dev/null 2>&1; then \
-			uv tool install dvc; \
+			uv tool install dvc --force; \
 		elif command -v pipx >/dev/null 2>&1; then \
-			pipx install dvc; \
+			pipx install dvc --force; \
 		else \
 			echo "ERROR: Neither uv nor pipx is installed."; \
 			echo "Install uv or pipx first."; \
