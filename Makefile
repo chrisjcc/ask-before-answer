@@ -34,6 +34,7 @@ PROVENANCE_FILE ?= provenance/model_promotion.json
 	format lint test \
 	publish-hf-release \
 	docker-build run-app \
+	push pull \
 	clean clean-cache clean-locks
 
 # -------------------------
@@ -160,6 +161,20 @@ run-pipeline:
 preprocess:
 	@echo "Selecting GPU $(GPU)"
 	CUDA_VISIBLE_DEVICES=$(GPU) dvc repro preprocess
+
+push:
+	@echo "=========================================================="
+	@echo "Pushing DVC artifacts to remote storage:"
+	@dvc remote list
+	@echo "=========================================================="
+	dvc push
+
+pull:
+	@echo "=========================================================="
+	@echo "Pulling DVC artifacts from remote storage:"
+	@dvc remote list
+	@echo "=========================================================="
+	dvc pull
 
 # -------------------------
 # DVC training targets
