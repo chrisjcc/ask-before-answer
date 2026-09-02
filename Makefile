@@ -2,6 +2,13 @@
 
 export
 
+# -------------------------
+# Dynamic Environment Fixes (HPC / Conda Compatibility)
+# -------------------------
+# 1. Prevent Python from loading or installing into the global ~/.local user-site directory,
+#    ensuring strict isolation for Conda environments.
+export PYTHONNOUSERSITE := 1
+
 # Default sweep agent trial count
 COUNT ?= 10
 
@@ -144,11 +151,15 @@ install-dvc:
 # DVC is the source of truth
 # -------------------------
 
+GPU := $(shell nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | \
+       sort -t',' -k2 -nr | head -1 | cut -d',' -f1 | tr -d ' ')
+
 run-pipeline:
 	dvc repro
 
 preprocess:
-	dvc repro preprocess
+	@echo "Selecting GPU $(GPU)"
+	CUDA_VISIBLE_DEVICES=$(GPU) dvc repro preprocess
 
 # -------------------------
 # DVC training targets
