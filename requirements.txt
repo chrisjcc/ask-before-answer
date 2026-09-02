@@ -2,27 +2,22 @@
 # AskBeforeAnswer - GPU Training / Research Environment
 # ============================================================
 #
-# Current validated environment:
-#   Python 3.10
+# Validated Environment:
+#   Python 3.11
 #   CUDA 12.6
 #
-# This environment supports:
-#   - DVC data preprocessing
-#   - SFT / DPO / ORPO / GRPO training
-#   - model evaluation
-#   - W&B hyperparameter sweeps
-#   - experiment tracking
-#
-# This is NOT the dependency set used by the Hugging Face
-# demo application or GitHub Actions CI.
+# Supports:
+#   - DVC data preprocessing & Google Drive sync
+#   - SFT / DPO / ORPO / GRPO training (TRL + Unsloth)
+#   - Model evaluation & external API judging
+#   - W&B / Weave experiment tracking
 # ============================================================
 
 --extra-index-url https://download.pytorch.org/whl/cu126
 
 # ------------------------------------------------------------
-# PyTorch / GPU acceleration
+# Core PyTorch & CUDA Kernels
 # ------------------------------------------------------------
-
 torch==2.6.0
 torchvision==0.21.0
 torchaudio==2.6.0
@@ -30,77 +25,71 @@ torchaudio==2.6.0
 bitsandbytes>=0.49.2
 xformers==0.0.29.post2
 
-https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+# Wheel matched to standard C++11 ABI used by torch.org wheels (Python 3.11)
+https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.6cxx11abiTRUE-cp311-cp311-linux_x86_64.whl
 
 # ------------------------------------------------------------
-# Hugging Face / fine-tuning
+# Hugging Face Training & Fine-Tuning
 # ------------------------------------------------------------
-
 transformers==4.57.6
-datasets<4.4.0,>=3.4.1
-git+https://github.com/huggingface/peft.git
-trl>=0.18.2,<=0.24.0,!=0.19.0
+datasets>=3.4.1,<4.4.0
 accelerate>=1.4.0
+trl>=0.18.2,<=0.24.0,!=0.19.0
+
+# Pinned to a stable release; avoid unpinned git+main
+peft>=0.14.0
 
 # ------------------------------------------------------------
-# Unsloth
+# Accelerated Training Backend
 # ------------------------------------------------------------
-
 unsloth==2026.7.3
 unsloth-zoo==2026.7.3
 
 # ------------------------------------------------------------
-# Model / serialization utilities
+# Model, Tokenization & Serialization Utilities
 # ------------------------------------------------------------
-
 sympy==1.13.1
-fsspec
+fsspec<=2024.12.0
 sentencepiece
 protobuf
 einops
 safetensors
 
 # ------------------------------------------------------------
-# Data processing
+# Data Processing (Guarded against NumPy 2.x ABI breaks)
 # ------------------------------------------------------------
-
-pandas
-numpy
-tqdm
+numpy>=1.24.3,<2.0.0
+pandas>=2.0.0,<2.3.0
+tqdm>=4.66.0
 
 # ------------------------------------------------------------
-# Configuration
+# Configuration & Experiment Management
 # ------------------------------------------------------------
-
-python-dotenv
+python-dotenv>=1.0.0
 hydra-core>=1.3.2
 omegaconf>=2.3.0
+PyYAML>=6.0.1
 ruamel.yaml>=0.19.1
-PyYAML
 
 # ------------------------------------------------------------
-# Evaluation / external API
+# Evaluation / External LLM APIs
 # ------------------------------------------------------------
-
-google-genai
+google-genai>=0.1.0
 
 # ------------------------------------------------------------
-# Experiment tracking / observability
+# Experiment Tracking & Observability
 # ------------------------------------------------------------
-
 wandb>=0.27.2
 weave>=0.52.43
 
 # ------------------------------------------------------------
-# DVC
+# Data Version Control (DVC)
 # ------------------------------------------------------------
-
 dvc>=3.0.0
 dvc-gdrive>=3.0.0
 
 # ------------------------------------------------------------
-# Research / analysis
+# Research Visualization & Metrics Analysis
 # ------------------------------------------------------------
-
-matplotlib
-seaborn
+matplotlib>=3.8.0
+seaborn>=0.13.0
