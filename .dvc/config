@@ -3,7 +3,5 @@
 [cache]
     type = "reflink,hardlink,symlink,copy"
 ['remote "origin"']
-    url = gdrive://1CsUIyRz0SZX0fdOVeWxZQzAJxYlTHeaO
-    gdrive_acknowledge_abuse = true
-    gdrive_use_service_account = true
-    gdrive_service_account_json_file_path = gdrive_credentials.json
+    url = s3://ask-before-answer-data-bucket
+    endpointurl = https://s3.hf.co
