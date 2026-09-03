@@ -4,4 +4,4 @@
     type = "reflink,hardlink,symlink,copy"
 ['remote "origin"']
     url = s3://ask-before-answer-data-bucket
-    endpointurl = https://s3.hf.co
+    endpointurl = https://s3.hf.co/chrisjcc
