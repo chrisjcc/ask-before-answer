@@ -295,7 +295,7 @@ publish-model-artifact:
 		publication_model="$(MODEL)" \
 		experiment="$(EXPERIMENT)" \
 		stage="$(STAGE)" \
-		wandb.registry_collection="AskBeforeAnswer-$(MODEL)"
+		+wandb.registry_collection="AskBeforeAnswer-$(MODEL)"
 	@echo "=========================================================="
 	@echo "W&B model artifact publication complete."
 	@echo "=========================================================="
