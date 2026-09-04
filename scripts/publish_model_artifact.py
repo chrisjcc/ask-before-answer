@@ -777,6 +777,22 @@ def link_to_registry(
     logger.info("Artifact linked to W&B Registry collection.")
 
     # ------------------------------------------------------------------
+    # Force move the alias if W&B did not automatically overwrite it.
+    # ------------------------------------------------------------------
+    try:
+        collection_path = f"wandb-registry-{registry_name}/{registry_collection}"
+        versions = api.artifact_versions("model", collection_path)
+        for v in versions:
+            if v.digest == source_artifact.digest:
+                if registry_alias not in v.aliases:
+                    logger.info(f"Forcibly moving alias '{registry_alias}' to version '{v.version}'...")
+                    v.aliases.append(registry_alias)
+                    v.save()
+                break
+    except Exception as e:
+        logger.warning(f"Failed to explicitly force alias move (non-fatal): {e}")
+
+    # ------------------------------------------------------------------
     # Resolve the Registry alias using the FULL namespace.
     # ------------------------------------------------------------------
 
@@ -946,9 +962,10 @@ def verify_existing_promotion(
     }
 
     mismatches: list[str] = []
+    source_record = record.get("source", {})
 
     for key, expected_value in expected.items():
-        actual_value = record.get(key)
+        actual_value = source_record.get(key)
 
         if actual_value != expected_value:
             mismatches.append(
@@ -967,17 +984,18 @@ def verify_existing_promotion(
     # Extract the canonical immutable Registry reference and digest.
     # ------------------------------------------------------------------
 
-    registry_artifact_ref = record.get("artifact_ref")
-    registry_artifact_digest = record.get("artifact_digest")
+    registry_record = record.get("registry", {})
+    registry_artifact_ref = registry_record.get("artifact_ref")
+    registry_artifact_digest = registry_record.get("digest")
 
     if not registry_artifact_ref:
         raise RuntimeError(
-            "Existing promotion provenance does not contain " "'artifact_ref'."
+            "Existing promotion provenance does not contain " "'artifact_ref' in registry block."
         )
 
     if not registry_artifact_digest:
         raise RuntimeError(
-            "Existing promotion provenance does not contain " "'artifact_digest'."
+            "Existing promotion provenance does not contain " "'digest' in registry block."
         )
 
     expected_prefix = f"wandb-registry-{registry_name}/" f"{registry_collection}:"
