@@ -761,17 +761,11 @@ def link_to_registry(
     # ------------------------------------------------------------------
 
     target_path = f"{registry_name}/{registry_collection}"
-
-    logger.info(
-        "Registry target path: %s",
-        target_path,
-    )
-
-    # 1. W&B does not forcibly move aliases across registry versions.
-    # If the target alias already exists on an older version, link() will
-    # silently fail to apply it to the new version.
-    # We must proactively detach it from the old version first.
     registry_base = f"wandb-registry-{registry_name}/{registry_collection}"
+
+    logger.info("Registry target path: %s", target_path)
+
+    # 1. Proactively detach alias from old version (if it exists)
     try:
         old_artifact = api.artifact(f"{registry_base}:{registry_alias}", type="model")
         if old_artifact.digest != source_artifact.digest:
@@ -779,17 +773,21 @@ def link_to_registry(
             old_artifact.aliases.remove(registry_alias)
             old_artifact.save()
     except Exception:
-        # Alias might not exist yet, or we lack permissions, which is fine.
         pass
 
-    # 2. Now perform the link. W&B will automatically apply the alias
-    # to the newly linked artifact since it's no longer in use.
-    source_artifact.link(
-        target_path=target_path,
-        aliases=[registry_alias],
-    )
-
+    # 2. Perform the link (W&B automatically tags this as :latest)
+    source_artifact.link(target_path=target_path)
     logger.info("Artifact linked to W&B Registry collection.")
+
+    # 3. Explicitly attach alias to the newly linked version (which is :latest)
+    try:
+        new_artifact = api.artifact(f"{registry_base}:latest", type="model")
+        if registry_alias not in new_artifact.aliases:
+            logger.info(f"Explicitly attaching alias '{registry_alias}' to new Registry artifact '{new_artifact.version}'...")
+            new_artifact.aliases.append(registry_alias)
+            new_artifact.save()
+    except Exception as e:
+        raise RuntimeError(f"Failed to explicitly attach alias '{registry_alias}' to the new Registry artifact: {e}")
 
     # ------------------------------------------------------------------
     # Resolve the Registry alias using the FULL namespace.
