@@ -23,6 +23,7 @@ models_dir: "${project_dir}/models"
 wandb:
   project: ${oc.env:WANDB_PROJECT,ask-before-answer}
   entity: ${oc.env:WANDB_ENTITY,rl4aa}
+  registry_entity: ${oc.env:WANDB_REGISTRY_ENTITY,rl4aa-org}
   registry_name: Model
   registry_collection: "AskBeforeAnswer-${publication_model}"
   registry_alias: production

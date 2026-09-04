@@ -75,6 +75,7 @@ logger = logging.getLogger(__name__)
 PROMOTION_FILE = "provenance/model_promotion.json"
 DEFAULT_WANDB_ENTITY = "rl4aa"
 DEFAULT_WANDB_PROJECT = "ask-before-answer"
+DEFAULT_REGISTRY_ENTITY = "rl4aa-org"
 DEFAULT_REGISTRY_NAME = "Model"
 DEFAULT_REGISTRY_COLLECTION = "AskBeforeAnswer-Models"
 DEFAULT_REGISTRY_ALIAS = "production"
@@ -144,6 +145,7 @@ def get_wandb_config(cfg: DictConfig) -> dict[str, str]:
         return {
             "entity": DEFAULT_WANDB_ENTITY,
             "project": DEFAULT_WANDB_PROJECT,
+            "registry_entity": DEFAULT_REGISTRY_ENTITY,
             "registry_name": DEFAULT_REGISTRY_NAME,
             "registry_collection": DEFAULT_REGISTRY_COLLECTION,
             "registry_alias": DEFAULT_REGISTRY_ALIAS,
@@ -162,6 +164,13 @@ def get_wandb_config(cfg: DictConfig) -> dict[str, str]:
                 cfg,
                 "wandb.project",
                 default=DEFAULT_WANDB_PROJECT,
+            )
+        ),
+        "registry_entity": str(
+            OmegaConf.select(
+                cfg,
+                "wandb.registry_entity",
+                default=DEFAULT_REGISTRY_ENTITY,
             )
         ),
         "registry_name": str(
@@ -700,6 +709,7 @@ def link_to_registry(
     *,
     source_artifact_ref: str,
     entity: str,
+    registry_entity: str,
     registry_name: str,
     registry_collection: str,
     registry_alias: str,
@@ -761,8 +771,7 @@ def link_to_registry(
     # ------------------------------------------------------------------
 
     # W&B registries exist in the organization's entity, not the personal user's entity.
-    # We must explicitly prepend the org entity and the special registry prefix.
-    registry_entity = "rl4aa-org"
+    # We explicitly prepend the org entity (registry_entity) and the special registry prefix.
     registry_project = f"wandb-registry-{registry_name}"
 
     target_path = f"{registry_entity}/{registry_project}/{registry_collection}"
@@ -1441,6 +1450,7 @@ def main(cfg: DictConfig) -> None:
     ) = link_to_registry(
         source_artifact_ref=source_artifact_ref,
         entity=entity,
+        registry_entity=wandb_cfg["registry_entity"],
         registry_name=registry_name,
         registry_collection=registry_collection,
         registry_alias=registry_alias,
