@@ -760,8 +760,13 @@ def link_to_registry(
     # Link source artifact to Registry.
     # ------------------------------------------------------------------
 
-    target_path = f"{registry_name}/{registry_collection}"
-    registry_base = f"wandb-registry-{registry_name}/{registry_collection}"
+    # W&B registries exist in the organization's entity, not the personal user's entity.
+    # We must explicitly prepend the org entity and the special registry prefix.
+    registry_entity = "rl4aa-org"
+    registry_project = f"wandb-registry-{registry_name}"
+    
+    target_path = f"{registry_entity}/{registry_project}/{registry_collection}"
+    registry_base = f"{registry_entity}/{registry_project}/{registry_collection}"
 
     logger.info("Registry target path: %s", target_path)
 
@@ -787,7 +792,7 @@ def link_to_registry(
     # Explicitly attach alias to the newly created v0 registry artifact
     # ------------------------------------------------------------------
     # Since this is a dedicated collection, we KNOW this model is v0.
-    v0_ref = f"wandb-registry-{registry_name}/{registry_collection}:v0"
+    v0_ref = f"{registry_base}:v0"
     logger.info(f"Explicitly resolving {v0_ref} to apply alias...")
     
     resolved_alias = api.artifact(v0_ref, type="model")
