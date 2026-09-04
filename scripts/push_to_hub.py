@@ -184,9 +184,7 @@ def load_promotion_record(
             f"found '{registry_alias}'. Deployment aborted."
         )
 
-    expected_registry_prefix = (
-        f"wandb-registry-{registry_name}/" f"{registry_collection}:"
-    )
+    expected_registry_prefix = f"wandb-registry-{registry_name}/{registry_collection}:"
 
     if not artifact_ref.startswith(expected_registry_prefix):
         raise RuntimeError(
@@ -199,7 +197,9 @@ def load_promotion_record(
     model_variant = source_record.get("model_variant")
     if not model_variant:
         source_name = source_record.get("artifact_name", "")
-        model_variant = source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        model_variant = (
+            source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        )
 
     if model_variant not in MODEL_PATHS:
         supported = ", ".join(sorted(MODEL_PATHS))
@@ -263,7 +263,10 @@ def resolve_and_verify_artifact(
     wandb_project = parts[1] if len(parts) > 1 else ""
 
     if not wandb_entity or not wandb_project:
-        raise RuntimeError("Promotion record must contain W&B entity and project in source.qualified_name.")
+        raise RuntimeError(
+            "Promotion record must contain W&B entity "
+            "and project in source.qualified_name."
+        )
 
     logger.info(
         "Resolving promoted W&B artifact: %s",
@@ -279,7 +282,7 @@ def resolve_and_verify_artifact(
         )
     except Exception as exc:
         raise RuntimeError(
-            f"Failed to resolve promoted W&B artifact " f"'{artifact_ref}'."
+            f"Failed to resolve promoted W&B artifact '{artifact_ref}'."
         ) from exc
 
     actual_digest = getattr(
@@ -349,7 +352,7 @@ def verify_production_alias(
         )
 
     registry_alias_ref = (
-        f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{registry_alias}"
+        f"wandb-registry-{registry_name}/{registry_collection}:{registry_alias}"
     )
 
     logger.info(
@@ -519,7 +522,9 @@ def generate_model_card(
     model_variant = promotion["source"].get("model_variant")
     if not model_variant:
         source_name = promotion["source"].get("artifact_name", "")
-        model_variant = source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        model_variant = (
+            source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        )
 
     artifact_ref = promotion["registry"]["artifact_ref"]
     artifact_digest = promotion["registry"]["digest"]
@@ -544,7 +549,7 @@ def generate_model_card(
         "sft": "Supervised Fine-Tuning (SFT)",
         "dpo": "Direct Preference Optimization (DPO)",
         "sft_dpo": (
-            "Supervised Fine-Tuning followed by " "Direct Preference Optimization"
+            "Supervised Fine-Tuning followed by Direct Preference Optimization"
         ),
         "grpo": "Group Relative Policy Optimization (GRPO)",
         "orpo": "Odds Ratio Preference Optimization (ORPO)",
@@ -644,11 +649,10 @@ the promotion record.
 Evaluation
 
 {
-leaderboard_content
-if leaderboard_content
-else
-"Evaluation results are maintained in the project evaluation artifacts."
-}
+        leaderboard_content
+        if leaderboard_content
+        else "Evaluation results are maintained in the project evaluation artifacts."
+    }
 
 ## Usage
 ```
@@ -742,7 +746,9 @@ def push_model(
     model_variant = promotion["source"].get("model_variant")
     if not model_variant:
         source_name = promotion["source"].get("artifact_name", "")
-        model_variant = source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        model_variant = (
+            source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        )
 
     artifact_ref = promotion["registry"]["artifact_ref"]
 

@@ -764,7 +764,7 @@ def link_to_registry(
     # We must explicitly prepend the org entity and the special registry prefix.
     registry_entity = "rl4aa-org"
     registry_project = f"wandb-registry-{registry_name}"
-    
+
     target_path = f"{registry_entity}/{registry_project}/{registry_collection}"
     registry_base = f"{registry_entity}/{registry_project}/{registry_collection}"
 
@@ -774,7 +774,10 @@ def link_to_registry(
     try:
         old_artifact = api.artifact(f"{registry_base}:{registry_alias}", type="model")
         if old_artifact.digest != source_artifact.digest:
-            logger.info(f"Proactively detaching alias '{registry_alias}' from older Registry artifact '{old_artifact.version}'...")
+            logger.info(
+                f"Proactively detaching alias '{registry_alias}' "
+                f"from older Registry artifact '{old_artifact.version}'..."
+            )
             old_artifact.aliases.remove(registry_alias)
             old_artifact.save()
     except Exception:
@@ -786,6 +789,7 @@ def link_to_registry(
 
     # Add a short delay to ensure W&B backend has indexed the new link
     import time
+
     time.sleep(2)
 
     # ------------------------------------------------------------------
@@ -794,14 +798,14 @@ def link_to_registry(
     # Since this is a dedicated collection, we KNOW this model is v0.
     v0_ref = f"{registry_base}:v0"
     logger.info(f"Explicitly resolving {v0_ref} to apply alias...")
-    
+
     resolved_alias = api.artifact(v0_ref, type="model")
-    
+
     if registry_alias not in resolved_alias.aliases:
         logger.info(f"Appending '{registry_alias}' to {v0_ref} and saving...")
         resolved_alias.aliases.append(registry_alias)
         resolved_alias.save()
-        time.sleep(1) # wait for save to propagate
+        time.sleep(1)  # wait for save to propagate
 
     if not resolved_alias.version:
         raise RuntimeError(
