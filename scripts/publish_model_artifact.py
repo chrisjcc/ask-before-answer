@@ -796,10 +796,13 @@ def link_to_registry(
     # The only 100% foolproof way to find our artifact is to probe for its exact vX tag!
     target_registry_artifact = None
 
+    logger.info(f"Looking for matching digest: {source_artifact.digest}")
+
     # We search backwards from v50 to v0 so we find the newest matching digest first.
     for i in range(50, -1, -1):
         try:
             candidate = api.artifact(f"{registry_entity}/{registry_base}:v{i}", type="model")
+            logger.info(f"Probed v{i}: found digest {candidate.digest}")
             if candidate.digest == source_artifact.digest:
                 target_registry_artifact = candidate
                 break
@@ -808,6 +811,14 @@ def link_to_registry(
             pass
 
     if not target_registry_artifact:
+        # If it wasn't found, let's explicitly try to fetch all versions just to log them
+        logger.error(f"Failed to find digest {source_artifact.digest} in v0-v50.")
+        try:
+            for v in api.artifact_versions(type_name="model", name=f"{registry_entity}/{registry_base}"):
+                logger.error(f"API returned version {v.version} with digest {v.digest}")
+        except Exception as e:
+            logger.error(f"api.artifact_versions failed: {e}")
+
         raise RuntimeError(f"Could not find the newly linked artifact in {registry_entity}/{registry_base} (probed up to v50)!")
 
     # 5. Explicitly apply the alias
