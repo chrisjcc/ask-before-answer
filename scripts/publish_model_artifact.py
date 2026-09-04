@@ -775,60 +775,38 @@ def link_to_registry(
     except Exception:
         pass
 
-    # 2. Perform the link (this might be a no-op if already linked)
-    source_artifact.link(target_path=target_path)
+    # 2. Perform the link with the desired alias.
+    # Since we use dedicated per-model collections, there are no lineage conflicts,
+    # so W&B will successfully link and attach the alias!
+    source_artifact.link(
+        target_path=target_path,
+        aliases=[registry_alias],
+    )
     logger.info("Artifact linked to W&B Registry collection.")
 
     # ------------------------------------------------------------------
-    # Bulletproof explicit alias assignment and resolution
+    # Resolve the Registry alias using the FULL namespace.
     # ------------------------------------------------------------------
 
-    # 3. Find the exact organization entity for the registry
-    try:
-        registry_entity = api.artifact(f"{registry_base}:v0", type="model").entity
-    except Exception as e:
-        raise RuntimeError(f"Could not determine organization entity for registry: {e}")
+    registry_alias_ref = build_registry_alias_ref(
+        registry_name=registry_name,
+        registry_collection=registry_collection,
+        registry_alias=registry_alias,
+    )
 
-    logger.info(f"Resolved registry organization entity: {registry_entity}")
+    logger.info(
+        "Resolving registry artifact: %s",
+        registry_alias_ref,
+    )
 
-    # 4. Iterate through exact version tags to find the exact linked artifact
-    # W&B api.artifacts() collections fetching is incredibly buggy across organizational namespaces.
-    # The only 100% foolproof way to find our artifact is to probe for its exact vX tag!
-    target_registry_artifact = None
+    # Add a short delay to ensure W&B backend has indexed the new link
+    import time
+    time.sleep(3)
 
-    logger.info(f"Looking for matching digest: {source_artifact.digest}")
-
-    # We search backwards from v50 to v0 so we find the newest matching digest first.
-    for i in range(50, -1, -1):
-        try:
-            candidate = api.artifact(f"{registry_entity}/{registry_base}:v{i}", type="model")
-            logger.info(f"Probed v{i}: found digest {candidate.digest}")
-            if candidate.digest == source_artifact.digest:
-                target_registry_artifact = candidate
-                break
-        except Exception:
-            # v{i} might not exist, skip
-            pass
-
-    if not target_registry_artifact:
-        # If it wasn't found, let's explicitly try to fetch all versions just to log them
-        logger.error(f"Failed to find digest {source_artifact.digest} in v0-v50.")
-        try:
-            for v in api.artifact_versions(type_name="model", name=f"{registry_entity}/{registry_base}"):
-                logger.error(f"API returned version {v.version} with digest {v.digest}")
-        except Exception as e:
-            logger.error(f"api.artifact_versions failed: {e}")
-
-        raise RuntimeError(f"Could not find the newly linked artifact in {registry_entity}/{registry_base} (probed up to v50)!")
-
-    # 5. Explicitly apply the alias
-    if registry_alias not in target_registry_artifact.aliases:
-        logger.info(f"Explicitly attaching alias '{registry_alias}' to Registry artifact '{target_registry_artifact.version}'...")
-        target_registry_artifact.aliases.append(registry_alias)
-        target_registry_artifact.save()
-
-    # 6. Resolve successfully!
-    resolved_alias = target_registry_artifact
+    resolved_alias = api.artifact(
+        registry_alias_ref,
+        type="model",
+    )
 
     if not resolved_alias.version:
         raise RuntimeError(
