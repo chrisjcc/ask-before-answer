@@ -306,6 +306,13 @@ def resolve_dvc_experiment_sha(
         experiment,
     )
 
+    if experiment.upper() == "HEAD":
+        logger.info("Using current Git HEAD as experiment SHA.")
+        commit = get_git_commit()
+        if not commit:
+            raise RuntimeError("Could not resolve Git HEAD. Is this a Git repository?")
+        return commit
+
     # ------------------------------------------------------------------
     # Method 1: Git refs
     # ------------------------------------------------------------------
