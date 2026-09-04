@@ -766,6 +766,8 @@ def link_to_registry(
     logger.info("Registry target path: %s", target_path)
 
     # 1. Proactively detach alias from old version (if it exists)
+    # W&B link() will silently refuse to apply an alias if it's already
+    # claimed by an older artifact in the same collection.
     try:
         old_artifact = api.artifact(f"{registry_base}:{registry_alias}", type="model")
         if old_artifact.digest != source_artifact.digest:
@@ -775,19 +777,13 @@ def link_to_registry(
     except Exception:
         pass
 
-    # 2. Perform the link (W&B automatically tags this as :latest)
-    source_artifact.link(target_path=target_path)
+    # 2. Perform the link with the desired alias.
+    # Because we detached it, W&B will successfully attach it to the new model!
+    source_artifact.link(
+        target_path=target_path,
+        aliases=[registry_alias],
+    )
     logger.info("Artifact linked to W&B Registry collection.")
-
-    # 3. Explicitly attach alias to the newly linked version (which is :latest)
-    try:
-        new_artifact = api.artifact(f"{registry_base}:latest", type="model")
-        if registry_alias not in new_artifact.aliases:
-            logger.info(f"Explicitly attaching alias '{registry_alias}' to new Registry artifact '{new_artifact.version}'...")
-            new_artifact.aliases.append(registry_alias)
-            new_artifact.save()
-    except Exception as e:
-        raise RuntimeError(f"Failed to explicitly attach alias '{registry_alias}' to the new Registry artifact: {e}")
 
     # ------------------------------------------------------------------
     # Resolve the Registry alias using the FULL namespace.
@@ -804,17 +800,10 @@ def link_to_registry(
         registry_alias_ref,
     )
 
-    # W&B has a bug where resolving by custom aliases (like :production)
-    # across organizational boundaries fails, but :latest works.
-    # Since we just fetched the new_artifact via :latest, we can just use it directly!
-    try:
-        resolved_alias = new_artifact
-    except NameError:
-        # Fallback just in case new_artifact wasn't defined
-        resolved_alias = api.artifact(
-            registry_alias_ref,
-            type="model",
-        )
+    resolved_alias = api.artifact(
+        registry_alias_ref,
+        type="model",
+    )
 
     if not resolved_alias.version:
         raise RuntimeError(
