@@ -294,8 +294,7 @@ publish-model-artifact:
 	@python scripts/publish_model_artifact.py \
 		publication_model="$(MODEL)" \
 		experiment="$(EXPERIMENT)" \
-		stage="$(STAGE)" \
-		+wandb.registry_collection="AskBeforeAnswer-$(MODEL)"
+		stage="$(STAGE)"
 	@echo "=========================================================="
 	@echo "W&B model artifact publication complete."
 	@echo "=========================================================="
