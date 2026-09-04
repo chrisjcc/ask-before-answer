@@ -804,10 +804,17 @@ def link_to_registry(
         registry_alias_ref,
     )
 
-    resolved_alias = api.artifact(
-        registry_alias_ref,
-        type="model",
-    )
+    # W&B has a bug where resolving by custom aliases (like :production)
+    # across organizational boundaries fails, but :latest works.
+    # Since we just fetched the new_artifact via :latest, we can just use it directly!
+    try:
+        resolved_alias = new_artifact
+    except NameError:
+        # Fallback just in case new_artifact wasn't defined
+        resolved_alias = api.artifact(
+            registry_alias_ref,
+            type="model",
+        )
 
     if not resolved_alias.version:
         raise RuntimeError(
