@@ -766,8 +766,6 @@ def link_to_registry(
     logger.info("Registry target path: %s", target_path)
 
     # 1. Proactively detach alias from old version (if it exists)
-    # W&B link() will silently refuse to apply an alias if it's already
-    # claimed by an older artifact in the same collection.
     try:
         old_artifact = api.artifact(f"{registry_base}:{registry_alias}", type="model")
         if old_artifact.digest != source_artifact.digest:
@@ -777,33 +775,42 @@ def link_to_registry(
     except Exception:
         pass
 
-    # 2. Perform the link with the desired alias.
-    # Because we detached it, W&B will successfully attach it to the new model!
-    source_artifact.link(
-        target_path=target_path,
-        aliases=[registry_alias],
-    )
+    # 2. Perform the link (this might be a no-op if already linked)
+    source_artifact.link(target_path=target_path)
     logger.info("Artifact linked to W&B Registry collection.")
 
     # ------------------------------------------------------------------
-    # Resolve the Registry alias using the FULL namespace.
+    # Bulletproof explicit alias assignment and resolution
     # ------------------------------------------------------------------
 
-    registry_alias_ref = build_registry_alias_ref(
-        registry_name=registry_name,
-        registry_collection=registry_collection,
-        registry_alias=registry_alias,
-    )
+    # 3. Find the exact organization entity for the registry
+    try:
+        registry_entity = api.artifact(f"{registry_base}:v0", type="model").entity
+    except Exception as e:
+        raise RuntimeError(f"Could not determine organization entity for registry: {e}")
 
-    logger.info(
-        "Resolving registry artifact: %s",
-        registry_alias_ref,
-    )
+    logger.info(f"Resolved registry organization entity: {registry_entity}")
 
-    resolved_alias = api.artifact(
-        registry_alias_ref,
-        type="model",
-    )
+    # 4. Iterate through the collection to find the exact linked artifact
+    collection_path = f"{registry_entity}/{registry_base}"
+    target_registry_artifact = None
+
+    for v in api.artifacts(type_name="model", name=collection_path):
+        if v.digest == source_artifact.digest:
+            target_registry_artifact = v
+            break
+
+    if not target_registry_artifact:
+        raise RuntimeError(f"Could not find the newly linked artifact in {collection_path}!")
+
+    # 5. Explicitly apply the alias
+    if registry_alias not in target_registry_artifact.aliases:
+        logger.info(f"Explicitly attaching alias '{registry_alias}' to Registry artifact '{target_registry_artifact.version}'...")
+        target_registry_artifact.aliases.append(registry_alias)
+        target_registry_artifact.save()
+
+    # 6. Resolve successfully!
+    resolved_alias = target_registry_artifact
 
     if not resolved_alias.version:
         raise RuntimeError(
