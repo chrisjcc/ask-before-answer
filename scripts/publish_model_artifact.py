@@ -775,38 +775,28 @@ def link_to_registry(
     except Exception:
         pass
 
-    # 2. Perform the link with the desired alias.
-    # Since we use dedicated per-model collections, there are no lineage conflicts,
-    # so W&B will successfully link and attach the alias!
-    source_artifact.link(
-        target_path=target_path,
-        aliases=[registry_alias],
-    )
+    # 2. Perform the link WITHOUT aliases because W&B link() is buggy at applying them
+    source_artifact.link(target_path=target_path)
     logger.info("Artifact linked to W&B Registry collection.")
-
-    # ------------------------------------------------------------------
-    # Resolve the Registry alias using the FULL namespace.
-    # ------------------------------------------------------------------
-
-    registry_alias_ref = build_registry_alias_ref(
-        registry_name=registry_name,
-        registry_collection=registry_collection,
-        registry_alias=registry_alias,
-    )
-
-    logger.info(
-        "Resolving registry artifact: %s",
-        registry_alias_ref,
-    )
 
     # Add a short delay to ensure W&B backend has indexed the new link
     import time
-    time.sleep(3)
+    time.sleep(2)
 
-    resolved_alias = api.artifact(
-        registry_alias_ref,
-        type="model",
-    )
+    # ------------------------------------------------------------------
+    # Explicitly attach alias to the newly created v0 registry artifact
+    # ------------------------------------------------------------------
+    # Since this is a dedicated collection, we KNOW this model is v0.
+    v0_ref = f"wandb-registry-{registry_name}/{registry_collection}:v0"
+    logger.info(f"Explicitly resolving {v0_ref} to apply alias...")
+    
+    resolved_alias = api.artifact(v0_ref, type="model")
+    
+    if registry_alias not in resolved_alias.aliases:
+        logger.info(f"Appending '{registry_alias}' to {v0_ref} and saving...")
+        resolved_alias.aliases.append(registry_alias)
+        resolved_alias.save()
+        time.sleep(1) # wait for save to propagate
 
     if not resolved_alias.version:
         raise RuntimeError(
