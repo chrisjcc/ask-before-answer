@@ -739,8 +739,12 @@ def push_model(
         exist_ok=True,
     )
 
-    model_variant = promotion["model_variant"]
-    artifact_ref = promotion["artifact_ref"]
+    model_variant = promotion["source"].get("model_variant")
+    if not model_variant:
+        source_name = promotion["source"].get("artifact_name", "")
+        model_variant = source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+
+    artifact_ref = promotion["registry"]["artifact_ref"]
 
     with tempfile.TemporaryDirectory(
         prefix="ask-before-answer-hf-",
@@ -894,8 +898,8 @@ def main(cfg: DictConfig) -> None:
     logger.info(
         "🚀 Successfully published promoted model '%s' "
         "(W&B artifact '%s') to Hugging Face.",
-        promotion["model_variant"],
-        promotion["artifact_ref"],
+        promotion["source"].get("model_variant", "sft_dpo"),
+        promotion["registry"]["artifact_ref"],
     )
 
 
