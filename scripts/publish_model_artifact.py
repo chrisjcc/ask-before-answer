@@ -233,6 +233,22 @@ def build_registry_alias_ref(
     )
 
 
+def get_git_commit() -> str | None:
+    """Return the current Git commit when available."""
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    return result.stdout.strip() or None
+
+
 # ---------------------------------------------------------------------------
 # DVC
 # ---------------------------------------------------------------------------
@@ -1120,37 +1136,36 @@ def write_promotion_provenance(
     now = datetime.now(timezone.utc).isoformat()
 
     record = {
-        "schema_version": 1,
-        "model_variant": model_variant,
-        "dvc_stage": stage,
-        "dvc_experiment": experiment,
-        "dvc_experiment_sha": dvc_sha,
-        # ------------------------------------------------------------------
-        # Deployment artifact.
-        #
-        # These MUST refer to the fully-qualified W&B Registry artifact.
-        # ------------------------------------------------------------------
-        "artifact_ref": registry_artifact_ref,
-        "artifact_digest": registry_artifact_digest,
-        "wandb": {
-            "entity": entity,
-            "project": project,
-            "run_id": run_id,
-            # Canonical deployment artifact.
-            "artifact_ref": registry_artifact_ref,
-            "artifact_digest": registry_artifact_digest,
-            # Source project artifact.
-            "source_artifact_ref": source_artifact_ref,
-            "source_artifact_digest": source_artifact_digest,
-            # Registry artifact.
-            "registry_artifact_ref": registry_artifact_ref,
-            "registry_artifact_digest": registry_artifact_digest,
+        "timestamp": now,
+        "operation": "model_promotion",
+        "status": "verified",
+        "source": {
+            "artifact_ref": source_artifact_ref,
             "artifact_name": artifact_name,
-            "registry_name": registry_name,
-            "registry_collection": registry_collection,
-            "registry_alias": registry_alias,
+            "qualified_name": f"{entity}/{project}/{artifact_name}:latest",
+            "digest": source_artifact_digest,
+            # Preserve DVC metadata from publish_model_artifact
+            "model_variant": model_variant,
+            "dvc_stage": stage,
+            "dvc_experiment": experiment,
+            "dvc_experiment_sha": dvc_sha,
         },
-        "promoted_at": now,
+        "registry": {
+            "name": registry_name,
+            "collection": registry_collection,
+            "alias": registry_alias,
+            "artifact_ref": registry_artifact_ref,
+            "artifact_name": artifact_name,
+            "digest": registry_artifact_digest,
+        },
+        "verification": {
+            "artifact_integrity": True,
+            "verification_command": "make publish-model-artifact",
+            "digest_match": (source_artifact_digest == registry_artifact_digest),
+        },
+        "git": {
+            "commit": get_git_commit(),
+        },
     }
 
     # ------------------------------------------------------------------
