@@ -767,48 +767,29 @@ def link_to_registry(
         target_path,
     )
 
+    # 1. W&B does not forcibly move aliases across registry versions.
+    # If the target alias already exists on an older version, link() will
+    # silently fail to apply it to the new version.
+    # We must proactively detach it from the old version first.
+    registry_base = f"wandb-registry-{registry_name}/{registry_collection}"
+    try:
+        old_artifact = api.artifact(f"{registry_base}:{registry_alias}", type="model")
+        if old_artifact.digest != source_artifact.digest:
+            logger.info(f"Proactively detaching alias '{registry_alias}' from older Registry artifact '{old_artifact.version}'...")
+            old_artifact.aliases.remove(registry_alias)
+            old_artifact.save()
+    except Exception:
+        # Alias might not exist yet, or we lack permissions, which is fine.
+        pass
+
+    # 2. Now perform the link. W&B will automatically apply the alias
+    # to the newly linked artifact since it's no longer in use.
     source_artifact.link(
         target_path=target_path,
         aliases=[registry_alias],
     )
 
     logger.info("Artifact linked to W&B Registry collection.")
-
-    # ------------------------------------------------------------------
-    # Force move the alias if W&B did not automatically overwrite it.
-    # ------------------------------------------------------------------
-    try:
-        registry_base = f"wandb-registry-{registry_name}/{registry_collection}"
-
-        # 1. Remove alias from old version (if it points to something else)
-        try:
-            old_artifact = api.artifact(
-                f"{registry_base}:{registry_alias}", type="model"
-            )
-            if old_artifact.digest != source_artifact.digest:
-                logger.info(
-                    f"Removing alias '{registry_alias}' from old Registry artifact '{old_artifact.version}'..."
-                )
-                old_artifact.aliases.remove(registry_alias)
-                old_artifact.save()
-        except Exception:
-            pass
-
-        # 2. Add alias to the newly linked version (which is always tagged :latest)
-        try:
-            new_artifact = api.artifact(f"{registry_base}:latest", type="model")
-            if new_artifact.digest == source_artifact.digest:
-                if registry_alias not in new_artifact.aliases:
-                    logger.info(
-                        f"Forcibly attaching alias '{registry_alias}' to new Registry artifact '{new_artifact.version}'..."
-                    )
-                    new_artifact.aliases.append(registry_alias)
-                    new_artifact.save()
-        except Exception:
-            pass
-
-    except Exception as e:
-        logger.warning(f"Failed to explicitly force alias move (non-fatal): {e}")
 
     # ------------------------------------------------------------------
     # Resolve the Registry alias using the FULL namespace.
