@@ -212,7 +212,7 @@ def build_registry_ref(
 
     can be resolved ambiguously by the W&B API.
     """
-    return f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{version}"
+    return f"wandb-registry-{registry_name}/{registry_collection}:{version}"
 
 
 def build_registry_alias_ref(
@@ -228,9 +228,7 @@ def build_registry_alias_ref(
 
         wandb-registry-Model/AskBeforeAnswer-Models:production
     """
-    return (
-        f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{registry_alias}"
-    )
+    return f"wandb-registry-{registry_name}/{registry_collection}:{registry_alias}"
 
 
 def get_git_commit() -> str | None:
@@ -643,7 +641,7 @@ def create_source_artifact(
         # Resolve the actual project artifact explicitly.
         # --------------------------------------------------------------
 
-        source_latest_ref = f"{entity}/{project}/" f"{artifact_name}:latest"
+        source_latest_ref = f"{entity}/{project}/{artifact_name}:latest"
 
         logger.info(
             "Resolving project artifact: %s",
@@ -663,7 +661,7 @@ def create_source_artifact(
                 "but no immutable artifact version was returned."
             )
 
-        source_ref = f"{entity}/{project}/" f"{artifact_name}:" f"{resolved.version}"
+        source_ref = f"{entity}/{project}/{artifact_name}:{resolved.version}"
 
         source_digest = resolved.digest
 
@@ -762,7 +760,7 @@ def link_to_registry(
     # Link source artifact to Registry.
     # ------------------------------------------------------------------
 
-    target_path = f"{registry_name}/" f"{registry_collection}"
+    target_path = f"{registry_name}/{registry_collection}"
 
     logger.info(
         "Registry target path: %s",
@@ -780,23 +778,35 @@ def link_to_registry(
     # Force move the alias if W&B did not automatically overwrite it.
     # ------------------------------------------------------------------
     try:
-        collection_path = f"wandb-registry-{registry_name}/{registry_collection}"
-        
-        # 1. Remove alias from old version
-        for v in api.artifacts(type_name="model", name=collection_path):
-            if registry_alias in v.aliases and v.digest != source_artifact.digest:
-                logger.info(f"Removing alias '{registry_alias}' from old version '{v.version}'...")
-                v.aliases.remove(registry_alias)
-                v.save()
-                
-        # 2. Add alias to new version
-        for v in api.artifacts(type_name="model", name=collection_path):
-            if v.digest == source_artifact.digest:
-                if registry_alias not in v.aliases:
-                    logger.info(f"Forcibly moving alias '{registry_alias}' to new version '{v.version}'...")
-                    v.aliases.append(registry_alias)
-                    v.save()
-                break
+        registry_base = f"wandb-registry-{registry_name}/{registry_collection}"
+
+        # 1. Remove alias from old version (if it points to something else)
+        try:
+            old_artifact = api.artifact(
+                f"{registry_base}:{registry_alias}", type="model"
+            )
+            if old_artifact.digest != source_artifact.digest:
+                logger.info(
+                    f"Removing alias '{registry_alias}' from old Registry artifact '{old_artifact.version}'..."
+                )
+                old_artifact.aliases.remove(registry_alias)
+                old_artifact.save()
+        except Exception:
+            pass
+
+        # 2. Add alias to the newly linked version (which is always tagged :latest)
+        try:
+            new_artifact = api.artifact(f"{registry_base}:latest", type="model")
+            if new_artifact.digest == source_artifact.digest:
+                if registry_alias not in new_artifact.aliases:
+                    logger.info(
+                        f"Forcibly attaching alias '{registry_alias}' to new Registry artifact '{new_artifact.version}'..."
+                    )
+                    new_artifact.aliases.append(registry_alias)
+                    new_artifact.save()
+        except Exception:
+            pass
+
     except Exception as e:
         logger.warning(f"Failed to explicitly force alias move (non-fatal): {e}")
 
@@ -955,7 +965,7 @@ def verify_existing_promotion(
         record = json.loads(provenance_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(
-            f"Could not read existing promotion provenance: " f"{provenance_path}"
+            f"Could not read existing promotion provenance: {provenance_path}"
         ) from exc
 
     # ------------------------------------------------------------------
@@ -977,7 +987,7 @@ def verify_existing_promotion(
 
         if actual_value != expected_value:
             mismatches.append(
-                f"{key}: expected '{expected_value}', " f"found '{actual_value}'"
+                f"{key}: expected '{expected_value}', found '{actual_value}'"
             )
 
     if mismatches:
@@ -998,15 +1008,16 @@ def verify_existing_promotion(
 
     if not registry_artifact_ref:
         raise RuntimeError(
-            "Existing promotion provenance does not contain " "'artifact_ref' in registry block."
+            "Existing promotion provenance does not contain "
+            "'artifact_ref' in registry block."
         )
 
     if not registry_artifact_digest:
         raise RuntimeError(
-            "Existing promotion provenance does not contain " "'digest' in registry block."
+            "Existing promotion provenance does not contain 'digest' in registry block."
         )
 
-    expected_prefix = f"wandb-registry-{registry_name}/" f"{registry_collection}:"
+    expected_prefix = f"wandb-registry-{registry_name}/{registry_collection}:"
 
     if not registry_artifact_ref.startswith(expected_prefix):
         raise RuntimeError(
@@ -1044,7 +1055,7 @@ def verify_existing_promotion(
 
     if not actual_digest:
         raise RuntimeError(
-            "Existing Registry artifact has no digest:\n" f"  {registry_artifact_ref}"
+            f"Existing Registry artifact has no digest:\n  {registry_artifact_ref}"
         )
 
     logger.info(
@@ -1095,7 +1106,7 @@ def verify_existing_promotion(
 
     if not alias_digest:
         raise RuntimeError(
-            f"Registry alias '{registry_alias}' resolved without " "a digest."
+            f"Registry alias '{registry_alias}' resolved without a digest."
         )
 
     logger.info(
@@ -1275,11 +1286,11 @@ def main(cfg: DictConfig) -> None:
 
     if not experiment:
         raise RuntimeError(
-            "No DVC experiment was supplied. " "Use experiment=<experiment-name>."
+            "No DVC experiment was supplied. Use experiment=<experiment-name>."
         )
 
     if not stage:
-        raise RuntimeError("No DVC stage was supplied. " "Use stage=<stage-name>.")
+        raise RuntimeError("No DVC stage was supplied. Use stage=<stage-name>.")
 
     wandb_cfg = get_wandb_config(cfg)
 
