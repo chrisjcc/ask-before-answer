@@ -781,11 +781,19 @@ def link_to_registry(
     # ------------------------------------------------------------------
     try:
         collection_path = f"wandb-registry-{registry_name}/{registry_collection}"
-        versions = api.artifact_versions("model", collection_path)
-        for v in versions:
+        
+        # 1. Remove alias from old version
+        for v in api.artifacts(type_name="model", name=collection_path):
+            if registry_alias in v.aliases and v.digest != source_artifact.digest:
+                logger.info(f"Removing alias '{registry_alias}' from old version '{v.version}'...")
+                v.aliases.remove(registry_alias)
+                v.save()
+                
+        # 2. Add alias to new version
+        for v in api.artifacts(type_name="model", name=collection_path):
             if v.digest == source_artifact.digest:
                 if registry_alias not in v.aliases:
-                    logger.info(f"Forcibly moving alias '{registry_alias}' to version '{v.version}'...")
+                    logger.info(f"Forcibly moving alias '{registry_alias}' to new version '{v.version}'...")
                     v.aliases.append(registry_alias)
                     v.save()
                 break
