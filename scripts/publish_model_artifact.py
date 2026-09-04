@@ -771,7 +771,8 @@ def link_to_registry(
     # ------------------------------------------------------------------
 
     # W&B registries exist in the organization's entity, not the personal user's entity.
-    # We explicitly prepend the org entity (registry_entity) and the special registry prefix.
+    # We explicitly prepend the org entity (registry_entity)
+    # and the special registry prefix.
     registry_project = f"wandb-registry-{registry_name}"
 
     target_path = f"{registry_entity}/{registry_project}/{registry_collection}"
