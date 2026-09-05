@@ -534,7 +534,7 @@ def push_datasets(
     with tempfile.TemporaryDirectory() as tmp_dir:
         readme_path = Path(tmp_dir) / "README.md"
         readme_path.write_text(generate_dataset_card(cfg), encoding="utf-8")
-        
+
         api.upload_file(
             path_or_fileobj=str(readme_path),
             path_in_repo="README.md",
