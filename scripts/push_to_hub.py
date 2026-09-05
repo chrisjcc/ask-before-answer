@@ -7,13 +7,22 @@ ARCHITECTURAL ROLE:
 (The Bridge from Weights & Biases to Hugging Face)
 
 What this script is IN CHARGE of:
-- Verification: Reads the `provenance/model_promotion.json` receipt, queries the W&B API, and cryptographically verifies that the `production` artifact in the Registry has not been tampered with.
-- Data Packaging: Converts local Arrow datasets into Parquet format for public release.
-- Public Deployment: Securely downloads the verified model weights from W&B and pushes the final model, tokenizer, datasets, and a generated Model Card to the public Hugging Face Hub.
+- Verification: Reads the `provenance/model_promotion.json` receipt,
+  queries the W&B API, and cryptographically verifies that the `production`
+  artifact in the Registry has not been tampered with.
+- Data Packaging: Converts local Arrow datasets into Parquet format
+  for public release.
+- Public Deployment: Securely downloads the verified model weights from W&B
+  and pushes the final model, tokenizer, datasets, and a generated Model Card
+  to the public Hugging Face Hub.
 
 What this script is NOT IN CHARGE of:
-- Decision Making: This script has zero autonomy. It does not know *which* model it should deploy, nor does it look at Git or DVC configurations. It blindly and strictly trusts the `model_promotion.json` receipt. If the receipt is missing or invalid, it refuses to run.
+- Decision Making: This script has zero autonomy. It does not know *which* model
+  it should deploy, nor does it look at Git or DVC configurations. It blindly
+  and strictly trusts the `model_promotion.json` receipt. If the receipt is missing
+  or invalid, it refuses to run.
 """
+
 import json
 import logging
 import os
