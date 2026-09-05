@@ -9,6 +9,7 @@ import logging
 from typing import List, Optional
 
 import torch
+from transformers import AutoTokenizer
 
 try:
     from vllm import LLM, SamplingParams
@@ -86,17 +87,8 @@ class ClarifyOrActPipeline:
             base_tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
             self.tokenizer.chat_template = base_tokenizer.chat_template
 
-        if is_peft:
-            from peft import PeftModel
-
-            if torch.cuda.is_available():
-                d_map = "auto"
-            else:
-                d_map = "cpu"
-                logger.warning(
-                    "No GPU detected! Loading full 7B base model on CPU. "
-                    "This will be very slow and may exceed memory limits."
-                )
+        # The vLLM engine completely abstracts away PEFT loading and device mapping.
+        # We do not need transformers/peft for inference payload execution anymore.
 
         # Ensure the global engine is initialized.
         self.llm = get_vllm_engine(self.base_model_id)
