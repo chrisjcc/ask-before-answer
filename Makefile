@@ -2,6 +2,13 @@
 
 export
 
+# -------------------------
+# Dynamic Environment Fixes (HPC / Conda Compatibility)
+# -------------------------
+# 1. Prevent Python from loading or installing into the global ~/.local user-site directory,
+#    ensuring strict isolation for Conda environments.
+export PYTHONNOUSERSITE := 1
+
 # Default sweep agent trial count
 COUNT ?= 10
 
@@ -27,6 +34,7 @@ PROVENANCE_FILE ?= provenance/model_promotion.json
 	format lint test \
 	publish-hf-release \
 	docker-build run-app \
+	push pull \
 	clean clean-cache clean-locks
 
 # -------------------------
@@ -122,33 +130,58 @@ install:
 	pip install -e .
 
 install-dvc:
-	@echo "Installing DVC..."
-	@if command -v uv >/dev/null 2>&1; then \
-		uv tool install dvc; \
-	elif command -v pipx >/dev/null 2>&1; then \
-		pipx install dvc; \
+	@echo "Checking DVC installation..."
+	@if command -v dvc >/dev/null 2>&1; then \
+		echo "DVC already installed: $$(dvc --version)"; \
 	else \
-		echo "Install uv or pipx first."; \
-		exit 1; \
+		echo "DVC not found. Installing..."; \
+		if command -v uv >/dev/null 2>&1; then \
+			uv tool install dvc --force; \
+		elif command -v pipx >/dev/null 2>&1; then \
+			pipx install dvc --force; \
+		else \
+			echo "ERROR: Neither uv nor pipx is installed."; \
+			echo "Install uv or pipx first."; \
+			exit 1; \
+		fi; \
 	fi
 
 # -------------------------
 # Core pipeline / data (DVC is source of truth)
+
 # DVC is the source of truth
 # -------------------------
+
+GPU := $(shell nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | \
+       sort -t',' -k2 -nr | head -1 | cut -d',' -f1 | tr -d ' ')
 
 run-pipeline:
 	dvc repro
 
 preprocess:
-	dvc repro preprocess
+	@echo "Selecting GPU $(GPU)"
+	CUDA_VISIBLE_DEVICES=$(GPU) dvc repro preprocess
+
+push:
+	@echo "=========================================================="
+	@echo "Pushing DVC artifacts to remote storage:"
+	@dvc remote list
+	@echo "=========================================================="
+	dvc push
+
+pull:
+	@echo "=========================================================="
+	@echo "Pulling DVC artifacts from remote storage:"
+	@dvc remote list
+	@echo "=========================================================="
+	dvc pull
 
 # -------------------------
 # DVC training targets
 # -------------------------
 
 # Supported DVC training variants.
-# These describe training configurations/variants, not models.
+
 TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
 
 # Generic training interface.
@@ -158,6 +191,7 @@ TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
 #
 #   sft-only -> train_sft_only
 #   dpo-only -> train_dpo_only
+
 train:
 	@if [ -z "$(TRAIN_VARIANT)" ]; then \
 		echo "ERROR: TRAIN_VARIANT is required."; \
@@ -172,6 +206,7 @@ train:
 	dvc repro train_$(subst -,_,$(TRAIN_VARIANT))
 
 # Convenience aliases for the generic training interface.
+
 train-sft:
 	$(MAKE) train TRAIN_VARIANT=sft
 
@@ -197,6 +232,8 @@ ablation-suite:
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
 	python scripts/generate_report.py
+	@echo "Saving DVC experiment..."
+	dvc exp save -n ablation_suite
 
 # -------------------------
 # Evaluation / inference
@@ -299,7 +336,7 @@ promote-model:
 # -------------------------
 
 # Supported fine-tuning methods.
-# These are training algorithms/methods, not models.
+
 FINE_TUNE_METHODS := sft dpo orpo grpo
 
 sweep:

@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
 
+"""
+Push a verified W&B Registry model artifact to the Hugging Face Hub.
+
+ARCHITECTURAL ROLE:
+(The Bridge from Weights & Biases to Hugging Face)
+
+What this script is IN CHARGE of:
+- Verification: Reads the `provenance/model_promotion.json` receipt,
+  queries the W&B API, and cryptographically verifies that the `production`
+  artifact in the Registry has not been tampered with.
+- Data Packaging: Converts local Arrow datasets into Parquet format
+  for public release.
+- Public Deployment: Securely downloads the verified model weights from W&B
+  and pushes the final model, tokenizer, datasets, and a generated Model Card
+  to the public Hugging Face Hub.
+
+What this script is NOT IN CHARGE of:
+- Decision Making: This script has zero autonomy. It does not know *which* model
+  it should deploy, nor does it look at Git or DVC configurations. It blindly
+  and strictly trusts the `model_promotion.json` receipt. If the receipt is missing
+  or invalid, it refuses to run.
+"""
+
 import json
 import logging
 import os
@@ -95,10 +118,9 @@ def load_promotion_record(
         ) from exc
 
     required_fields = (
-        "artifact_ref",
-        "artifact_digest",
-        "model_variant",
-        "wandb",
+        "operation",
+        "source",
+        "registry",
     )
 
     missing = [field for field in required_fields if not promotion.get(field)]
@@ -109,7 +131,17 @@ def load_promotion_record(
             + ", ".join(missing)
         )
 
-    artifact_ref = promotion["artifact_ref"]
+    if promotion["operation"] != "model_promotion":
+        raise RuntimeError(
+            f"Expected operation 'model_promotion', found '{promotion['operation']}'"
+        )
+
+    registry_record = promotion["registry"]
+    source_record = promotion["source"]
+
+    artifact_ref = registry_record.get("artifact_ref", "")
+    if not artifact_ref:
+        raise RuntimeError("Promotion record missing registry.artifact_ref")
 
     # ------------------------------------------------------------------
     # A promotion record must contain an immutable artifact version.
@@ -141,34 +173,25 @@ def load_promotion_record(
     # Validate W&B provenance metadata.
     # ------------------------------------------------------------------
 
-    wandb_record = promotion["wandb"]
-
-    if not isinstance(wandb_record, dict):
-        raise RuntimeError("Promotion record field 'wandb' must be an object.")
-
-    required_wandb_fields = (
-        "entity",
-        "project",
-        "registry_name",
-        "registry_collection",
-        "registry_alias",
+    required_registry_fields = (
+        "name",
+        "collection",
+        "alias",
     )
 
-    missing_wandb = [
-        field for field in required_wandb_fields if not wandb_record.get(field)
+    missing_registry = [
+        field for field in required_registry_fields if not registry_record.get(field)
     ]
 
-    if missing_wandb:
+    if missing_registry:
         raise RuntimeError(
-            "Promotion record W&B metadata is incomplete. Missing fields: "
-            + ", ".join(missing_wandb)
+            "Promotion record registry metadata is incomplete. Missing fields: "
+            + ", ".join(missing_registry)
         )
 
-    registry_name = str(wandb_record["registry_name"])
-
-    registry_collection = str(wandb_record["registry_collection"])
-
-    registry_alias = str(wandb_record["registry_alias"])
+    registry_name = str(registry_record["name"])
+    registry_collection = str(registry_record["collection"])
+    registry_alias = str(registry_record["alias"])
 
     # ------------------------------------------------------------------
     # Step 8 release-gate requirement:
@@ -184,9 +207,7 @@ def load_promotion_record(
             f"found '{registry_alias}'. Deployment aborted."
         )
 
-    expected_registry_prefix = (
-        f"wandb-registry-{registry_name}/" f"{registry_collection}:"
-    )
+    expected_registry_prefix = f"wandb-registry-{registry_name}/{registry_collection}:"
 
     if not artifact_ref.startswith(expected_registry_prefix):
         raise RuntimeError(
@@ -196,7 +217,12 @@ def load_promotion_record(
             f"  Expected prefix:    {expected_registry_prefix}"
         )
 
-    model_variant = promotion["model_variant"]
+    model_variant = source_record.get("model_variant")
+    if not model_variant:
+        source_name = source_record.get("artifact_name", "")
+        model_variant = (
+            source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        )
 
     if model_variant not in MODEL_PATHS:
         supported = ", ".join(sorted(MODEL_PATHS))
@@ -205,11 +231,11 @@ def load_promotion_record(
             f"record. Supported models: {supported}"
         )
 
-    artifact_digest = promotion["artifact_digest"]
+    artifact_digest = registry_record.get("digest")
 
     if not isinstance(artifact_digest, str) or not artifact_digest:
         raise RuntimeError(
-            "Promotion record contains an invalid or empty artifact_digest."
+            "Promotion record contains an invalid or empty registry.digest."
         )
 
     logger.info("Promotion record validated successfully.")
@@ -251,14 +277,19 @@ def resolve_and_verify_artifact(
         artifact_ref: The exact versioned artifact reference.
     """
 
-    artifact_ref = promotion["artifact_ref"]
-    expected_digest = promotion["artifact_digest"]
+    artifact_ref = promotion["registry"]["artifact_ref"]
+    expected_digest = promotion["registry"]["digest"]
 
-    wandb_entity = promotion["wandb"]["entity"]
-    wandb_project = promotion["wandb"]["project"]
+    qualified_name = promotion["source"].get("qualified_name", "")
+    parts = qualified_name.split("/")
+    wandb_entity = parts[0] if len(parts) > 0 else ""
+    wandb_project = parts[1] if len(parts) > 1 else ""
 
     if not wandb_entity or not wandb_project:
-        raise RuntimeError("Promotion record must contain W&B entity and project.")
+        raise RuntimeError(
+            "Promotion record must contain W&B entity "
+            "and project in source.qualified_name."
+        )
 
     logger.info(
         "Resolving promoted W&B artifact: %s",
@@ -274,7 +305,7 @@ def resolve_and_verify_artifact(
         )
     except Exception as exc:
         raise RuntimeError(
-            f"Failed to resolve promoted W&B artifact " f"'{artifact_ref}'."
+            f"Failed to resolve promoted W&B artifact '{artifact_ref}'."
         ) from exc
 
     actual_digest = getattr(
@@ -327,15 +358,15 @@ def verify_production_alias(
     deploying a release whose production state has changed.
     """
 
-    wandb_record = promotion["wandb"]
+    registry_record = promotion["registry"]
 
-    registry_name = str(wandb_record["registry_name"])
+    registry_name = str(registry_record["name"])
 
-    registry_collection = str(wandb_record["registry_collection"])
+    registry_collection = str(registry_record["collection"])
 
-    registry_alias = str(wandb_record["registry_alias"])
+    registry_alias = str(registry_record["alias"])
 
-    expected_digest = promotion["artifact_digest"]
+    expected_digest = registry_record["digest"]
 
     if registry_alias != DEFAULT_REGISTRY_ALIAS:
         raise RuntimeError(
@@ -344,7 +375,7 @@ def verify_production_alias(
         )
 
     registry_alias_ref = (
-        f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{registry_alias}"
+        f"wandb-registry-{registry_name}/{registry_collection}:{registry_alias}"
     )
 
     logger.info(
@@ -393,7 +424,7 @@ def verify_production_alias(
     if production_digest != expected_digest:
         raise RuntimeError(
             "W&B production Registry integrity check failed.\n"
-            f"  Promotion artifact: {promotion['artifact_ref']}\n"
+            f"  Promotion artifact: {promotion['registry']['artifact_ref']}\n"
             f"  Promotion digest:  {expected_digest}\n"
             f"  Production alias:  {registry_alias_ref}\n"
             f"  Production digest: {production_digest}\n"
@@ -412,6 +443,7 @@ def verify_production_alias(
 
 def push_datasets(
     cfg: DictConfig,
+    api: HfApi,
 ) -> None:
     """Push SFT and DPO datasets to the Hugging Face dataset repository."""
 
@@ -494,12 +526,114 @@ def push_datasets(
         config_name="dpo",
     )
 
+    logger.info(
+        "Uploading Dataset Card to %s...",
+        dataset_repo,
+    )
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        readme_path = Path(tmp_dir) / "README.md"
+        readme_path.write_text(generate_dataset_card(cfg), encoding="utf-8")
+
+        api.upload_file(
+            path_or_fileobj=str(readme_path),
+            path_in_repo="README.md",
+            repo_id=dataset_repo,
+            repo_type="dataset",
+        )
+
     logger.info("Dataset upload complete.")
 
 
 # ---------------------------------------------------------------------------
-# Model card
+# Cards
 # ---------------------------------------------------------------------------
+
+
+def generate_dataset_card(cfg: DictConfig) -> str:
+    """Generate the Hugging Face dataset card."""
+    dataset_repo = cfg.deployment.dataset_repo
+
+    return f"""---
+dataset_info:
+- config_name: dpo
+  features:
+  - name: prompt
+    dtype: string
+  - name: chosen
+    dtype: string
+  - name: rejected
+    dtype: string
+  splits:
+  - name: train
+    num_examples: 576
+  - name: validation
+    num_examples: 122
+- config_name: sft
+  features:
+  - name: instruction
+    dtype: string
+  - name: input
+    dtype: string
+  - name: output
+    struct:
+    - name: action
+      dtype: string
+    - name: reasoning
+      dtype: string
+    - name: facets
+      list: string
+    - name: response
+      dtype: string
+  splits:
+  - name: train
+    num_examples: 576
+  - name: validation
+    num_examples: 122
+configs:
+- config_name: dpo
+  data_files:
+  - split: train
+    path: dpo/train-*
+  - split: validation
+    path: dpo/validation-*
+- config_name: sft
+  data_files:
+  - split: train
+    path: sft/train-*
+  - split: validation
+    path: sft/validation-*
+---
+
+
+# AskBeforeAnswer Dataset
+
+This dataset contains the training and validation splits for the
+**AskBeforeAnswer** clarification-seeking model.
+
+## Subsets (Configurations)
+This repository contains two subsets which must be loaded separately
+depending on the training stage:
+
+### 1. `sft` (Supervised Fine-Tuning)
+Contains the structured JSON responses for initial alignment.
+- **Features:** `instruction`, `input`, `output` (JSON dict containing
+  `action`, `reasoning`, `facets`, `response`)
+
+```python
+from datasets import load_dataset
+sft_dataset = load_dataset("{dataset_repo}", "sft")
+```
+
+### 2. `dpo` (Direct Preference Optimization)
+Contains the preference pairs used to penalize hallucinations.
+- **Features:** `prompt`, `chosen`, `rejected`
+
+```python
+from datasets import load_dataset
+dpo_dataset = load_dataset("{dataset_repo}", "dpo")
+```
+"""
 
 
 def generate_model_card(
@@ -511,14 +645,20 @@ def generate_model_card(
     dataset_repo = cfg.deployment.dataset_repo
     model_repo = cfg.deployment.model_repo
 
-    model_variant = promotion["model_variant"]
-    artifact_ref = promotion["artifact_ref"]
-    artifact_digest = promotion["artifact_digest"]
+    model_variant = promotion["source"].get("model_variant")
+    if not model_variant:
+        source_name = promotion["source"].get("artifact_name", "")
+        model_variant = (
+            source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        )
 
-    wandb_record = promotion["wandb"]
+    artifact_ref = promotion["registry"]["artifact_ref"]
+    artifact_digest = promotion["registry"]["digest"]
 
-    registry_alias = wandb_record.get(
-        "registry_alias",
+    registry_record = promotion["registry"]
+
+    registry_alias = registry_record.get(
+        "alias",
         DEFAULT_REGISTRY_ALIAS,
     )
 
@@ -535,7 +675,7 @@ def generate_model_card(
         "sft": "Supervised Fine-Tuning (SFT)",
         "dpo": "Direct Preference Optimization (DPO)",
         "sft_dpo": (
-            "Supervised Fine-Tuning followed by " "Direct Preference Optimization"
+            "Supervised Fine-Tuning followed by Direct Preference Optimization"
         ),
         "grpo": "Group Relative Policy Optimization (GRPO)",
         "orpo": "Odds Ratio Preference Optimization (ORPO)",
@@ -635,11 +775,10 @@ the promotion record.
 Evaluation
 
 {
-leaderboard_content
-if leaderboard_content
-else
-"Evaluation results are maintained in the project evaluation artifacts."
-}
+        leaderboard_content
+        if leaderboard_content
+        else "Evaluation results are maintained in the project evaluation artifacts."
+    }
 
 ## Usage
 ```
@@ -730,8 +869,14 @@ def push_model(
         exist_ok=True,
     )
 
-    model_variant = promotion["model_variant"]
-    artifact_ref = promotion["artifact_ref"]
+    model_variant = promotion["source"].get("model_variant")
+    if not model_variant:
+        source_name = promotion["source"].get("artifact_name", "")
+        model_variant = (
+            source_name.split("-")[-1].split(":")[0] if "-" in source_name else "sft"
+        )
+
+    artifact_ref = promotion["registry"]["artifact_ref"]
 
     with tempfile.TemporaryDirectory(
         prefix="ask-before-answer-hf-",
@@ -859,7 +1004,7 @@ def main(cfg: DictConfig) -> None:
     # Dataset publication is independent of model artifact resolution.
     # ------------------------------------------------------------------
 
-    push_datasets(cfg)
+    push_datasets(cfg, api)
 
     # ------------------------------------------------------------------
     # 5. Publish the exact promoted W&B artifact.
@@ -885,8 +1030,8 @@ def main(cfg: DictConfig) -> None:
     logger.info(
         "🚀 Successfully published promoted model '%s' "
         "(W&B artifact '%s') to Hugging Face.",
-        promotion["model_variant"],
-        promotion["artifact_ref"],
+        promotion["source"].get("model_variant", "sft_dpo"),
+        promotion["registry"]["artifact_ref"],
     )
 
 

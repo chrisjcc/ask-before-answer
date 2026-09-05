@@ -136,6 +136,7 @@ def generate_sweep_report(fine_tune_method, sweep_id):
         row = {
             "Run ID": run.id,
             "Name": run.name,
+            "DVC Experiment": f"sweep_{run.id}",
         }
 
         for parameter_name in parameter_names:

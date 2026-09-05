@@ -6,20 +6,20 @@ This report was automatically generated from Weights & Biases metrics.
 
 | Run ID   | Name          | Group         | Hypothesis   | Sweep ID   |   Learning Rate |   Batch Size |   Eval Loss | URL                                                    |
 |:---------|:--------------|:--------------|:-------------|:-----------|----------------:|-------------:|------------:|:-------------------------------------------------------|
-| amq3lj42 | sft_training  | sft_baseline  | N/A          | N/A        |           2e-05 |            1 |    0.223156 | https://wandb.ai/rl4aa/ask-before-answer/runs/amq3lj42 |
-| 0gvwnfbh | sft_training  | sft_baseline  | N/A          | N/A        |           2e-05 |            1 |    0.223158 | https://wandb.ai/rl4aa/ask-before-answer/runs/0gvwnfbh |
-| 2om8x500 | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.344238 | https://wandb.ai/rl4aa/ask-before-answer/runs/2om8x500 |
-| k2wiy1vj | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.346359 | https://wandb.ai/rl4aa/ask-before-answer/runs/k2wiy1vj |
-| 5c1r1rmw | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.662823 | https://wandb.ai/rl4aa/ask-before-answer/runs/5c1r1rmw |
-| 0j5k4zvb | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.676405 | https://wandb.ai/rl4aa/ask-before-answer/runs/0j5k4zvb |
-| flatws8l | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.688865 | https://wandb.ai/rl4aa/ask-before-answer/runs/flatws8l |
-| xazqzfa1 | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |    0.692516 | https://wandb.ai/rl4aa/ask-before-answer/runs/xazqzfa1 |
-| tooh9928 | orpo_training | orpo_baseline | N/A          | N/A        |           5e-06 |            1 |    1.36939  | https://wandb.ai/rl4aa/ask-before-answer/runs/tooh9928 |
-| 9h1ht20g | orpo_training | orpo_baseline | N/A          | N/A        |           5e-06 |            1 |    1.37373  | https://wandb.ai/rl4aa/ask-before-answer/runs/9h1ht20g |
+| bp50774y | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |   0.0148286 | https://wandb.ai/rl4aa/ask-before-answer/runs/bp50774y |
+| lduzpogd | sft_training  | sft_baseline  | N/A          | N/A        |           2e-05 |            1 |   0.223236  | https://wandb.ai/rl4aa/ask-before-answer/runs/lduzpogd |
+| qgosp3j0 | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |   0.549293  | https://wandb.ai/rl4aa/ask-before-answer/runs/qgosp3j0 |
+| fl9cyvti | orpo_training | orpo_baseline | N/A          | N/A        |           5e-06 |            1 |   1.37168   | https://wandb.ai/rl4aa/ask-before-answer/runs/fl9cyvti |
 
 ## Learning Curves
 
 ![Training Loss](plots/train_loss_comparison.png)
+
+![Eval Loss](plots/eval_loss_comparison.png)
+
+## Validation Curves
+
+![Validation Curve](plots/val_curve_lr.png)
 
 
 ## LLM-as-a-Judge Evaluation Leaderboard
@@ -29,22 +29,16 @@ with a Gemini-based judge scorer.
 
 | Metric                |      base |   dpo_only |      sft |   sft_dpo |   clarifier_lora |     orpo |     grpo |
 |:----------------------|----------:|-----------:|---------:|----------:|-----------------:|---------:|---------:|
-| ambiguity_detection   | 0.966     |  0.944     | 0.97     |  0.972    |          0.994   | 0.972    | 0.948    |
-| clarification_quality | 0.784     |  0.784     | 0.796    |  0.796    |          0.796   | 0.796    | 0.798    |
-| usefulness            | 0.88      |  0.88      | 0.896    |  0.898    |          0.896   | 0.896    | 0.898    |
-| model_accuracy        | 0.62      |  0.6       | 0.64     |  0.62     |          0.6     | 0.64     | 0.64     |
-| clarify_precision     | 0.617021  |  0.604167  | 0.657895 |  0.657143 |          0.6     | 0.636364 | 0.642857 |
-| clarify_recall        | 0.966667  |  0.966667  | 0.833333 |  0.766667 |          1       | 0.933333 | 0.9      |
-| clarify_f1            | 0.753247  |  0.74359   | 0.735294 |  0.707692 |          0.75    | 0.756757 | 0.75     |
-| action_f1_answer      | 0.173913  |  0.0909091 | 0.4375   |  0.457143 |          0       | 0.307692 | 0.357143 |
-| macro_f1              | 0.46358   |  0.417249  | 0.586397 |  0.582418 |          0.375   | 0.532225 | 0.553571 |
-| answer_accuracy       | 0.05      |  0.05      | 0.05     |  0        |          0       | 0.1      | 0.1      |
-| facet_generation_rate | 0.0851064 |  0.0833333 | 1        |  1        |          0       | 0.931818 | 1        |
-| clarify_ratio         | 1.56667   |  1.6       | 1.26667  |  1.16667  |          1.66667 | 1.46667  | 1.4      |
+| ambiguity_detection   | 0.966     |   0.974    | 0.97     |  0.946    |          0.994   | 0.968    | 0.952    |
+| clarification_quality | 0.784     |   0.79     | 0.794    |  0.778    |          0.796   | 0.796    | 0.792    |
+| usefulness            | 0.88      |   0.882    | 0.896    |  0.878    |          0.896   | 0.896    | 0.894    |
+| model_accuracy        | 0.62      |   0.62     | 0.6      |  0.62     |          0.6     | 0.64     | 0.62     |
+| clarify_precision     | 0.617021  |   0.617021 | 0.631579 |  0.657143 |          0.6     | 0.636364 | 0.634146 |
+| clarify_recall        | 0.966667  |   0.966667 | 0.8      |  0.766667 |          1       | 0.933333 | 0.866667 |
+| clarify_f1            | 0.753247  |   0.753247 | 0.705882 |  0.707692 |          0.75    | 0.756757 | 0.732394 |
+| action_f1_answer      | 0.173913  |   0.173913 | 0.375    |  0.457143 |          0       | 0.307692 | 0.344828 |
+| macro_f1              | 0.46358   |   0.46358  | 0.540441 |  0.582418 |          0.375   | 0.532225 | 0.538611 |
+| answer_accuracy       | 0.05      |   0.05     | 0        |  0        |          0       | 0.1      | 0.1      |
+| facet_generation_rate | 0.0851064 |   0.234043 | 1        |  1        |          0       | 0.977273 | 1        |
+| clarify_ratio         | 1.56667   |   1.56667  | 1.26667  |  1.16667  |          1.66667 | 1.46667  | 1.36667  |
 
-## Analysis of Final Showdown (SFT vs SFT+DPO vs SFT+GRPO)
-
-1. **DPO Generative Hard Negatives (SUCCESS)**: The introduction of generative hard negatives for DPO successfully achieved our goal of reducing over-clarification! Comparing `sft_dpo` to `sft`, the `clarify_ratio` dropped from 1.26 to 1.16 (moving closer to the ideal 1.0). Furthermore, the model learned to answer more confidently, boosting `action_f1_answer` from 0.437 to 0.457.
-2. **GRPO SFT Warm-Start (SUCCESS)**: Configuring GRPO to warm-start from the SFT model completely cured the catastrophic mode collapse. The `facet_generation_rate` skyrocketed back to a flawless 100%. 
-3. **GRPO Accuracy vs. Caution (THE TRADE-OFF)**: Because the `accuracy_reward_func` heavily penalizes hallucinations, GRPO learned a highly calibrated, cautious policy. It became the only model to successfully double its `answer_accuracy` (10% vs 5%). However, because answering is deemed "risky," the model learned to clarify more often to avoid penalties, pulling its `action_f1_answer` down to 0.357.
-4. **Conclusion**: DPO is highly effective at aligning the *style* of the policy (highest Macro F1 and perfect Clarify Ratio), while GRPO is highly effective at enforcing *factual logic and calibration* (highest factual accuracy, but cautious).
