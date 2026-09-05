@@ -443,6 +443,7 @@ def verify_production_alias(
 
 def push_datasets(
     cfg: DictConfig,
+    api: HfApi,
 ) -> None:
     """Push SFT and DPO datasets to the Hugging Face dataset repository."""
 
@@ -1000,7 +1001,7 @@ def main(cfg: DictConfig) -> None:
     # Dataset publication is independent of model artifact resolution.
     # ------------------------------------------------------------------
 
-    push_datasets(cfg)
+    push_datasets(cfg, api)
 
     # ------------------------------------------------------------------
     # 5. Publish the exact promoted W&B artifact.
