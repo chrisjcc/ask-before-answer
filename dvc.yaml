@@ -18,7 +18,7 @@ stages:
   # ----------------------------
   # FULL PIPELINE (SFT → DPO)
   # ----------------------------
-  train_sft:
+  train-sft:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_sft.py
@@ -33,15 +33,8 @@ stages:
     outs:
       - models/sft/final
 
-  evaluate_sft:
-    cmd: python scripts/evaluate.py model_name=sft
-    deps:
-      - models/sft/final
-    metrics:
-      - results/sft_metrics.json:
-          cache: false
 
-  train_dpo:
+  train-dpo:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_dpo.py
@@ -60,18 +53,11 @@ stages:
     outs:
       - models/dpo/final
 
-  evaluate_dpo:
-    cmd: python scripts/evaluate.py model_name=dpo
-    deps:
-      - models/dpo/final
-    metrics:
-      - results/dpo_metrics.json:
-          cache: false
 
   # ----------------------------
   # ABLATION: SFT ONLY
   # ----------------------------
-  train_sft_only:
+  train-sft-only:
     cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py training.output_dir=models/sft_only
     deps:
       - data/sft_train.jsonl
@@ -81,18 +67,11 @@ stages:
     outs:
       - models/sft_only/final
 
-  evaluate_sft_only:
-    cmd: python scripts/evaluate.py model_name=sft_only
-    deps:
-      - models/sft_only/final
-    metrics:
-      - results/sft_only_metrics.json:
-          cache: false
 
   # ----------------------------
   # ABLATION: DPO ONLY
   # ----------------------------
-  train_dpo_only:
+  train-dpo-only:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_dpo.py
@@ -106,18 +85,11 @@ stages:
     outs:
       - models/dpo_only/final
 
-  evaluate_dpo_only:
-    cmd: python scripts/evaluate.py model_name=dpo_only
-    deps:
-      - models/dpo_only/final
-    metrics:
-      - results/dpo_only_metrics.json:
-          cache: false
 
   # ----------------------------
   # ABLATION: ORPO ONLY
   # ----------------------------
-  train_orpo:
+  train-orpo:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_orpo.py
@@ -135,19 +107,11 @@ stages:
     outs:
       - models/orpo/final
 
-  evaluate_orpo:
-    cmd: python scripts/evaluate.py model_name=orpo
-    deps:
-      - models/orpo/final
-      - configs/training/orpo.yaml
-    metrics:
-      - results/orpo_metrics.json:
-          cache: false
 
   # ----------------------------
   # ABLATION: GRPO ONLY
   # ----------------------------
-  train_grpo:
+  train-grpo:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_grpo.py
@@ -166,10 +130,4 @@ stages:
     outs:
       - models/grpo/final
 
-  evaluate_grpo:
-    cmd: python scripts/evaluate.py model_name=grpo
-    deps:
-      - models/grpo/final
-    metrics:
-      - results/grpo_metrics.json:
-          cache: false
+

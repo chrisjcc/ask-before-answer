@@ -98,6 +98,11 @@ def load_model_and_tokenizer(
     kwargs = {
         "dtype": getattr(torch, model_cfg.torch_dtype),
         "trust_remote_code": model_cfg.trust_remote_code,
+        "attn_implementation": (
+            "flash_attention_2"
+            if model_cfg.get("use_flash_attention", False)
+            else "sdpa"
+        ),
     }
 
     if torch.cuda.is_available():

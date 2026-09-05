@@ -125,7 +125,7 @@ Instead, utilize Hydra's dynamic CLI override to bypass DVC temporarily and fini
    ```
 2. Once the script successfully finishes and generates the `models/sft/final` folder, tell DVC to manually hash the outputs and mark the stage as complete:
    ```bash
-   dvc commit train_sft
+   dvc commit train-sft
    ```
 
 ### Orchestrating Sweeps (W&B + DVC)

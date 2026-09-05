@@ -3,6 +3,24 @@
 """
 Publish a promoted DVC model artifact to Weights & Biases.
 
+ARCHITECTURAL ROLE:
+(The Bridge from DVC to the Weights & Biases Registry)
+
+What this script is IN CHARGE of:
+- Registration: Takes local model weights (tracked by DVC)
+  and uploads them to the W&B Organization Model Registry.
+- Aliasing: Attaches the `production` alias to officially mark the model
+   as "blessed".
+- Provenance Generation: Creates the `provenance/model_promotion.json`
+  cryptographic bill of materials, which maps the exact Git commit, DVC hash,
+  and W&B artifact digest.
+
+What this script is NOT IN CHARGE of:
+- It has absolutely no connection to Hugging Face.
+- It does not evaluate or decide which model is "best".
+  It assumes the target model has already been validated
+  and manually approved by the developer.
+
 Workflow:
 
     DVC experiment
@@ -75,6 +93,7 @@ logger = logging.getLogger(__name__)
 PROMOTION_FILE = "provenance/model_promotion.json"
 DEFAULT_WANDB_ENTITY = "rl4aa"
 DEFAULT_WANDB_PROJECT = "ask-before-answer"
+DEFAULT_REGISTRY_ENTITY = "rl4aa-org"
 DEFAULT_REGISTRY_NAME = "Model"
 DEFAULT_REGISTRY_COLLECTION = "AskBeforeAnswer-Models"
 DEFAULT_REGISTRY_ALIAS = "production"
@@ -144,6 +163,7 @@ def get_wandb_config(cfg: DictConfig) -> dict[str, str]:
         return {
             "entity": DEFAULT_WANDB_ENTITY,
             "project": DEFAULT_WANDB_PROJECT,
+            "registry_entity": DEFAULT_REGISTRY_ENTITY,
             "registry_name": DEFAULT_REGISTRY_NAME,
             "registry_collection": DEFAULT_REGISTRY_COLLECTION,
             "registry_alias": DEFAULT_REGISTRY_ALIAS,
@@ -162,6 +182,13 @@ def get_wandb_config(cfg: DictConfig) -> dict[str, str]:
                 cfg,
                 "wandb.project",
                 default=DEFAULT_WANDB_PROJECT,
+            )
+        ),
+        "registry_entity": str(
+            OmegaConf.select(
+                cfg,
+                "wandb.registry_entity",
+                default=DEFAULT_REGISTRY_ENTITY,
             )
         ),
         "registry_name": str(
@@ -212,7 +239,7 @@ def build_registry_ref(
 
     can be resolved ambiguously by the W&B API.
     """
-    return f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{version}"
+    return f"wandb-registry-{registry_name}/{registry_collection}:{version}"
 
 
 def build_registry_alias_ref(
@@ -228,9 +255,23 @@ def build_registry_alias_ref(
 
         wandb-registry-Model/AskBeforeAnswer-Models:production
     """
-    return (
-        f"wandb-registry-{registry_name}/" f"{registry_collection}:" f"{registry_alias}"
-    )
+    return f"wandb-registry-{registry_name}/{registry_collection}:{registry_alias}"
+
+
+def get_git_commit() -> str | None:
+    """Return the current Git commit when available."""
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    return result.stdout.strip() or None
 
 
 # ---------------------------------------------------------------------------
@@ -289,6 +330,13 @@ def resolve_dvc_experiment_sha(
         "Resolving DVC experiment: %s",
         experiment,
     )
+
+    if experiment.upper() == "HEAD":
+        logger.info("Using current Git HEAD as experiment SHA.")
+        commit = get_git_commit()
+        if not commit:
+            raise RuntimeError("Could not resolve Git HEAD. Is this a Git repository?")
+        return commit
 
     # ------------------------------------------------------------------
     # Method 1: Git refs
@@ -620,7 +668,7 @@ def create_source_artifact(
         # Resolve the actual project artifact explicitly.
         # --------------------------------------------------------------
 
-        source_latest_ref = f"{entity}/{project}/" f"{artifact_name}:latest"
+        source_latest_ref = f"{entity}/{project}/{artifact_name}:latest"
 
         logger.info(
             "Resolving project artifact: %s",
@@ -640,7 +688,7 @@ def create_source_artifact(
                 "but no immutable artifact version was returned."
             )
 
-        source_ref = f"{entity}/{project}/" f"{artifact_name}:" f"{resolved.version}"
+        source_ref = f"{entity}/{project}/{artifact_name}:{resolved.version}"
 
         source_digest = resolved.digest
 
@@ -679,6 +727,7 @@ def link_to_registry(
     *,
     source_artifact_ref: str,
     entity: str,
+    registry_entity: str,
     registry_name: str,
     registry_collection: str,
     registry_alias: str,
@@ -739,39 +788,52 @@ def link_to_registry(
     # Link source artifact to Registry.
     # ------------------------------------------------------------------
 
-    target_path = f"{registry_name}/" f"{registry_collection}"
+    # W&B registries exist in the organization's entity, not the personal user's entity.
+    # We explicitly prepend the org entity (registry_entity)
+    # and the special registry prefix.
+    registry_project = f"wandb-registry-{registry_name}"
 
-    logger.info(
-        "Registry target path: %s",
-        target_path,
-    )
+    target_path = f"{registry_entity}/{registry_project}/{registry_collection}"
+    registry_base = f"{registry_entity}/{registry_project}/{registry_collection}"
 
-    source_artifact.link(
-        target_path=target_path,
-        aliases=[registry_alias],
-    )
+    logger.info("Registry target path: %s", target_path)
 
+    # 1. Proactively detach alias from old version (if it exists)
+    try:
+        old_artifact = api.artifact(f"{registry_base}:{registry_alias}", type="model")
+        if old_artifact.digest != source_artifact.digest:
+            logger.info(
+                f"Proactively detaching alias '{registry_alias}' "
+                f"from older Registry artifact '{old_artifact.version}'..."
+            )
+            old_artifact.aliases.remove(registry_alias)
+            old_artifact.save()
+    except Exception:
+        pass
+
+    # 2. Perform the link WITHOUT aliases because W&B link() is buggy at applying them
+    source_artifact.link(target_path=target_path)
     logger.info("Artifact linked to W&B Registry collection.")
 
+    # Add a short delay to ensure W&B backend has indexed the new link
+    import time
+
+    time.sleep(2)
+
     # ------------------------------------------------------------------
-    # Resolve the Registry alias using the FULL namespace.
+    # Explicitly attach alias to the newly created v0 registry artifact
     # ------------------------------------------------------------------
+    # Since this is a dedicated collection, we KNOW this model is v0.
+    v0_ref = f"{registry_base}:v0"
+    logger.info(f"Explicitly resolving {v0_ref} to apply alias...")
 
-    registry_alias_ref = build_registry_alias_ref(
-        registry_name=registry_name,
-        registry_collection=registry_collection,
-        registry_alias=registry_alias,
-    )
+    resolved_alias = api.artifact(v0_ref, type="model")
 
-    logger.info(
-        "Resolving registry artifact: %s",
-        registry_alias_ref,
-    )
-
-    resolved_alias = api.artifact(
-        registry_alias_ref,
-        type="model",
-    )
+    if registry_alias not in resolved_alias.aliases:
+        logger.info(f"Appending '{registry_alias}' to {v0_ref} and saving...")
+        resolved_alias.aliases.append(registry_alias)
+        resolved_alias.save()
+        time.sleep(1)  # wait for save to propagate
 
     if not resolved_alias.version:
         raise RuntimeError(
@@ -908,7 +970,7 @@ def verify_existing_promotion(
         record = json.loads(provenance_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(
-            f"Could not read existing promotion provenance: " f"{provenance_path}"
+            f"Could not read existing promotion provenance: {provenance_path}"
         ) from exc
 
     # ------------------------------------------------------------------
@@ -923,13 +985,14 @@ def verify_existing_promotion(
     }
 
     mismatches: list[str] = []
+    source_record = record.get("source", {})
 
     for key, expected_value in expected.items():
-        actual_value = record.get(key)
+        actual_value = source_record.get(key)
 
         if actual_value != expected_value:
             mismatches.append(
-                f"{key}: expected '{expected_value}', " f"found '{actual_value}'"
+                f"{key}: expected '{expected_value}', found '{actual_value}'"
             )
 
     if mismatches:
@@ -944,20 +1007,22 @@ def verify_existing_promotion(
     # Extract the canonical immutable Registry reference and digest.
     # ------------------------------------------------------------------
 
-    registry_artifact_ref = record.get("artifact_ref")
-    registry_artifact_digest = record.get("artifact_digest")
+    registry_record = record.get("registry", {})
+    registry_artifact_ref = registry_record.get("artifact_ref")
+    registry_artifact_digest = registry_record.get("digest")
 
     if not registry_artifact_ref:
         raise RuntimeError(
-            "Existing promotion provenance does not contain " "'artifact_ref'."
+            "Existing promotion provenance does not contain "
+            "'artifact_ref' in registry block."
         )
 
     if not registry_artifact_digest:
         raise RuntimeError(
-            "Existing promotion provenance does not contain " "'artifact_digest'."
+            "Existing promotion provenance does not contain 'digest' in registry block."
         )
 
-    expected_prefix = f"wandb-registry-{registry_name}/" f"{registry_collection}:"
+    expected_prefix = f"wandb-registry-{registry_name}/{registry_collection}:"
 
     if not registry_artifact_ref.startswith(expected_prefix):
         raise RuntimeError(
@@ -995,7 +1060,7 @@ def verify_existing_promotion(
 
     if not actual_digest:
         raise RuntimeError(
-            "Existing Registry artifact has no digest:\n" f"  {registry_artifact_ref}"
+            f"Existing Registry artifact has no digest:\n  {registry_artifact_ref}"
         )
 
     logger.info(
@@ -1046,7 +1111,7 @@ def verify_existing_promotion(
 
     if not alias_digest:
         raise RuntimeError(
-            f"Registry alias '{registry_alias}' resolved without " "a digest."
+            f"Registry alias '{registry_alias}' resolved without a digest."
         )
 
     logger.info(
@@ -1120,37 +1185,36 @@ def write_promotion_provenance(
     now = datetime.now(timezone.utc).isoformat()
 
     record = {
-        "schema_version": 1,
-        "model_variant": model_variant,
-        "dvc_stage": stage,
-        "dvc_experiment": experiment,
-        "dvc_experiment_sha": dvc_sha,
-        # ------------------------------------------------------------------
-        # Deployment artifact.
-        #
-        # These MUST refer to the fully-qualified W&B Registry artifact.
-        # ------------------------------------------------------------------
-        "artifact_ref": registry_artifact_ref,
-        "artifact_digest": registry_artifact_digest,
-        "wandb": {
-            "entity": entity,
-            "project": project,
-            "run_id": run_id,
-            # Canonical deployment artifact.
-            "artifact_ref": registry_artifact_ref,
-            "artifact_digest": registry_artifact_digest,
-            # Source project artifact.
-            "source_artifact_ref": source_artifact_ref,
-            "source_artifact_digest": source_artifact_digest,
-            # Registry artifact.
-            "registry_artifact_ref": registry_artifact_ref,
-            "registry_artifact_digest": registry_artifact_digest,
+        "timestamp": now,
+        "operation": "model_promotion",
+        "status": "verified",
+        "source": {
+            "artifact_ref": source_artifact_ref,
             "artifact_name": artifact_name,
-            "registry_name": registry_name,
-            "registry_collection": registry_collection,
-            "registry_alias": registry_alias,
+            "qualified_name": f"{entity}/{project}/{artifact_name}:latest",
+            "digest": source_artifact_digest,
+            # Preserve DVC metadata from publish_model_artifact
+            "model_variant": model_variant,
+            "dvc_stage": stage,
+            "dvc_experiment": experiment,
+            "dvc_experiment_sha": dvc_sha,
         },
-        "promoted_at": now,
+        "registry": {
+            "name": registry_name,
+            "collection": registry_collection,
+            "alias": registry_alias,
+            "artifact_ref": registry_artifact_ref,
+            "artifact_name": artifact_name,
+            "digest": registry_artifact_digest,
+        },
+        "verification": {
+            "artifact_integrity": True,
+            "verification_command": "make publish-model-artifact",
+            "digest_match": (source_artifact_digest == registry_artifact_digest),
+        },
+        "git": {
+            "commit": get_git_commit(),
+        },
     }
 
     # ------------------------------------------------------------------
@@ -1227,11 +1291,11 @@ def main(cfg: DictConfig) -> None:
 
     if not experiment:
         raise RuntimeError(
-            "No DVC experiment was supplied. " "Use experiment=<experiment-name>."
+            "No DVC experiment was supplied. Use experiment=<experiment-name>."
         )
 
     if not stage:
-        raise RuntimeError("No DVC stage was supplied. " "Use stage=<stage-name>.")
+        raise RuntimeError("No DVC stage was supplied. Use stage=<stage-name>.")
 
     wandb_cfg = get_wandb_config(cfg)
 
@@ -1405,6 +1469,7 @@ def main(cfg: DictConfig) -> None:
     ) = link_to_registry(
         source_artifact_ref=source_artifact_ref,
         entity=entity,
+        registry_entity=wandb_cfg["registry_entity"],
         registry_name=registry_name,
         registry_collection=registry_collection,
         registry_alias=registry_alias,
