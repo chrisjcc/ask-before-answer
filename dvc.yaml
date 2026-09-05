@@ -18,7 +18,7 @@ stages:
   # ----------------------------
   # FULL PIPELINE (SFT → DPO)
   # ----------------------------
-  train_sft:
+  train-sft:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_sft.py
@@ -34,7 +34,7 @@ stages:
       - models/sft/final
 
 
-  train_dpo:
+  train-dpo:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_dpo.py
@@ -57,7 +57,7 @@ stages:
   # ----------------------------
   # ABLATION: SFT ONLY
   # ----------------------------
-  train_sft_only:
+  train-sft-only:
     cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py training.output_dir=models/sft_only
     deps:
       - data/sft_train.jsonl
@@ -71,7 +71,7 @@ stages:
   # ----------------------------
   # ABLATION: DPO ONLY
   # ----------------------------
-  train_dpo_only:
+  train-dpo-only:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_dpo.py
@@ -89,7 +89,7 @@ stages:
   # ----------------------------
   # ABLATION: ORPO ONLY
   # ----------------------------
-  train_orpo:
+  train-orpo:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_orpo.py
@@ -111,7 +111,7 @@ stages:
   # ----------------------------
   # ABLATION: GRPO ONLY
   # ----------------------------
-  train_grpo:
+  train-grpo:
     cmd: >
       CUDA_VISIBLE_DEVICES=0
       python scripts/train_grpo.py

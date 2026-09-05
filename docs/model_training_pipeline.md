@@ -148,7 +148,7 @@ make train TRAIN_VARIANT=sft
 invokes:
 
 ```bash
-dvc repro train_sft
+dvc repro train-sft
 ```
 
 Similarly:
@@ -160,7 +160,7 @@ make train TRAIN_VARIANT=sft-only
 maps to:
 
 ```bash
-dvc repro train_sft_only
+dvc repro train-sft-only
 ```
 
 The Makefile performs this mapping by converting the hyphenated CLI representation to the underscore-based DVC stage name.
@@ -313,7 +313,7 @@ Ablation report
 The current implementation runs:
 
 ```bash
-dvc repro train_sft train_dpo train_dpo_only train_orpo train_grpo
+dvc repro train-sft train-dpo train-dpo-only train-orpo train-grpo
 ```
 
 followed by:
@@ -726,7 +726,7 @@ For example:
 make train TRAIN_VARIANT=sft
         │
         ▼
-dvc repro train_sft
+dvc repro train-sft
 ```
 
 This means that the Makefile does not independently implement the training pipeline. It delegates execution to DVC.
