@@ -24,7 +24,7 @@ promotion_provenance: "provenance/model_promotion.json"
 
 # Exact immutable W&B artifact that was verified and approved for deployment.
 #
-# This is populated by the promotion workflow and consumed by push_to_hub.py.
+# This is populated by the promotion workflow and consumed by release_to_hf.py.
 verified_artifact_ref: ""
 
 # When enabled, deployment verifies that the mutable production alias still

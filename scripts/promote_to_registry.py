@@ -1193,7 +1193,7 @@ def write_promotion_provenance(
             "artifact_name": artifact_name,
             "qualified_name": f"{entity}/{project}/{artifact_name}:latest",
             "digest": source_artifact_digest,
-            # Preserve DVC metadata from publish_model_artifact
+            # Preserve DVC metadata from promote_to_registry
             "model_variant": model_variant,
             "dvc_stage": stage,
             "dvc_experiment": experiment,
