@@ -525,12 +525,111 @@ def push_datasets(
         config_name="dpo",
     )
 
+    logger.info(
+        "Uploading Dataset Card to %s...",
+        dataset_repo,
+    )
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        readme_path = Path(tmp_dir) / "README.md"
+        readme_path.write_text(generate_dataset_card(cfg), encoding="utf-8")
+        
+        api.upload_file(
+            path_or_fileobj=str(readme_path),
+            path_in_repo="README.md",
+            repo_id=dataset_repo,
+            repo_type="dataset",
+        )
+
     logger.info("Dataset upload complete.")
 
 
 # ---------------------------------------------------------------------------
-# Model card
+# Cards
 # ---------------------------------------------------------------------------
+
+
+def generate_dataset_card(cfg: DictConfig) -> str:
+    """Generate the Hugging Face dataset card."""
+    dataset_repo = cfg.deployment.dataset_repo
+
+    return f"""---
+dataset_info:
+- config_name: dpo
+  features:
+  - name: prompt
+    dtype: string
+  - name: chosen
+    dtype: string
+  - name: rejected
+    dtype: string
+  splits:
+  - name: train
+    num_examples: 576
+  - name: validation
+    num_examples: 122
+- config_name: sft
+  features:
+  - name: instruction
+    dtype: string
+  - name: input
+    dtype: string
+  - name: output
+    struct:
+    - name: action
+      dtype: string
+    - name: reasoning
+      dtype: string
+    - name: facets
+      list: string
+    - name: response
+      dtype: string
+  splits:
+  - name: train
+    num_examples: 576
+  - name: validation
+    num_examples: 122
+configs:
+- config_name: dpo
+  data_files:
+  - split: train
+    path: dpo/train-*
+  - split: validation
+    path: dpo/validation-*
+- config_name: sft
+  data_files:
+  - split: train
+    path: sft/train-*
+  - split: validation
+    path: sft/validation-*
+---
+
+
+# AskBeforeAnswer Dataset
+
+This dataset contains the training and validation splits for the **AskBeforeAnswer** clarification-seeking model.
+
+## Subsets (Configurations)
+This repository contains two subsets which must be loaded separately depending on the training stage:
+
+### 1. `sft` (Supervised Fine-Tuning)
+Contains the structured JSON responses for initial alignment.
+- **Features:** `instruction`, `input`, `output` (JSON dict containing `action`, `reasoning`, `facets`, `response`)
+
+```python
+from datasets import load_dataset
+sft_dataset = load_dataset("{dataset_repo}", "sft")
+```
+
+### 2. `dpo` (Direct Preference Optimization)
+Contains the preference pairs used to penalize hallucinations.
+- **Features:** `prompt`, `chosen`, `rejected`
+
+```python
+from datasets import load_dataset
+dpo_dataset = load_dataset("{dataset_repo}", "dpo")
+```
+"""
 
 
 def generate_model_card(
