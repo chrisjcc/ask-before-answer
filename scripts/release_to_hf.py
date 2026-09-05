@@ -79,7 +79,7 @@ def load_promotion_record(
 ) -> dict[str, Any]:
     """Load and validate the immutable model promotion record.
 
-    The promotion record is produced by publish_model_artifact.py and is the
+    The promotion record is produced by promote_to_registry.py and is the
     deployment source of truth.
 
     Deployment requires:

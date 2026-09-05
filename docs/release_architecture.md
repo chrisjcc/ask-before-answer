@@ -381,13 +381,13 @@ The important property is that the production state is established **before** Hu
 
 `make publish-hf-release` is the final release gate.
 
-The deployment process uses `push_to_hub.py` and performs the following logical sequence:
+The deployment process uses `release_to_hf.py` and performs the following logical sequence:
 
 ```text
 make publish-hf-release
        │
        ▼
-push_to_hub.py
+release_to_hf.py
        │
        ├── read provenance
        │

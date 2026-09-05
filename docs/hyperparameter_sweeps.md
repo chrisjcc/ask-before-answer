@@ -20,12 +20,12 @@ Crucially, **no automated script picks the top model from the sweep trials and p
 1. **Review:** You review the `docs/sweep_report.md` leaderboard and identify the absolute best trial (e.g., Run ID `5cxs95q7`).
 2. **Apply:** You tell DVC to restore that winning model to your active workspace by running `dvc exp apply sweep_5cxs95q7`. This permanently locks the winning hyperparameters into your local YAML config.
 3. **Train the Final Baseline:** You run `make ablation-suite` (which executes standard `dvc repro`). This runs the training script *manually*, outside of the W&B sweep agent.
-4. **Isolate the Ablation Report:** Because the manual run was not executed by the agent, W&B does *not* tag it with the `.sweep` metadata property. When `scripts/generate_report.py` generates the final `docs/ablation_report.md`, it loops through the cloud and instantly skips any run that possesses a `.sweep` tag. It only allows manual runs to pass through, ensuring your ablation report contains only your clean, final baseline rows (Base vs SFT vs DPO vs GRPO) rather than being cluttered by dozens of sweep trials!
+4. **Isolate the Ablation Report:** Because the manual run was not executed by the agent, W&B does *not* tag it with the `.sweep` metadata property. When `scripts/generate_ablation_report.py` generates the final `docs/ablation_report.md`, it loops through the cloud and instantly skips any run that possesses a `.sweep` tag. It only allows manual runs to pass through, ensuring your ablation report contains only your clean, final baseline rows (Base vs SFT vs DPO vs GRPO) rather than being cluttered by dozens of sweep trials!
 
 ---
 
 ## Advanced Interactive W&B Charts
-While our `generate_report.py` script pulls down raw historical metrics to embed a standard Validation Curve locally, the true power of W&B lies in its **Web Dashboard**. W&B automatically builds and updates advanced interactive charts live on the web dashboard the moment your sweep trials start completing!
+While our `generate_ablation_report.py` script pulls down raw historical metrics to embed a standard Validation Curve locally, the true power of W&B lies in its **Web Dashboard**. W&B automatically builds and updates advanced interactive charts live on the web dashboard the moment your sweep trials start completing!
 
 You can find the following interactive visualizations exclusively on the W&B Web UI for your sweep:
 - **Parallel Coordinates Chart:** It instantly draws this to help you visually trace how combinations of variables (e.g., high Learning Rate + low Batch Size) flow toward the final Eval Loss.
