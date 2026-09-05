@@ -16,6 +16,16 @@ that serves it.
 
 ---
 
+## Architectural Motivation
+
+Our deployment pipeline is deliberately split into two distinct stages to maintain a strict "chain of custody." 
+
+This architectural choice enforces a **human-in-the-loop** design pattern. The pipeline is heavily automated for executing sweeps, generating telemetry reports, and securely deploying the finalized assets, but it intentionally stops short of automatically selecting the "winner." 
+
+Because the best model is often not just the one with the lowest loss (requiring qualitative evaluation of generation quality, perplexity, etc.), the system relies on the developer to review the generated telemetry reports and explicitly pull the trigger on which experiment gets promoted.
+
+---
+
 ## 1. Architectural Overview
 
 AskBeforeAnswer has two production release paths:
