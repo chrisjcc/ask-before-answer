@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def generate_report():
+def generate_ablation_report():
     logger.info("Connecting to Weights & Biases API...")
     api = wandb.Api()
 
@@ -216,4 +216,4 @@ def generate_report():
 
 
 if __name__ == "__main__":
-    generate_report()
+    generate_ablation_report()

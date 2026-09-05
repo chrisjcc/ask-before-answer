@@ -231,7 +231,7 @@ ablation-suite:
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
-	python scripts/generate_report.py
+	python scripts/generate_ablation_report.py
 	@echo "Saving DVC experiment..."
 	dvc exp save -n ablation_suite
 
