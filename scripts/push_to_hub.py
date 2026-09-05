@@ -608,14 +608,17 @@ configs:
 
 # AskBeforeAnswer Dataset
 
-This dataset contains the training and validation splits for the **AskBeforeAnswer** clarification-seeking model.
+This dataset contains the training and validation splits for the
+**AskBeforeAnswer** clarification-seeking model.
 
 ## Subsets (Configurations)
-This repository contains two subsets which must be loaded separately depending on the training stage:
+This repository contains two subsets which must be loaded separately
+depending on the training stage:
 
 ### 1. `sft` (Supervised Fine-Tuning)
 Contains the structured JSON responses for initial alignment.
-- **Features:** `instruction`, `input`, `output` (JSON dict containing `action`, `reasoning`, `facets`, `response`)
+- **Features:** `instruction`, `input`, `output` (JSON dict containing
+  `action`, `reasoning`, `facets`, `response`)
 
 ```python
 from datasets import load_dataset
