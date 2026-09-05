@@ -1,4 +1,4 @@
-base_model_id: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+base_model_id: "unsloth/Qwen2.5-7B-Instruct"
 
 dataset_name: "sewon/ambig_qa"
 split: "validation"

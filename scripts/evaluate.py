@@ -22,7 +22,7 @@ from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 load_dotenv()
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["WEAVE_PARALLELISM"] = "1"
+os.environ["WEAVE_PARALLELISM"] = "50"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -67,8 +67,8 @@ class ClarifyOrActModel(weave.Model):
     """Weave Model wrapper for the ClarifyOrActPipeline.
 
     This class integrates the inference pipeline directly into the Weave
-    evaluation ecosystem, allowing the `weave.Evaluation` class to automatically
-    generate predictions for every sample in the dataset.
+    evaluation ecosystem. By using the _VLLM_OFFLINE_CACHE, we bypass
+    sequential generation entirely and just look up the pre-computed answers.
     """
 
     model_name: str
@@ -193,6 +193,24 @@ def main(cfg: DictConfig) -> None:
 
         logger.info(f"Evaluating model: {model_name} from {model_path}")
 
+        # Pre-compute all predictions via vLLM batching
+        logger.info(
+            "Pre-computing vLLM offline batch for "
+            f"{len(weave_dataset_rows)} questions..."
+        )
+        base_model_id = cfg.evaluation.get(
+            "base_model_id", "unsloth/Qwen2.5-7B-Instruct"
+        )
+        pipeline = ClarifyOrActPipeline(
+            model_path, is_peft, base_model_id=base_model_id
+        )
+        all_questions = [row["question"] for row in weave_dataset_rows]
+        all_answers = pipeline.batch_generate(all_questions)
+
+        # Save to global dictionary so the Pydantic model can access it statelessly
+        global _VLLM_OFFLINE_CACHE
+        _VLLM_OFFLINE_CACHE = dict(zip(all_questions, all_answers))
+
         # Instantiate Weave Model
         model = ClarifyOrActModel(
             model_name=model_name,
@@ -281,14 +299,9 @@ def main(cfg: DictConfig) -> None:
             logger.warning(f"Could not register model to W&B Registry: {e}")
 
         # Cleanup model from GPU memory to make room for the next one
-        if hasattr(model, "_pipeline"):
-            del model._pipeline
-        import torch
-
-        torch.cuda.empty_cache()
-        import gc
-
-        gc.collect()
+        # Not needed anymore because vLLM manages its own VRAM
+        # and dynamically swaps LoRA!
+        pass
 
     # Save summary results to JSON for the report generator
     os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)

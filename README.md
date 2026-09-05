@@ -165,6 +165,8 @@ dvc exp apply sweep_<Run ID>
 
 This project integrates tightly with **Weights & Biases Weave** to provide comprehensive LLM observability, trace logging, and systematic evaluation pipelines. 
 
+> 🚀 **High-Throughput Evaluation:** The evaluation script integrates `vLLM` PagedAttention and offline batching to dramatically accelerate inference and LLM-as-a-judge scoring via Weave. For deep technical details on how the offline batching strategy works, please read the [Evaluation Pipeline Documentation](docs/evaluation_pipeline.md). 
+
 ### LLM Tracing
 The production Streamlit app (`app/app.py`) automatically logs all user interactions, prompts, and model generations to the Weave dashboard, enabling you to inspect exact input/output traces in real-time.
 

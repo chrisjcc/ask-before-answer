@@ -53,7 +53,11 @@ fsspec<=2024.12.0
 sentencepiece
 protobuf
 einops
-safetensors
+
+# ------------------------------------------------------------
+# Inference & Serving Backend (vLLM)
+# ------------------------------------------------------------
+vllm>=0.7.0
 
 # ------------------------------------------------------------
 # Data Processing (Guarded against NumPy 2.x ABI breaks)
