@@ -91,7 +91,7 @@ class ClarifyOrActPipeline:
         # We do not need transformers/peft for inference payload execution anymore.
 
         # Ensure the global engine is initialized.
-        self.llm = get_vllm_engine(self.base_model_id)
+        self.llm = get_vllm_engine(base_model_id)
 
         # Initialize standard sampling parameters.
         self.sampling_params = SamplingParams(
