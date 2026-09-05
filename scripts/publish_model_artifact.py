@@ -3,6 +3,18 @@
 """
 Publish a promoted DVC model artifact to Weights & Biases.
 
+ARCHITECTURAL ROLE:
+(The Bridge from DVC to the Weights & Biases Registry)
+
+What this script is IN CHARGE of:
+- Registration: Takes local model weights (tracked by DVC) and uploads them to the W&B Organization Model Registry.
+- Aliasing: Attaches the `production` alias to officially mark the model as "blessed".
+- Provenance Generation: Creates the `provenance/model_promotion.json` cryptographic bill of materials, which maps the exact Git commit, DVC hash, and W&B artifact digest.
+
+What this script is NOT IN CHARGE of:
+- It has absolutely no connection to Hugging Face.
+- It does not evaluate or decide which model is "best". It assumes the target model has already been validated and manually approved by the developer.
+
 Workflow:
 
     DVC experiment
