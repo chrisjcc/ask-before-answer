@@ -203,7 +203,7 @@ train:
 		echo "Supported training variants: $(TRAIN_VARIANTS)"; \
 		exit 1; \
 	fi
-	dvc repro train_$(subst -,_,$(TRAIN_VARIANT))
+	dvc repro train-$(TRAIN_VARIANT)
 
 # Convenience aliases for the generic training interface.
 
@@ -227,7 +227,7 @@ train-grpo:
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train_sft train_dpo train_dpo_only train_orpo train_grpo
+	dvc repro train-sft train-dpo train-dpo-only train-orpo train-grpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
