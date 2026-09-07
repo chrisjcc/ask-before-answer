@@ -15,5 +15,3 @@ The documents are designed to be read sequentially:
 | 7 | [07_data_card.md](07_data_card.md) | The structural schema and splits of the dataset (for HF Hub). |
 | 8 | [08_model_card_release.md](08_model_card_release.md) | W&B model registry promotion and HF deployment commands. |
 | 9 | [09_demo_deployment.md](09_demo_deployment.md) | Github Actions workflow for deploying the Streamlit UI to an HF Space. |
-
-> **Note:** Older, deprecated documentation has been moved to the `archive/` directory, which is excluded from version control.
