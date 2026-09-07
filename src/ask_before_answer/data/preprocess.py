@@ -26,7 +26,7 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-def clean_facets(facets: Any) -> List[str]:
+def clean_facets(facets: object) -> List[str]:
     """Clean and parse facet lists."""
     if isinstance(facets, list):
         return [str(x) for x in facets]
@@ -39,7 +39,7 @@ def clean_facets(facets: Any) -> List[str]:
     return []
 
 
-def clean_response(resp: Any) -> str:
+def clean_response(resp: object) -> str:
     """Clean model responses."""
     if resp is None:
         return ""
@@ -85,7 +85,10 @@ Facets: [list, of, facets]   # empty list [] if Action is Answer
 Response: <clarifying question OR direct answer>
 """
 
-    def __init__(self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256):
+    def __init__(
+        self, model_id: str, batch_size: int = 8, max_new_tokens: int = 256
+    ) -> None:
+        """Initialize the model processor."""
         from transformers import logging as tf_logging
 
         tf_logging.set_verbosity_error()
@@ -110,7 +113,7 @@ Response: <clarifying question OR direct answer>
         self.max_new_tokens = max_new_tokens
 
     def _parse_output(self, text: str) -> Dict[str, Any]:
-        """Parses the generated text into structured fields."""
+        """Parse the generated text into structured fields."""
         action_match = re.search(r"Action:\s*(Clarify|Answer)", text, re.IGNORECASE)
         action = action_match.group(1).title() if action_match else "Answer"
 
@@ -144,7 +147,7 @@ Response: <clarifying question OR direct answer>
         }
 
     def generate_batch(self, questions: List[str]) -> List[Dict[str, Any]]:
-        """Generates structured outputs for a batch of questions."""
+        """Generate structured outputs for a batch of questions."""
         import torch
 
         prompts = [
@@ -188,7 +191,7 @@ Response: <clarifying question OR direct answer>
     def generate_negative_batch(
         self, questions: List[str], is_ambiguous_flags: List[bool]
     ) -> List[Dict[str, Any]]:
-        """Generates deliberately incorrect structured outputs for hard negatives."""
+        """Generate deliberately incorrect structured outputs for hard negatives."""
         import torch
 
         prompts = []
@@ -261,6 +264,7 @@ def extract_qa_data(
 
     Returns:
         pd.DataFrame: A DataFrame containing the extracted questions and facets.
+
     """
     logger.info(f"Loading dataset {dataset_name} ({split})...")
     ds = load_dataset(dataset_name, split=split)

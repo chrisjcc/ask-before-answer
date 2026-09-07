@@ -14,8 +14,8 @@ import weave
 
 
 def semantic_match(a: str, b: str) -> bool:
-    """
-    Lenient answer comparison:
+    """Lenient answer comparison.
+
     - lowercase
     - remove punctuation
     - fuzzy token match OR substring match
@@ -47,7 +47,10 @@ class ActionScorer(weave.Scorer):
     """
 
     @weave.op()
-    def score(self, target: Any, output: str, **kwargs) -> Dict[str, Any]:
+    def score(
+        self, target: object, output: str, **kwargs: dict[str, object]
+    ) -> Dict[str, Any]:
+        """Score the output against the target using deterministic heuristics."""
         # Extract target action and response from ground truth
         target_str = str(target)
         target_action_match = re.search(
@@ -119,6 +122,7 @@ class ActionScorer(weave.Scorer):
 
     @weave.op()
     def summarize(self, score_rows: list[dict]) -> dict:
+        """Summarize deterministic accuracy across multiple evaluation rows."""
         tp = sum(row.get("is_true_positive", False) for row in score_rows)
         fp = sum(row.get("is_false_positive", False) for row in score_rows)
         fn = sum(row.get("is_false_negative", False) for row in score_rows)
