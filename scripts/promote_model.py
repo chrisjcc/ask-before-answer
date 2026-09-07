@@ -1,3 +1,4 @@
+"""Script to promote a W&B run artifact to the W&B Registry."""
 import argparse
 import json
 import logging
@@ -33,6 +34,7 @@ FORBIDDEN_ALIASES = {
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description=(
             "Verify and promote an exact W&B model artifact "
@@ -87,7 +89,6 @@ def parse_args() -> argparse.Namespace:
 
 def validate_artifact_ref(artifact_ref: str) -> None:
     """Reject mutable, ambiguous, or non-versioned artifact references."""
-
     if ":" not in artifact_ref:
         raise ValueError(
             "The artifact reference must include an explicit artifact "
@@ -113,9 +114,8 @@ def validate_artifact_ref(artifact_ref: str) -> None:
 def resolve_artifact(
     api: wandb.Api,
     artifact_ref: str,
-) -> Any:
+) -> wandb.apis.public.Artifact:
     """Resolve the exact source artifact."""
-
     logger.info("Resolving candidate artifact: %s", artifact_ref)
 
     try:
@@ -145,18 +145,16 @@ def resolve_artifact(
 
 
 def verify_artifact(
-    artifact: Any,
+    artifact: wandb.apis.public.Artifact,
     verification_command: list[str] | None,
 ) -> None:
-    """
-    Verify the candidate artifact.
+    """Verify the candidate artifact.
 
     Verification consists of:
 
     1. W&B artifact integrity verification.
     2. Optional project-specific model verification command.
     """
-
     logger.info("=== MODEL VERIFICATION ===")
     logger.info("Verifying artifact: %s", artifact.qualified_name)
     logger.info("Artifact digest: %s", artifact.digest)
@@ -217,18 +215,16 @@ def build_registry_path(
     registry_collection: str,
 ) -> str:
     """Build the W&B Registry collection path."""
-
     return f"wandb-registry-{registry_name}/{registry_collection}"
 
 
 def promote_artifact(
-    artifact: Any,
+    artifact: wandb.apis.public.Artifact,
     registry_name: str,
     registry_collection: str,
     production_alias: str,
-) -> tuple[Any, str]:
-    """
-    Link the exact verified artifact to the W&B Model Registry.
+) -> tuple[wandb.apis.public.Artifact, str]:
+    """Link the exact verified artifact to the W&B Model Registry.
 
     Returns:
         linked_artifact:
@@ -237,8 +233,8 @@ def promote_artifact(
         registry_ref:
             Immutable Registry reference such as:
             wandb-registry-Model/AskBeforeAnswer-Models:v17
-    """
 
+    """
     target_path = build_registry_path(
         registry_name=registry_name,
         registry_collection=registry_collection,
@@ -296,15 +292,14 @@ def verify_registry_promotion(
     source_digest: str,
     registry_ref: str,
     production_alias: str,
-) -> Any:
-    """
-    Re-fetch the Registry artifact and verify that the exact source
+) -> wandb.apis.public.Artifact:
+    """Re-fetch the Registry artifact and verify that the exact source.
+    
     artifact was promoted.
 
     This deliberately performs a fresh API lookup instead of trusting
     the object returned by Artifact.link().
     """
-
     logger.info("=== VERIFYING REGISTRY PROMOTION ===")
     logger.info("Registry artifact: %s", registry_ref)
 
@@ -347,7 +342,6 @@ def verify_registry_promotion(
 
 def get_git_commit() -> str | None:
     """Return the current Git commit when available."""
-
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -363,8 +357,8 @@ def get_git_commit() -> str | None:
 
 def write_promotion_provenance(
     path: str,
-    source_artifact: Any,
-    registry_artifact: Any,
+    source_artifact: wandb.apis.public.Artifact,
+    registry_artifact: wandb.apis.public.Artifact,
     source_artifact_ref: str,
     registry_ref: str,
     registry_name: str,
@@ -373,7 +367,6 @@ def write_promotion_provenance(
     verification_command: list[str] | None,
 ) -> Path:
     """Write an immutable record of the promotion operation."""
-
     output_path = Path(path)
 
     output_path.parent.mkdir(
@@ -427,6 +420,7 @@ def write_promotion_provenance(
 
 
 def main() -> None:
+    """Execute the model promotion pipeline."""
     args = parse_args()
 
     wandb_entity = os.environ.get("WANDB_ENTITY")

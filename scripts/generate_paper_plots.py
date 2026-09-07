@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Script to extract training metrics from W&B
+"""Script to extract training metrics from W&B.
+
 and generate plots for the research paper.
 """
 
@@ -15,7 +15,7 @@ sns.set_theme(style="whitegrid", context="paper")
 plt.rcParams.update({"font.size": 12})
 
 
-def get_run_history(api, project_path, run_name):
+def get_run_history(api: wandb.Api, project_path: str, run_name: str) -> pd.DataFrame:
     """Fetch the latest successful run with a given name and return its history."""
     try:
         runs = api.runs(
@@ -37,9 +37,13 @@ def get_run_history(api, project_path, run_name):
         return None
 
 
-def plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir):
+def plot_loss_comparison(
+    sft_hist: pd.DataFrame,
+    dpo_hist: pd.DataFrame,
+    grpo_hist: pd.DataFrame,
+    out_dir: str,
+) -> None:
     """Plot Training and Evaluation Loss for SFT, DPO, and GRPO as combined files."""
-
     # --- Train Loss Comparison ---
     plt.figure(figsize=(8, 5))
     if sft_hist is not None and "train/loss" in sft_hist.columns:
@@ -132,7 +136,7 @@ def plot_loss_comparison(sft_hist, dpo_hist, grpo_hist, out_dir):
     plt.close()
 
 
-def plot_dpo_metrics(dpo_hist, out_dir):
+def plot_dpo_metrics(dpo_hist: pd.DataFrame, out_dir: str) -> None:
     """Plot DPO specific metrics: Rewards and Logprobs as separate files."""
     if dpo_hist is None:
         return
@@ -241,7 +245,7 @@ def plot_dpo_metrics(dpo_hist, out_dir):
         plt.close()
 
 
-def plot_grpo_metrics(grpo_hist, out_dir):
+def plot_grpo_metrics(grpo_hist: pd.DataFrame, out_dir: str) -> None:
     """Plot GRPO specific metrics (Rewards and KL)."""
     if grpo_hist is None:
         print(
@@ -300,7 +304,8 @@ def plot_grpo_metrics(grpo_hist, out_dir):
         plt.close()
 
 
-def main():
+def main() -> None:
+    """Execute the plot generation script for paper figures."""
     api = wandb.Api()
 
     # Detect Project

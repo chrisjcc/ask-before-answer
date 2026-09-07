@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
+    """Execute the interactive inference pipeline for clarification generation."""
     model_name = cfg.get("model_name", "sft")
     logger.info(f"Starting interactive inference for {model_name}...")
 

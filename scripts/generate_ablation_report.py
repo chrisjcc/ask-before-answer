@@ -1,3 +1,4 @@
+"""Script to generate an ablation report from W&B."""
 import json
 import logging
 import os
@@ -11,7 +12,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def generate_ablation_report():
+def generate_ablation_report() -> None:
+    """Generate the ablation report from manual W&B runs."""
     logger.info("Connecting to Weights & Biases API...")
     api = wandb.Api()
 

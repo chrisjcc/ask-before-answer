@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
+    """Execute the ORPO training pipeline based on Hydra configuration."""
     logger.info("Starting ORPO training pipeline...")
 
     # Explicitly group experiments for W&B
