@@ -1,4 +1,5 @@
 """Script to promote a W&B run artifact to the W&B Registry."""
+
 import argparse
 import json
 import logging
@@ -293,7 +294,7 @@ def verify_registry_promotion(
     production_alias: str,
 ) -> wandb.apis.public.Artifact:
     """Re-fetch the Registry artifact and verify that the exact source.
-    
+
     artifact was promoted.
 
     This deliberately performs a fresh API lookup instead of trusting
