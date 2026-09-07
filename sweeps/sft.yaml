@@ -1,3 +1,9 @@
+# -----------------------------------------------------------------------------
+# SFT Sweep Configuration
+# -----------------------------------------------------------------------------
+# Weights & Biases Bayesian sweep configuration for SFT hyperparameter search.
+
+# --- Sweep Settings ---
 name: sft-bayes-hyperband
 description: >
   Bayesian hyperparameter sweep for the train_sft pipeline.
@@ -24,6 +30,7 @@ early_terminate:
                   # iterations of the optimized metric (eval/loss).
   eta: 3          # Hyperband bracket multiplier.
 
+# --- Parameters ---
 parameters:
   learning_rate:
     distribution: log_uniform_values

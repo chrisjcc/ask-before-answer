@@ -1,16 +1,26 @@
-name: "sewon/ambig_qa"
-preprocessing_type: "light"
+# -----------------------------------------------------------------------------
+# AmbigQA Dataset Configuration
+# -----------------------------------------------------------------------------
+# Configuration for downloading, preprocessing, and augmenting the AmbigQA dataset.
+
+# --- Core Dataset Settings ---
+name: "sewon/ambig_qa"                            # HuggingFace Dataset hub identifier
+preprocessing_type: "light"                       # Config name or split filtering
+max_samples: null                                 # Limit the dataset size for quick testing (null = full)
+
+# --- Output File Paths ---
 output_sft_train_file: "${data_dir}/sft_train.jsonl"
 output_sft_val_file: "${data_dir}/sft_val.jsonl"
 output_dpo_train_file: "${data_dir}/dpo_train.jsonl"
 output_dpo_val_file: "${data_dir}/dpo_val.jsonl"
-max_samples: null
 
+# --- Synthetic Generation ---
+# Settings for generating AI synthetic responses for training alignment.
 synthetic_generation:
-  enabled: true
-  model_id: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
-  max_new_tokens: 256
-  batch_size: 8
-  filter_bad_rows: true
-  balance_classes: true
-  generate_hard_negatives: true
+  enabled: true                                   # Whether to run synthetic generation
+  model_id: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit" # Generation model
+  max_new_tokens: 256                             # Generation length constraint
+  batch_size: 8                                   # VLLM or inference batch size
+  filter_bad_rows: true                           # Whether to filter broken generations
+  balance_classes: true                           # Whether to balance ambiguous/unambiguous examples
+  generate_hard_negatives: true                   # Whether to generate adversarial hard negative examples
