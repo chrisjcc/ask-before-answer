@@ -1,30 +1,45 @@
-output_dir: ${models_dir}/grpo
-per_device_train_batch_size: 1
-gradient_accumulation_steps: 8
-num_train_epochs: 1
-learning_rate: 5e-6
-warmup_ratio: 0.1
-bf16: true
-logging_steps: 10
-save_steps: 200
-save_total_limit: 2
-optim: adamw_torch
-report_to: wandb
-remove_unused_columns: false
-max_prompt_length: 512
-max_completion_length: 512
-num_generations: 8
-beta: 0.1
-loss_type: "grpo" # Options: "grpo", "dapo", "dr_grpo"
+# -----------------------------------------------------------------------------
+# GRPO (Group Relative Policy Optimization) Configuration
+# -----------------------------------------------------------------------------
+# Configuration for RL fine-tuning using GRPO and custom reward functions.
 
+# --- Global & Paths ---
+output_dir: ${models_dir}/grpo            # Directory to save model checkpoints
+
+# --- Batching & Steps ---
+per_device_train_batch_size: 1            # Batch size per GPU
+gradient_accumulation_steps: 8            # Number of steps to accumulate gradients
+num_train_epochs: 1                       # Total number of training epochs
+
+# --- Optimization & Loss ---
+learning_rate: 5e-6                       # Initial learning rate
+warmup_ratio: 0.1                         # Proportion of steps for learning rate warmup
+optim: adamw_torch                        # Optimizer type
+bf16: true                                # Use bfloat16 precision
+beta: 0.1                                 # KL penalty coefficient
+loss_type: "grpo"                         # Loss algorithm. Options: "grpo", "dapo", "dr_grpo"
+
+# --- Logging & Saving ---
+logging_steps: 10                         # How often to log training metrics
+save_steps: 200                           # How often to save a checkpoint
+save_total_limit: 2                       # Maximum number of checkpoints to keep
+report_to: wandb                          # Integration to report metrics to
+
+# --- Generation & Sequences ---
+remove_unused_columns: false              # Must be false for GRPO dynamic data
+max_prompt_length: 512                    # Maximum length of the prompt sequence
+max_completion_length: 512                # Maximum length of the generated completion
+num_generations: 8                        # Number of generations per prompt for relative scoring
+
+# --- Reward Weights ---
 reward_weights:
-  format_reward: 1.0
-  format_penalty: -2.0
-  action_reward: 1.0
-  action_penalty: -1.0
-  facet_logic_reward: 0.5
-  facet_logic_penalty: -0.5
-  accuracy_scale: 1.5
-  accuracy_shift: -0.5
-  accuracy_miss_penalty: -1.0
-  accuracy_format_penalty: -0.5
+  format_reward: 1.0                      # Reward for adhering to requested format
+  format_penalty: -2.0                    # Penalty for violating format
+  action_reward: 1.0                      # Reward for choosing the correct action
+  action_penalty: -1.0                    # Penalty for incorrect action
+  facet_logic_reward: 0.5                 # Reward for correct facet logic
+  facet_logic_penalty: -0.5               # Penalty for incorrect facet logic
+  accuracy_scale: 1.5                     # Base scale for factual accuracy
+  accuracy_shift: -0.5                    # Shift applied to accuracy calculation
+  accuracy_miss_penalty: -1.0             # Penalty for missing factual info
+  accuracy_format_penalty: -0.5           # Penalty for bad format on direct answers

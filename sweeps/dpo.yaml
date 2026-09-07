@@ -1,3 +1,9 @@
+# -----------------------------------------------------------------------------
+# DPO Sweep Configuration
+# -----------------------------------------------------------------------------
+# Weights & Biases Bayesian sweep configuration for DPO hyperparameter search.
+
+# --- Sweep Settings ---
 name: dpo-bayes-hyperband
 description: >
   Bayesian hyperparameter sweep for the train_dpo pipeline.
@@ -24,6 +30,7 @@ early_terminate:
                   # iterations of the optimized metric (eval/loss).
   eta: 3          # Hyperband bracket multiplier.
 
+# --- Parameters ---
 parameters:
   beta:
     distribution: uniform
