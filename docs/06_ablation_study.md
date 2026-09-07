@@ -1,8 +1,8 @@
 # Ablation Experiment Report
 
-This report was automatically generated from Weights & Biases metrics.
+This report was automatically generated from Weights & Biases metrics and isolates the final baseline configurations (without being cluttered by the sweep trials).
 
-## Top Performing Configurations
+## 1. Top Performing Configurations
 
 | Run ID   | Name          | Group         | Hypothesis   | Sweep ID   |   Learning Rate |   Batch Size |   Eval Loss | URL                                                    |
 |:---------|:--------------|:--------------|:-------------|:-----------|----------------:|-------------:|------------:|:-------------------------------------------------------|
@@ -11,21 +11,19 @@ This report was automatically generated from Weights & Biases metrics.
 | qgosp3j0 | dpo_training  | dpo_baseline  | N/A          | N/A        |           5e-07 |            1 |   0.549293  | https://wandb.ai/rl4aa/ask-before-answer/runs/qgosp3j0 |
 | fl9cyvti | orpo_training | orpo_baseline | N/A          | N/A        |           5e-06 |            1 |   1.37168   | https://wandb.ai/rl4aa/ask-before-answer/runs/fl9cyvti |
 
-## Learning Curves
+## 2. Learning Curves
 
 ![Training Loss](plots/train_loss_comparison.png)
 
 ![Eval Loss](plots/eval_loss_comparison.png)
 
-## Validation Curves
+## 3. Validation Curves
 
 ![Validation Curve](plots/val_curve_lr.png)
 
+## 4. LLM-as-a-Judge Evaluation Leaderboard
 
-## LLM-as-a-Judge Evaluation Leaderboard
-
-The following scores were computed using W&B Weave 
-with a Gemini-based judge scorer.
+The following scores were computed using W&B Weave with a Gemini-based judge scorer.
 
 | Metric                |      base |   dpo_only |      sft |   sft_dpo |   clarifier_lora |     orpo |     grpo |
 |:----------------------|----------:|-----------:|---------:|----------:|-----------------:|---------:|---------:|
@@ -41,4 +39,3 @@ with a Gemini-based judge scorer.
 | answer_accuracy       | 0.05      |   0.05     | 0        |  0        |          0       | 0.1      | 0.1      |
 | facet_generation_rate | 0.0851064 |   0.234043 | 1        |  1        |          0       | 0.977273 | 1        |
 | clarify_ratio         | 1.56667   |   1.56667  | 1.26667  |  1.16667  |          1.66667 | 1.46667  | 1.36667  |
-
