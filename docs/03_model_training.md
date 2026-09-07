@@ -69,10 +69,13 @@ Flash Attention computes attention without materializing the massive $N \times N
 
 ### Unsloth
 Unsloth relies on Flash Attention for the core attention calculations, but writes custom Triton kernels to optimize everything else:
-- LoRA weight updates
+- LoRA weight updates (using `bitsandbytes` for standard 4-bit/8-bit QLoRA training)
 - Cross-Entropy Loss function (drastically reducing memory at the very end of the network)
 - Rotary Position Embeddings (RoPE)
 - MLP (Feed-Forward) blocks
+
+> [!NOTE]
+> **HPC Cluster Training:** Because Unsloth compiles Triton kernels on the fly, it strictly requires the CUDA toolkit to be present in your environment path. If you are training on an institutional HPC or Slurm cluster, you must load the CUDA module (e.g., `module load cuda/12.6` or `module load cuda/12.1`) before running the training pipeline, otherwise Unsloth will fail to initialize.
 
 **Integration:**
 Unsloth is seamlessly integrated into the training pipeline via `src/training/trainer.py`. To enable it, set `use_unsloth: true` in your model's YAML configuration (e.g., `configs/model/qwen2_5_7b.yaml`).
