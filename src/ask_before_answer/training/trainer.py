@@ -38,6 +38,7 @@ def load_model_and_tokenizer(
 
     Returns:
         Tuple[Any, Any]: A tuple containing the loaded (model, tokenizer).
+
     """
     logger.info(f"Loading model {model_cfg.name}...")
 
@@ -180,7 +181,7 @@ def load_model_and_tokenizer(
     return model, tokenizer
 
 
-def run_sft_training(cfg: DictConfig):
+def run_sft_training(cfg: DictConfig) -> None:
     """Run Supervised Fine-Tuning."""
     logger.info("Initializing SFT Training...")
 
@@ -218,7 +219,7 @@ def run_sft_training(cfg: DictConfig):
     )["train"]
 
     # Format text for training
-    def format_chat(example):
+    def format_chat(example: dict) -> dict:
         messages = [
             {"role": "system", "content": example["instruction"]},
             {"role": "user", "content": example["input"]},
@@ -291,7 +292,7 @@ def run_sft_training(cfg: DictConfig):
     logger.info("SFT Training complete and model saved.")
 
 
-def run_dpo_training(cfg: DictConfig):
+def run_dpo_training(cfg: DictConfig) -> None:
     """Run Direct Preference Optimization."""
     logger.info("Initializing DPO Training...")
 
@@ -316,7 +317,7 @@ def run_dpo_training(cfg: DictConfig):
     dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
     # Wrap DPO dataset with ChatML to match SFT
-    def format_dpo(example):
+    def format_dpo(example: dict) -> dict:
         system_prompt = (
             "You are a helpful assistant. "
             "Given a question, you must decide whether it is ambiguous or not. "
@@ -392,7 +393,7 @@ def run_dpo_training(cfg: DictConfig):
     logger.info("DPO Training complete and model saved.")
 
 
-def run_orpo_training(cfg: DictConfig):
+def run_orpo_training(cfg: DictConfig) -> None:
     """Run Odds Ratio Preference Optimization."""
     logger.info("Initializing ORPO Training...")
 
@@ -413,7 +414,7 @@ def run_orpo_training(cfg: DictConfig):
     dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
     # Wrap DPO dataset with ChatML to match SFT
-    def format_dpo(example):
+    def format_dpo(example: dict) -> dict:
         system_prompt = (
             "You are a helpful assistant. "
             "Given a question, you must decide whether it is ambiguous or not. "
@@ -488,7 +489,12 @@ def run_orpo_training(cfg: DictConfig):
     logger.info("ORPO Training complete and model saved.")
 
 
-def format_reward_func(prompts, completions, reward_weights=None, **kwargs):
+def format_reward_func(
+    prompts: list[str],
+    completions: list[list[dict]],
+    reward_weights: dict | None = None,
+    **kwargs: object,
+) -> list[float]:
     """Reward function that checks for the exact format constraints."""
     if reward_weights is None:
         reward_weights = {}
@@ -511,7 +517,12 @@ def format_reward_func(prompts, completions, reward_weights=None, **kwargs):
     return rewards
 
 
-def action_reward_func(prompts, completions, reward_weights=None, **kwargs):
+def action_reward_func(
+    prompts: list[str],
+    completions: list[list[dict]],
+    reward_weights: dict | None = None,
+    **kwargs: object,
+) -> list[float]:
     """Reward function that checks if the predicted action matches the target."""
     if reward_weights is None:
         reward_weights = {}
@@ -537,7 +548,12 @@ def action_reward_func(prompts, completions, reward_weights=None, **kwargs):
     return rewards
 
 
-def facet_logic_reward_func(prompts, completions, reward_weights=None, **kwargs):
+def facet_logic_reward_func(
+    prompts: list[str],
+    completions: list[list[dict]],
+    reward_weights: dict | None = None,
+    **kwargs: object,
+) -> list[float]:
     """Reward function that checks facet presence/absence based on action."""
     if reward_weights is None:
         reward_weights = {}
@@ -579,9 +595,16 @@ def facet_logic_reward_func(prompts, completions, reward_weights=None, **kwargs)
     return rewards
 
 
-def accuracy_reward_func(prompts, completions, reward_weights=None, **kwargs):
-    """Reward function that checks for factual accuracy (word overlap)
-    for direct answers."""
+def accuracy_reward_func(
+    prompts: list[str],
+    completions: list[list[dict]],
+    reward_weights: dict | None = None,
+    **kwargs: object,
+) -> list[float]:
+    """Reward function that checks for factual accuracy (word overlap).
+
+    for direct answers.
+    """
     if reward_weights is None:
         reward_weights = {}
     acc_scale = reward_weights.get("accuracy_scale", 1.5)
@@ -639,7 +662,7 @@ def accuracy_reward_func(prompts, completions, reward_weights=None, **kwargs):
     return rewards
 
 
-def run_grpo_training(cfg: DictConfig):
+def run_grpo_training(cfg: DictConfig) -> None:
     """Run Group Relative Policy Optimization."""
     logger.info("Initializing GRPO Training...")
 
@@ -657,7 +680,7 @@ def run_grpo_training(cfg: DictConfig):
     )
     dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
-    def format_grpo(example):
+    def format_grpo(example: dict) -> dict:
         system_prompt = (
             "You are a helpful assistant. "
             "Given a question, you must decide whether it is ambiguous or not. "
@@ -722,7 +745,7 @@ def run_grpo_training(cfg: DictConfig):
     # Bugfix for UnslothGRPOTrainer CPU/CUDA device mismatch during generation
     original_generate = model.generate
 
-    def patched_generate(*args, **kwargs):
+    def patched_generate(*args: object, **kwargs: object) -> object:
         if len(args) > 0 and isinstance(args[0], torch.Tensor):
             args = list(args)
             args[0] = args[0].to(model.device)
@@ -745,7 +768,9 @@ def run_grpo_training(cfg: DictConfig):
         to expose a __name__ attribute.
         """
 
-        def format_reward(prompts, completions, **kwargs):
+        def format_reward(
+            prompts: list[str], completions: list[list[dict]], **kwargs: object
+        ) -> list[float]:
             return format_reward_func(
                 prompts,
                 completions,
@@ -753,7 +778,9 @@ def run_grpo_training(cfg: DictConfig):
                 **kwargs,
             )
 
-        def action_reward(prompts, completions, **kwargs):
+        def action_reward(
+            prompts: list[str], completions: list[list[dict]], **kwargs: object
+        ) -> list[float]:
             return action_reward_func(
                 prompts,
                 completions,
@@ -761,7 +788,9 @@ def run_grpo_training(cfg: DictConfig):
                 **kwargs,
             )
 
-        def facet_logic_reward(prompts, completions, **kwargs):
+        def facet_logic_reward(
+            prompts: list[str], completions: list[list[dict]], **kwargs: object
+        ) -> list[float]:
             return facet_logic_reward_func(
                 prompts,
                 completions,
@@ -769,7 +798,9 @@ def run_grpo_training(cfg: DictConfig):
                 **kwargs,
             )
 
-        def accuracy_reward(prompts, completions, **kwargs):
+        def accuracy_reward(
+            prompts: list[str], completions: list[list[dict]], **kwargs: object
+        ) -> list[float]:
             return accuracy_reward_func(
                 prompts,
                 completions,

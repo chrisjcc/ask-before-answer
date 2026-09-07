@@ -19,6 +19,8 @@ import weave
 if not hasattr(transformers, "BloomPreTrainedModel"):
 
     class MockBloom:
+        """Mock BloomPreTrainedModel for PEFT compatibility."""
+
         pass
 
     transformers.BloomPreTrainedModel = MockBloom
@@ -44,6 +46,7 @@ class ClarifyOrActPipeline:
         is_peft: bool = True,
         base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit",
     ) -> None:
+        """Initialize the VLLM inference pipeline."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Loading inference model from {model_path} on {self.device}...")
 
@@ -91,6 +94,7 @@ class ClarifyOrActPipeline:
 
         Returns:
             str: The raw generated string from the model.
+
         """
         if system_prompt is None:
             system_prompt = (
