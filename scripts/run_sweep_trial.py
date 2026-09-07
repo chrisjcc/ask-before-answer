@@ -1,3 +1,5 @@
+"""Script to execute a hyperparameter sweep trial via W&B and DVC."""
+
 import argparse
 import json
 import logging
@@ -24,9 +26,8 @@ PARAM_MAP = {
 }
 
 
-def get_git_experiment_sha(experiment_name):
-    """
-    Find the Git commit SHA associated with a DVC experiment.
+def get_git_experiment_sha(experiment_name: str) -> str:
+    """Find the Git commit SHA associated with a DVC experiment.
 
     DVC stores experiments as Git refs under refs/exps/.
     The experiment name is the final path component.
@@ -56,20 +57,19 @@ def get_git_experiment_sha(experiment_name):
 
 
 def update_wandb_provenance(
-    run_id,
-    sweep_id,
-    project,
-    entity,
-    dvc_experiment,
-    dvc_experiment_sha,
-    stage,
-    sweep_params,
-):
-    """
-    Record the explicit W&B <-> DVC provenance relationship
+    run_id: str,
+    sweep_id: str,
+    project: str,
+    entity: str,
+    dvc_experiment: str,
+    dvc_experiment_sha: str,
+    stage: str,
+    sweep_params: dict,
+) -> None:
+    """Record the explicit W&B <-> DVC provenance relationship.
+
     in the existing W&B sweep run.
     """
-
     api = wandb.Api()
 
     run = api.run(f"{entity}/{project}/{run_id}")
@@ -108,18 +108,17 @@ def update_wandb_provenance(
 
 
 def verify_wandb_provenance(
-    run_id,
-    sweep_id,
-    project,
-    entity,
-    dvc_experiment,
-    dvc_experiment_sha,
-):
-    """
-    Re-read the W&B run through the API and verify that the provenance
+    run_id: str,
+    sweep_id: str,
+    project: str,
+    entity: str,
+    dvc_experiment: str,
+    dvc_experiment_sha: str,
+) -> None:
+    """Re-read the W&B run through the API and verify that the provenance.
+
     fields were actually persisted.
     """
-
     api = wandb.Api()
 
     run = api.run(f"{entity}/{project}/{run_id}")
@@ -160,12 +159,13 @@ def verify_wandb_provenance(
 
 
 def write_provenance_file(
-    run_id,
-    sweep_id,
-    entity,
-    project,
-    stage,
-):
+    run_id: str,
+    sweep_id: str,
+    entity: str,
+    project: str,
+    stage: str,
+) -> None:
+    """Write the provenance file for the sweep trial to disk."""
     Path("provenance").mkdir(exist_ok=True)
 
     provenance = {
@@ -190,7 +190,8 @@ def write_provenance_file(
     return path
 
 
-def main():
+def main() -> None:
+    """Execute the DVC sweep trial and record provenance metadata."""
     load_dotenv()
 
     # ---------------------------------------------------------------

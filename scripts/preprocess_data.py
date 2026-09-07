@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
+    """Execute the data preprocessing pipeline and publish to W&B and Weave."""
     logger.info("Starting data preprocessing...")
 
     os.makedirs(cfg.data_dir, exist_ok=True)
@@ -58,8 +59,8 @@ def main(cfg: DictConfig) -> None:
     project_name = os.environ.get("WANDB_PROJECT", "ask-before-answer")
     weave.init(project_name)
 
-    def publish_weave_dataset(jsonl_path: str, dataset_name: str):
-        """Helper to load a JSONL file and publish it as a Weave dataset."""
+    def publish_weave_dataset(jsonl_path: str, dataset_name: str) -> None:
+        """Load a JSONL file and publish it as a Weave dataset."""
         if not os.path.exists(jsonl_path):
             logger.warning(f"File {jsonl_path} not found. Skipping publish.")
             return
