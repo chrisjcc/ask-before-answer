@@ -1,3 +1,5 @@
+"""Streamlit web application for AskBeforeAnswer."""
+
 import glob
 import os
 
@@ -38,7 +40,8 @@ if "pipeline" not in st.session_state:
     st.session_state.pipeline = None
 
 
-def get_available_models():
+def get_available_models() -> dict:
+    """Return a dictionary of available models for the application."""
     models = {
         "AskBeforeAnswer (SFT+DPO Qwen2.5-7B)": {
             "path": "chrisjcc/ask-before-answer",
@@ -63,7 +66,8 @@ def get_available_models():
 
 
 @st.cache_resource(show_spinner=False)
-def load_pipeline(model_path: str, is_peft: bool):
+def load_pipeline(model_path: str, is_peft: bool) -> ClarifyOrActPipeline:
+    """Load and cache the inference pipeline."""
     return ClarifyOrActPipeline(model_path, is_peft=is_peft)
 
 
