@@ -7,6 +7,7 @@ and generate plots for the research paper.
 import os
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 import wandb
 

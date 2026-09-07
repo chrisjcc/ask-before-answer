@@ -79,7 +79,9 @@ class ClarifyOrActModel(weave.Model):
 
     @weave.op()
     def predict(self, question: str) -> str:
-        """Run the prompt through the cached pipeline to predict an action or clarification."""
+        """Run the prompt through the cached pipeline to predict an
+        action or clarification.
+        """
         pipeline = get_cached_pipeline(
             self.model_path, self.is_peft, self.base_model_id
         )
