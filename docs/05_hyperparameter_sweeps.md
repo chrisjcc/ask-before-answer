@@ -24,12 +24,15 @@ Our codebase completely isolates the hyperparameter sweep trials from your final
 2. The agent script (`scripts/run_sweep_trial.py`) automatically fetches hyperparameters from W&B, updates the local Hydra configurations, and runs a full DVC training trial (`dvc exp run`), streaming metrics live to the W&B servers.
 3. Once the trials complete, the Makefile automatically triggers `scripts/generate_sweep_report.py`. This script pulls the raw metrics from the cloud, groups them by Sweep ID, plots the Validation Curves, and statelessly regenerates the `docs/sweep_report.md` leaderboard.
 
-### Step 2: Human-in-the-Loop Promotion
-Crucially, **no automated script picks the top model from the sweep trials and promotes it.** The filtering mechanism relies entirely on a human-in-the-loop workflow using DVC and the W&B API:
-1. **Review:** You review the leaderboard and identify the absolute best trial (e.g., Run ID `5cxs95q7`).
-2. **Apply:** You tell DVC to restore that winning model to your active workspace by running `dvc exp apply sweep_5cxs95q7`. This permanently locks the winning hyperparameters into your local YAML config.
-3. **Train the Final Baseline:** You run `make ablation-suite` (which executes standard `dvc repro`). This runs the training script *manually*, outside of the W&B sweep agent.
-4. **Isolate the Ablation Report:** Because the manual run was not executed by the agent, W&B does *not* tag it with the `.sweep` metadata property. When `scripts/generate_ablation_report.py` generates the ablation report, it loops through the cloud and skips any run that possesses a `.sweep` tag, ensuring your report contains only your clean, final baseline rows.
+### Step 2: Applying the Best Configuration Automatically
+Because DVC tracked the exact YAML config state for every single sweep trial, you do not need to manually copy-paste the winning hyper-parameters!
+1. Check the generated `docs/06_ablation_study.md` for the W&B **Run ID** of the best performing trial (e.g., `5cxs95q7`).
+2. Run the following command to instantly revert your local YAML configuration files to that exact optimal state:
+   ```bash
+   dvc exp apply sweep_<Run ID>
+   ```
+3. `git commit` the newly updated config files as your new defaults!
+4. **Isolate the Ablation Report:** You run `make ablation-suite` (which executes standard `dvc repro`). Because this manual run was not executed by the agent, W&B does *not* tag it with the `.sweep` metadata property. When `scripts/generate_ablation_report.py` generates the ablation report, it loops through the cloud and skips any run that possesses a `.sweep` tag, ensuring your report contains only your clean, final baseline rows.
 
 ## 2. Advanced Interactive W&B Charts
 

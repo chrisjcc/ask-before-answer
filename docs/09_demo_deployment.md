@@ -11,6 +11,10 @@ app/
 and the minimal portion of the Python package required for inference (`src/ask_before_answer/inference/pipeline.py`). 
 The application does **not** require the data, training, or evaluation modules, keeping the deployment payload extremely lightweight.
 
+## Observability & LLM Tracing (W&B Weave)
+
+The production Streamlit app (`app/app.py`) automatically logs all user interactions, prompts, and model generations to the Weave dashboard, enabling you to inspect exact input/output traces in real-time.
+
 ## Deployment Workflow
 
 The HF Demo application is deployed through a GitHub Release rather than through the model publication command.

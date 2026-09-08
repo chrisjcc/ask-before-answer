@@ -4,6 +4,27 @@ This document summarizes the post-training evaluation results for the AskBeforeA
 
 Six model variants were evaluated on the `sewon_ambig_qa_eval` benchmark using both the `LocalGemmaJudge` evaluator (subjective quality metrics) and the `ActionScorer` evaluator (decision and task performance).
 
+## 1. Observability & Systematic Evaluation (W&B Weave)
+
+This project integrates tightly with **Weights & Biases Weave** to provide comprehensive LLM observability and systematic evaluation pipelines. 
+
+The automated evaluation pipeline (`scripts/evaluate.py`) uses a dual-scoring approach to systematically evaluate all model configurations against the test dataset:
+
+**1. LLM-as-a-Judge (Gemini 2.5 Flash / Gemma 4):**
+Evaluates the subjective nuance and quality of the response:
+- Ambiguity Detection F1
+- Clarification Quality F1
+- Clarification Usefulness
+
+**2. Rule-Based Programmatic Scoring (`ActionScorer`):**
+Evaluates the deterministic structural accuracy of the agent's chosen action:
+- Model Accuracy (Raw percentage of correct `Action` choices—Clarify vs. Answer—compared to the ground-truth labels).
+
+To run the full suite and generate a dynamic leaderboard on Weave:
+```bash
+make evaluate
+```
+
 ## 1. The Core Trade-off: Clarification vs Answering
 
 The post-training evaluation demonstrates that there is **no single model that dominates every metric**. The evaluated models naturally separate into two distinct policies:
