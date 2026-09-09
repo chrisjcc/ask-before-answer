@@ -71,6 +71,10 @@ class ClarifyOrActPipeline:
                     "No GPU detected! Loading full 7B base model on CPU. "
                     "This will be very slow and may exceed memory limits."
                 )
+                # bitsandbytes 4-bit quantization does not support CPU inference.
+                # Fall back to the unquantized base model.
+                if "bnb-4bit" in base_model_id:
+                    base_model_id = "Qwen/Qwen2.5-7B-Instruct"
 
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_model_id, dtype=torch.bfloat16, device_map=d_map
