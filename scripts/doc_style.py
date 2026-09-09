@@ -8,17 +8,22 @@ Visual language modeled after TRD_CreditFraud_Pipeline.pdf:
  - light running header + footer with classification and page number
 """
 
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
 from reportlab.platypus import (
-    BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle,
-    KeepTogether, NextPageTemplate, PageBreak, HRFlowable, ListFlowable, ListItem
+    BaseDocTemplate,
+    Frame,
+    HRFlowable,
+    KeepTogether,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
 )
-from reportlab.pdfbase.pdfmetrics import registerFont
-from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------------------------------------------------------- palette --
 NAVY = colors.HexColor("#1F3864")
@@ -49,81 +54,167 @@ _ss = getSampleStyleSheet()
 
 styles = {}
 styles["Body"] = ParagraphStyle(
-    "Body", parent=_ss["Normal"], fontName="Helvetica", fontSize=9.6,
-    leading=14, spaceAfter=8, textColor=BLACK_TEXT, alignment=TA_LEFT,
+    "Body",
+    parent=_ss["Normal"],
+    fontName="Helvetica",
+    fontSize=9.6,
+    leading=14,
+    spaceAfter=8,
+    textColor=BLACK_TEXT,
+    alignment=TA_LEFT,
 )
 styles["BodyBold"] = ParagraphStyle(
-    "BodyBold", parent=styles["Body"], fontName="Helvetica-Bold",
+    "BodyBold",
+    parent=styles["Body"],
+    fontName="Helvetica-Bold",
 )
 styles["DocTitle"] = ParagraphStyle(
-    "DocTitle", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=25,
-    leading=29, textColor=NAVY, spaceAfter=6,
+    "DocTitle",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=25,
+    leading=29,
+    textColor=NAVY,
+    spaceAfter=6,
 )
 styles["DocSubtitle"] = ParagraphStyle(
-    "DocSubtitle", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=14.5,
-    leading=18, textColor=BLUE, spaceAfter=14,
+    "DocSubtitle",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=14.5,
+    leading=18,
+    textColor=BLUE,
+    spaceAfter=14,
 )
 styles["Classification"] = ParagraphStyle(
-    "Classification", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=9.5,
-    leading=12, textColor=ORANGE_TEXT, spaceBefore=4, spaceAfter=16,
+    "Classification",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=9.5,
+    leading=12,
+    textColor=ORANGE_TEXT,
+    spaceBefore=4,
+    spaceAfter=16,
 )
 styles["H1"] = ParagraphStyle(
-    "H1", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=15.5,
-    leading=19, textColor=NAVY, spaceBefore=18, spaceAfter=10,
+    "H1",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=15.5,
+    leading=19,
+    textColor=NAVY,
+    spaceBefore=18,
+    spaceAfter=10,
 )
 styles["H2"] = ParagraphStyle(
-    "H2", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=11.8,
-    leading=15, textColor=BLUE, spaceBefore=12, spaceAfter=6,
+    "H2",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=11.8,
+    leading=15,
+    textColor=BLUE,
+    spaceBefore=12,
+    spaceAfter=6,
 )
 styles["H3"] = ParagraphStyle(
-    "H3", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=10.3,
-    leading=13, textColor=NAVY_DARK, spaceBefore=8, spaceAfter=4,
+    "H3",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=10.3,
+    leading=13,
+    textColor=NAVY_DARK,
+    spaceBefore=8,
+    spaceAfter=4,
 )
 styles["Bullet"] = ParagraphStyle(
-    "Bullet", parent=styles["Body"], leftIndent=14, bulletIndent=2, spaceAfter=4,
+    "Bullet",
+    parent=styles["Body"],
+    leftIndent=14,
+    bulletIndent=2,
+    spaceAfter=4,
 )
 styles["TableCell"] = ParagraphStyle(
-    "TableCell", parent=_ss["Normal"], fontName="Helvetica", fontSize=8.7,
-    leading=11.5, textColor=BLACK_TEXT,
+    "TableCell",
+    parent=_ss["Normal"],
+    fontName="Helvetica",
+    fontSize=8.7,
+    leading=11.5,
+    textColor=BLACK_TEXT,
 )
 styles["TableCellBold"] = ParagraphStyle(
-    "TableCellBold", parent=styles["TableCell"], fontName="Helvetica-Bold",
+    "TableCellBold",
+    parent=styles["TableCell"],
+    fontName="Helvetica-Bold",
 )
 styles["TableHeader"] = ParagraphStyle(
-    "TableHeader", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=8.9,
-    leading=11.5, textColor=WHITE,
+    "TableHeader",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=8.9,
+    leading=11.5,
+    textColor=WHITE,
 )
 styles["MetaLabel"] = ParagraphStyle(
-    "MetaLabel", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=9.3,
-    leading=12.5, textColor=WHITE,
+    "MetaLabel",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=9.3,
+    leading=12.5,
+    textColor=WHITE,
 )
 styles["MetaValue"] = ParagraphStyle(
-    "MetaValue", parent=_ss["Normal"], fontName="Helvetica", fontSize=9.3,
-    leading=12.5, textColor=BLACK_TEXT,
+    "MetaValue",
+    parent=_ss["Normal"],
+    fontName="Helvetica",
+    fontSize=9.3,
+    leading=12.5,
+    textColor=BLACK_TEXT,
 )
 styles["MetaValueStatus"] = ParagraphStyle(
-    "MetaValueStatus", parent=styles["MetaValue"], fontName="Helvetica-Bold",
+    "MetaValueStatus",
+    parent=styles["MetaValue"],
+    fontName="Helvetica-Bold",
     textColor=ORANGE_TEXT,
 )
 styles["Code"] = ParagraphStyle(
-    "Code", parent=_ss["Normal"], fontName="Courier", fontSize=8.3,
-    leading=11.5, textColor=BLACK_TEXT,
+    "Code",
+    parent=_ss["Normal"],
+    fontName="Courier",
+    fontSize=8.3,
+    leading=11.5,
+    textColor=BLACK_TEXT,
 )
 styles["NoteLabel"] = ParagraphStyle(
-    "NoteLabel", parent=_ss["Normal"], fontName="Helvetica-Bold", fontSize=8.6,
-    leading=11, textColor=ORANGE_TEXT,
+    "NoteLabel",
+    parent=_ss["Normal"],
+    fontName="Helvetica-Bold",
+    fontSize=8.6,
+    leading=11,
+    textColor=ORANGE_TEXT,
 )
 styles["NoteBody"] = ParagraphStyle(
-    "NoteBody", parent=_ss["Normal"], fontName="Helvetica", fontSize=8.9,
-    leading=12.2, textColor=BLACK_TEXT,
+    "NoteBody",
+    parent=_ss["Normal"],
+    fontName="Helvetica",
+    fontSize=8.9,
+    leading=12.2,
+    textColor=BLACK_TEXT,
 )
 styles["Footer"] = ParagraphStyle(
-    "Footer", parent=_ss["Normal"], fontName="Helvetica", fontSize=7.6,
-    leading=9, textColor=GRAY_TEXT,
+    "Footer",
+    parent=_ss["Normal"],
+    fontName="Helvetica",
+    fontSize=7.6,
+    leading=9,
+    textColor=GRAY_TEXT,
 )
 styles["RunningHead"] = ParagraphStyle(
-    "RunningHead", parent=_ss["Normal"], fontName="Helvetica", fontSize=8.2,
-    leading=10, textColor=GRAY_TEXT,
+    "RunningHead",
+    parent=_ss["Normal"],
+    fontName="Helvetica",
+    fontSize=8.2,
+    leading=10,
+    textColor=GRAY_TEXT,
 )
 
 
@@ -136,8 +227,13 @@ def spacer(h=8):
 
 
 def hrule(color=BLUE, thickness=1.1, width="100%", space_before=2, space_after=10):
-    return HRFlowable(width=width, thickness=thickness, color=color,
-                       spaceBefore=space_before, spaceAfter=space_after)
+    return HRFlowable(
+        width=width,
+        thickness=thickness,
+        color=color,
+        spaceBefore=space_before,
+        spaceAfter=space_after,
+    )
 
 
 def h1(number, text):
@@ -145,7 +241,9 @@ def h1(number, text):
 
 
 def h2(text):
-    return KeepTogether([P(text, "H2"), hrule(color=BLUE, thickness=0.9, space_before=0, space_after=8)])
+    return KeepTogether(
+        [P(text, "H2"), hrule(color=BLUE, thickness=0.9, space_before=0, space_after=8)]
+    )
 
 
 def h3(text):
@@ -168,24 +266,41 @@ def numbered(items, style="Bullet"):
 
 def note_box(label, text, bg=TAN_BG, border=TAN_BORDER, label_style="NoteLabel"):
     inner = Table(
-        [[Paragraph(f"{label}", styles[label_style]), Paragraph(text, styles["NoteBody"])]],
+        [
+            [
+                Paragraph(f"{label}", styles[label_style]),
+                Paragraph(text, styles["NoteBody"]),
+            ]
+        ],
         colWidths=[0.85 * inch, None],
     )
-    inner.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("BACKGROUND", (0, 0), (-1, -1), bg),
-        ("BOX", (0, 0), (-1, -1), 0.75, border),
-        ("LEFTPADDING", (0, 0), (0, 0), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (-1, 0), (-1, -1), 10),
-    ]))
+    inner.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("BACKGROUND", (0, 0), (-1, -1), bg),
+                ("BOX", (0, 0), (-1, -1), 0.75, border),
+                ("LEFTPADDING", (0, 0), (0, 0), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (-1, 0), (-1, -1), 10),
+            ]
+        )
+    )
     return KeepTogether([spacer(4), inner, spacer(10)])
 
 
-def data_table(header_row, rows, col_widths=None, header_bg=NAVY, band=True,
-               font_size=8.7, align_first_left=True):
+def data_table(
+    header_row,
+    rows,
+    col_widths=None,
+    header_bg=NAVY,
+    band=True,
+    font_size=8.7,
+    align_first_left=True,
+):
     """rows: list of list-of-strings (converted to Paragraphs)."""
+
     def cell(v, bold=False, header=False):
         if header:
             return Paragraph(str(v), styles["TableHeader"])
@@ -219,39 +334,57 @@ def data_table(header_row, rows, col_widths=None, header_bg=NAVY, band=True,
 
 def code_block(lines):
     text = "<br/>".join(
-        l.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;")
-        for l in lines
+        line.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace(" ", "&nbsp;")
+        for line in lines
     )
     tbl = Table([[Paragraph(text, styles["Code"])]], colWidths=[None])
-    tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), CODE_BG),
-        ("BOX", (0, 0), (-1, -1), 0.6, CODE_BORDER),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-    ]))
+    tbl.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), CODE_BG),
+                ("BOX", (0, 0), (-1, -1), 0.6, CODE_BORDER),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
     return KeepTogether([tbl, spacer(10)])
 
 
 def diagram_block(lines, align=TA_CENTER):
     """Monospace ASCII-art flow diagram inside a bordered box."""
     dstyle = ParagraphStyle(
-        "Diagram", parent=styles["Code"], alignment=align, leading=12.5, fontSize=8.6,
+        "Diagram",
+        parent=styles["Code"],
+        alignment=align,
+        leading=12.5,
+        fontSize=8.6,
     )
     text = "<br/>".join(
-        l.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;")
-        for l in lines
+        line.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace(" ", "&nbsp;")
+        for line in lines
     )
     tbl = Table([[Paragraph(text, dstyle)]], colWidths=[None])
-    tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), CODE_BG),
-        ("BOX", (0, 0), (-1, -1), 0.6, CODE_BORDER),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-    ]))
+    tbl.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), CODE_BG),
+                ("BOX", (0, 0), (-1, -1), 0.6, CODE_BORDER),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
     return KeepTogether([tbl, spacer(10)])
 
 
@@ -260,7 +393,9 @@ def meta_table(rows):
     data = []
     for label, value, is_status in rows:
         vstyle = "MetaValueStatus" if is_status else "MetaValue"
-        data.append([Paragraph(label, styles["MetaLabel"]), Paragraph(value, styles[vstyle])])
+        data.append(
+            [Paragraph(label, styles["MetaLabel"]), Paragraph(value, styles[vstyle])]
+        )
     t = Table(data, colWidths=[1.5 * inch, 4.85 * inch])
     cmds = [
         ("BACKGROUND", (0, 0), (0, -1), NAVY),
@@ -302,13 +437,21 @@ def _header_footer(canvas, doc, running_title, footer_left):
 
 def build_doc(filepath, running_title, footer_left, story):
     doc = BaseDocTemplate(
-        filepath, pagesize=letter,
-        leftMargin=MARGIN_L, rightMargin=MARGIN_R,
-        topMargin=MARGIN_T, bottomMargin=MARGIN_B,
+        filepath,
+        pagesize=letter,
+        leftMargin=MARGIN_L,
+        rightMargin=MARGIN_R,
+        topMargin=MARGIN_T,
+        bottomMargin=MARGIN_B,
         title=running_title,
     )
-    frame = Frame(MARGIN_L, MARGIN_B, PAGE_W - MARGIN_L - MARGIN_R,
-                   PAGE_H - MARGIN_T - MARGIN_B, id="normal")
+    frame = Frame(
+        MARGIN_L,
+        MARGIN_B,
+        PAGE_W - MARGIN_L - MARGIN_R,
+        PAGE_H - MARGIN_T - MARGIN_B,
+        id="normal",
+    )
 
     def on_page(canvas, doc_):
         _header_footer(canvas, doc_, running_title, footer_left)
