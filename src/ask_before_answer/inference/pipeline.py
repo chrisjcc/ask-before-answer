@@ -9,6 +9,7 @@ import logging
 from typing import List, Optional
 
 import torch
+import transformers
 from transformers import AutoTokenizer
 
 try:
