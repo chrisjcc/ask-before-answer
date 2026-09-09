@@ -4,8 +4,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from doc_style import (
-    P,
     TA_LEFT,
+    P,
     build_doc,
     bullets,
     code_block,
