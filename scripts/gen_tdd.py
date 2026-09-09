@@ -1,6 +1,10 @@
-import sys
-sys.path.insert(0, "/home/claude/build")
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from doc_style import *
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, "..", "outputs")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 RUNNING_TITLE = "TECHNICAL DESIGN DOCUMENT  |  AskBeforeAnswer Clarify-or-Answer Model"
 FOOTER_LEFT = "INTERNAL / ENGINEERING  |  AskBeforeAnswer ML"
@@ -526,5 +530,5 @@ story.append(data_table(
 story.append(spacer(14))
 story.append(P("END OF DOCUMENT | TDD-ASKBEFOREANSWER-001 v1.0.0 | INTERNAL / ENGINEERING", "Footer"))
 
-build_doc("/mnt/user-data/outputs/TDD_AskBeforeAnswer_SystemArchitecture.pdf", RUNNING_TITLE, FOOTER_LEFT, story)
+build_doc(os.path.join(OUTPUT_DIR, "TDD_AskBeforeAnswer_SystemArchitecture.pdf"), RUNNING_TITLE, FOOTER_LEFT, story)
 print("done")

@@ -52,8 +52,23 @@ python3 gen_trd.py   # writes TRD_AskBeforeAnswer_ClarifyOrAnswer.pdf
 python3 gen_tdd.py   # writes TDD_AskBeforeAnswer_SystemArchitecture.pdf
 ```
 
-By default both scripts write to `/mnt/user-data/outputs/`. Change the path in the
-`build_doc(...)` call at the bottom of each script to write elsewhere.
+All three files are self-contained (no hardcoded absolute paths), so you can drop them into a
+`scripts/` folder at the root of your project and run them from there — e.g.:
+
+```
+your-project/
+  scripts/
+    doc_style.py
+    gen_trd.py
+    gen_tdd.py
+  outputs/                     <- created automatically
+    TRD_AskBeforeAnswer_ClarifyOrAnswer.pdf
+    TDD_AskBeforeAnswer_SystemArchitecture.pdf
+```
+
+By default, each script resolves its own directory at runtime and writes to `../outputs/`
+relative to itself (creating that folder if it doesn't exist). Change `OUTPUT_DIR` near the top
+of `gen_trd.py` / `gen_tdd.py` if you'd rather write somewhere else (e.g. `docs/`).
 
 ## Changing the shared visual style
 
