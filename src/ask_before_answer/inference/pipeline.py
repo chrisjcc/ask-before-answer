@@ -94,8 +94,18 @@ class ClarifyOrActPipeline:
         # The vLLM engine completely abstracts away PEFT loading and device mapping.
         # We do not need transformers/peft for inference payload execution anymore.
 
-        # Ensure the global engine is initialized.
-        self.llm = get_vllm_engine(base_model_id)
+            if torch.cuda.is_available():
+                d_map = "auto"
+            else:
+                d_map = "cpu"
+                logger.warning(
+                    "No GPU detected! Loading full 7B base model on CPU. "
+                    "This will be very slow and may exceed memory limits."
+                )
+                # bitsandbytes 4-bit quantization does not support CPU inference.
+                # Fall back to the unquantized base model.
+                if "bnb-4bit" in base_model_id:
+                    base_model_id = "Qwen/Qwen2.5-7B-Instruct"
 
         # Initialize standard sampling parameters.
         self.sampling_params = SamplingParams(
