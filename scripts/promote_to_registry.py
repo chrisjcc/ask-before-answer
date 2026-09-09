@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-"""
-Publish a promoted DVC model artifact to Weights & Biases.
+"""Publish a promoted DVC model artifact to Weights & Biases.
 
 ARCHITECTURAL ROLE:
 (The Bridge from DVC to the Weights & Biases Registry)
@@ -40,7 +39,6 @@ Workflow:
 The Registry artifact is the immutable deployment artifact.
 
 Important:
-
     - Model files are uploaded directly from the local DVC output.
     - No W&B Weave references are created.
     - The source project artifact is linked to the W&B Registry.
@@ -59,6 +57,7 @@ Important:
       passes integrity verification, the script exits successfully
       without creating another W&B run, artifact version, or Registry
       link.
+
 """
 
 from __future__ import annotations
@@ -68,7 +67,6 @@ import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import hydra
 import wandb
@@ -148,8 +146,7 @@ def project_root(cfg: DictConfig) -> Path:
 
 
 def get_wandb_config(cfg: DictConfig) -> dict[str, str]:
-    """
-    Read W&B configuration with safe fallbacks.
+    """Read W&B configuration with safe fallbacks.
 
     This deliberately does not require cfg.wandb to exist.
     """
@@ -226,11 +223,9 @@ def build_registry_ref(
     registry_collection: str,
     version: str,
 ) -> str:
-    """
-    Construct the fully qualified W&B Registry artifact reference.
+    """Construct the fully qualified W&B Registry artifact reference.
 
     Example:
-
         wandb-registry-Model/AskBeforeAnswer-Models:v0
 
     This fully qualified namespace is important. A short reference such as
@@ -238,6 +233,7 @@ def build_registry_ref(
         AskBeforeAnswer-Models:v0
 
     can be resolved ambiguously by the W&B API.
+
     """
     return f"wandb-registry-{registry_name}/{registry_collection}:{version}"
 
@@ -248,19 +244,17 @@ def build_registry_alias_ref(
     registry_collection: str,
     registry_alias: str,
 ) -> str:
-    """
-    Construct the fully qualified W&B Registry alias reference.
+    """Construct the fully qualified W&B Registry alias reference.
 
     Example:
-
         wandb-registry-Model/AskBeforeAnswer-Models:production
+
     """
     return f"wandb-registry-{registry_name}/{registry_collection}:{registry_alias}"
 
 
 def get_git_commit() -> str | None:
     """Return the current Git commit when available."""
-
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -313,8 +307,7 @@ def resolve_dvc_experiment_sha(
     cfg: DictConfig,
     experiment: str,
 ) -> str:
-    """
-    Resolve a DVC experiment name to its Git SHA.
+    """Resolve a DVC experiment name to its Git SHA.
 
     DVC versions differ in the structure of `dvc exp list` and
     `dvc exp show` output. The most reliable representation for
@@ -477,7 +470,7 @@ def resolve_dvc_experiment_sha(
         data = json.loads(output)
 
         def search_json(
-            obj: Any,
+            obj: object,
         ) -> str | None:
             if isinstance(obj, dict):
                 if experiment in obj:
@@ -597,17 +590,16 @@ def create_source_artifact(
     dvc_experiment: str,
     dvc_sha: str,
 ) -> tuple[str, str, str]:
-    """
-    Create or reuse the project-level W&B artifact.
+    """Create or reuse the project-level W&B artifact.
 
     Returns:
-
         source_artifact_ref
         source_artifact_digest
         run_id
 
     The source artifact digest is deliberately kept separate from
     the Registry artifact digest.
+
     """
     artifact_name = f"{MODEL_ARTIFACT_PREFIX}-{model_variant}"
 
@@ -732,11 +724,9 @@ def link_to_registry(
     registry_collection: str,
     registry_alias: str,
 ) -> tuple[str, str]:
-    """
-    Link the exact source artifact to the W&B Registry.
+    """Link the exact source artifact to the W&B Registry.
 
     Returns:
-
         fully-qualified immutable Registry artifact reference
         Registry artifact digest
 
@@ -754,6 +744,7 @@ def link_to_registry(
 
     The fully-qualified reference is what downstream deployment code
     must use to prevent W&B from resolving an unrelated artifact.
+
     """
     logger.info(
         "Linking artifact to W&B Registry collection: %s",
@@ -939,21 +930,19 @@ def verify_existing_promotion(
     registry_collection: str,
     registry_alias: str,
 ) -> Path | None:
-    """
-    Check whether this exact DVC promotion has already been completed.
+    """Check whether this exact DVC promotion has already been completed.
 
     Returns:
-
         The existing provenance path if a valid identical promotion exists.
         None if no provenance file exists.
 
     Raises:
-
         RuntimeError:
 
             If provenance exists but does not describe the requested
             promotion, or if the recorded Registry artifact fails
             integrity verification.
+
     """
     root = project_root(cfg)
     provenance_path = root / PROMOTION_FILE
@@ -1155,8 +1144,7 @@ def write_promotion_provenance(
     registry_alias: str,
     run_id: str,
 ) -> Path:
-    """
-    Write the deployment provenance record.
+    """Write the deployment provenance record.
 
     CRITICAL SCHEMA RULE:
 
@@ -1193,7 +1181,7 @@ def write_promotion_provenance(
             "artifact_name": artifact_name,
             "qualified_name": f"{entity}/{project}/{artifact_name}:latest",
             "digest": source_artifact_digest,
-            # Preserve DVC metadata from publish_model_artifact
+            # Preserve DVC metadata from promote_to_registry
             "model_variant": model_variant,
             "dvc_stage": stage,
             "dvc_experiment": experiment,
@@ -1264,7 +1252,6 @@ def write_promotion_provenance(
 )
 def main(cfg: DictConfig) -> None:
     """Publish a DVC experiment model to W&B Registry."""
-
     model_variant = str(
         OmegaConf.select(
             cfg,

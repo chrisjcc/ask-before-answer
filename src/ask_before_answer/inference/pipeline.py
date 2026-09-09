@@ -8,6 +8,8 @@ to direct answers using vLLM for high-throughput inference.
 import logging
 from typing import List, Optional
 
+import weave
+
 import torch
 from transformers import AutoTokenizer
 
@@ -16,6 +18,7 @@ try:
     from vllm.lora.request import LoRARequest
 except ImportError:
     LLM, SamplingParams, LoRARequest = None, None, None
+
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +77,7 @@ class ClarifyOrActPipeline:
         is_peft: bool = True,
         base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit",
     ) -> None:
+        """Initialize the VLLM inference pipeline."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Loading inference model from {model_path} on {self.device}...")
 
@@ -100,6 +104,7 @@ class ClarifyOrActPipeline:
             skip_special_tokens=True,
         )
 
+    @weave.op()
     def generate(
         self,
         question: str,
@@ -108,6 +113,14 @@ class ClarifyOrActPipeline:
         """Run single-turn inference.
 
         For high-throughput workloads, prefer ``batch_generate``.
+
+        Args:
+            question (str): The user's input query.
+            system_prompt (Optional[str]): A custom system prompt overriding
+               the default.
+
+        Returns:
+            str: The raw generated string from the model.
         """
         return self.batch_generate([question], system_prompt)[0]
 

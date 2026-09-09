@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 SUPPORTED_FINE_TUNE_METHODS = ["sft", "dpo", "orpo", "grpo"]
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Generate a report for a W&B hyperparameter sweep."
@@ -52,7 +52,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_sweep_parameters(sweep):
+def get_sweep_parameters(sweep: wandb.apis.public.Sweep) -> dict:
     """Return the parameters actually optimized by the sweep."""
     config = getattr(sweep, "config", {}) or {}
     parameters = config.get("parameters", {}) or {}
@@ -60,7 +60,7 @@ def get_sweep_parameters(sweep):
     return list(parameters.keys())
 
 
-def get_sweep_metric(sweep):
+def get_sweep_metric(sweep: wandb.apis.public.Sweep) -> dict:
     """Return the sweep objective metric and optimization goal."""
     config = getattr(sweep, "config", {}) or {}
     metric = config.get("metric", {}) or {}
@@ -75,17 +75,18 @@ def get_sweep_metric(sweep):
     return name, goal
 
 
-def format_parameter_name(name):
+def format_parameter_name(name: str) -> str:
     """Convert a W&B parameter name into a readable table heading."""
     return name.replace("_", " ").title()
 
 
-def generate_sweep_report(fine_tune_method, sweep_id):
+def generate_sweep_report(fine_tune_method: str, sweep_id: str) -> None:
     """Generate a Markdown report for a W&B hyperparameter sweep.
 
     Args:
         fine_tune_method: Fine-tuning method associated with the sweep.
         sweep_id: W&B sweep ID.
+
     """
     entity = os.environ.get("WANDB_ENTITY")
     project = os.environ.get("WANDB_PROJECT")

@@ -30,8 +30,8 @@ class GeminiJudge(weave.Scorer):
     model_name: str = "gemini-2.0-flash"
 
     @weave.op()
-    def score(self, target: Any, output: str, question: str = "") -> Dict[str, Any]:
-        """Evaluation scorer that returns scalar metrics."""
+    def score(self, target: object, output: str, question: str = "") -> Dict[str, Any]:
+        """Score the response returning scalar metrics."""
         # Using the existing evaluate_response method internally.
         # Weave passes target, output automatically,
         # but we need to fetch the question.
@@ -123,7 +123,8 @@ _LOCAL_JUDGE_LOCK = threading.Lock()
 _LOCAL_INFERENCE_LOCK = threading.Lock()
 
 
-def get_local_judge(model_id: str):
+def get_local_judge(model_id: str) -> object:
+    """Retrieve or initialize a local LLM judge."""
     with _LOCAL_JUDGE_LOCK:
         if model_id not in _LOCAL_JUDGE_CACHE:
             _LOCAL_JUDGE_CACHE.clear()
@@ -155,7 +156,8 @@ class LocalGemmaJudge(weave.Scorer):
     model_id: str = "google/gemma-4-12b-it"
 
     @weave.op()
-    def score(self, target: Any, output: str, question: str = "") -> Dict[str, Any]:
+    def score(self, target: object, output: str, question: str = "") -> Dict[str, Any]:
+        """Score the output using a local LLM judge."""
         prompt = (
             "You are an expert judge evaluating clarification-seeking "
             "behavior in an AI agent.\\n\\n"

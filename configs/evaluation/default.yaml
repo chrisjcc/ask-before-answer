@@ -1,10 +1,19 @@
-base_model_id: "unsloth/Qwen2.5-7B-Instruct"
+# -----------------------------------------------------------------------------
+# Evaluation Configuration
+# -----------------------------------------------------------------------------
 
-dataset_name: "sewon/ambig_qa"
-split: "validation"
-config_name: "light"
-max_samples: 50
-judge_model: "google/gemma-2-2b-it"
+# --- Dataset & Scoring ---
+dataset_name: "sewon/ambig_qa"                    # Dataset to evaluate against
+split: "validation"                               # Split to evaluate
+config_name: "light"                              # Config or subset of the dataset
+max_samples: 50                                   # Number of samples to evaluate (for speed/testing)
+judge_model: "google/gemma-2-2b-it"               # Local LLM as a Judge model identifier
+
+# --- Base Model Definition ---
+base_model_id: "unsloth/Qwen2.5-7B-Instruct" # Underlying base architecture
+
+# --- Models to Evaluate ---
+# List of all models/adapters to run evaluation sweeps against.
 models_to_evaluate:
   - name: "base"
     path: "${evaluation.base_model_id}"

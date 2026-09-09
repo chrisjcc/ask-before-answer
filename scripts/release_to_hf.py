@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-"""
-Push a verified W&B Registry model artifact to the Hugging Face Hub.
+"""Push a verified W&B Registry model artifact to the Hugging Face Hub.
 
 ARCHITECTURAL ROLE:
 (The Bridge from Weights & Biases to Hugging Face)
@@ -79,7 +78,7 @@ def load_promotion_record(
 ) -> dict[str, Any]:
     """Load and validate the immutable model promotion record.
 
-    The promotion record is produced by publish_model_artifact.py and is the
+    The promotion record is produced by promote_to_registry.py and is the
     deployment source of truth.
 
     Deployment requires:
@@ -96,7 +95,6 @@ def load_promotion_record(
     The production alias is verified separately against artifact_digest before
     deployment proceeds.
     """
-
     promotion_path = Path(cfg.project_dir) / "provenance" / PROMOTION_FILE
 
     if not promotion_path.is_file():
@@ -275,8 +273,8 @@ def resolve_and_verify_artifact(
     Returns:
         artifact: The exact W&B Artifact object.
         artifact_ref: The exact versioned artifact reference.
-    """
 
+    """
     artifact_ref = promotion["registry"]["artifact_ref"]
     expected_digest = promotion["registry"]["digest"]
 
@@ -357,7 +355,6 @@ def verify_production_alias(
     points to the recorded digest, deployment is aborted rather than silently
     deploying a release whose production state has changed.
     """
-
     registry_record = promotion["registry"]
 
     registry_name = str(registry_record["name"])
@@ -446,7 +443,6 @@ def push_datasets(
     api: HfApi,
 ) -> None:
     """Push SFT and DPO datasets to the Hugging Face dataset repository."""
-
     dataset_repo = cfg.deployment.dataset_repo
     data_dir = Path(cfg.data_dir)
 
@@ -641,7 +637,6 @@ def generate_model_card(
     promotion: dict[str, Any],
 ) -> str:
     """Generate the Hugging Face model card from the promotion record."""
-
     dataset_repo = cfg.deployment.dataset_repo
     model_repo = cfg.deployment.model_repo
 
@@ -845,17 +840,17 @@ The local DVC training artifact is treated as immutable during deployment.
 def push_model(
     cfg: DictConfig,
     api: HfApi,
-    artifact: Any,
-    promotion: dict[str, Any],
+    artifact: wandb.apis.public.Artifact,
+    promotion: dict[str, object],
 ) -> None:
     """Download the promoted W&B artifact and publish it to Hugging Face.
+
     The artifact is downloaded into a temporary staging directory.
 
     README.md is added only to that temporary staging directory.
 
     The DVC training artifact and W&B artifact are never modified.
     """
-
     model_repo = cfg.deployment.model_repo
 
     logger.info(

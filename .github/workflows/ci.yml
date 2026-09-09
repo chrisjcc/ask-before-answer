@@ -43,6 +43,10 @@ jobs:
         run: |
           isort --check-only src scripts tests app
 
+      - name: Lint YAML with yamllint
+        run: |
+          yamllint .
+
       - name: Run tests
         env:
           USE_TF: "0"

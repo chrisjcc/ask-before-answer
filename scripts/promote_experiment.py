@@ -16,10 +16,10 @@ The promotion process:
 10. Commit only the intended params.yaml change.
 
 Example:
-
     python scripts/promote_experiment.py \
         --model sft \
         --experiment sweep_epl5w24i
+
 """
 
 from __future__ import annotations
@@ -200,7 +200,7 @@ def create_yaml() -> YAML:
     return yaml
 
 
-def load_yaml(text: str) -> Any:
+def load_yaml(text: str) -> dict:
     """Load YAML using ruamel.yaml round-trip mode."""
     yaml = create_yaml()
     return yaml.load(text)
@@ -217,10 +217,10 @@ def load_params() -> tuple[YAML, Any]:
 
 
 def get_stage_metadata(
-    experiment_lock: Any,
+    experiment_lock: dict,
     stage_name: str,
     expected_output: str,
-) -> Any:
+) -> dict:
     """Return a DVC stage after validating its expected output."""
     if not isinstance(experiment_lock, dict):
         raise RuntimeError("Experiment dvc.lock does not contain a valid mapping.")
@@ -254,9 +254,9 @@ def get_stage_metadata(
 
 
 def get_output_metadata(
-    stage: Any,
+    stage: dict,
     expected_output: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Return metadata for a specific DVC output."""
     for entry in stage.get("outs", []):
         if not isinstance(entry, dict):
@@ -269,9 +269,9 @@ def get_output_metadata(
 
 
 def extract_stage_parameter(
-    stage: Any,
+    stage: dict,
     param_key: str,
-) -> Any:
+) -> object:
     """Extract a parameter value recorded by DVC for a stage."""
     params = stage.get("params", {})
     params_file = params.get("params.yaml", {})
@@ -285,10 +285,10 @@ def extract_stage_parameter(
 
 
 def get_nested_parameter(
-    data: Any,
+    data: dict,
     path: tuple[str, ...],
     parameter_name: str,
-) -> Any:
+) -> object:
     """Read a nested parameter from params.yaml."""
     current = data
 
@@ -310,10 +310,10 @@ def get_nested_parameter(
 
 
 def update_nested_parameter(
-    data: Any,
+    data: dict,
     path: tuple[str, ...],
     parameter_name: str,
-    value: Any,
+    value: object,
 ) -> None:
     """Update a nested YAML parameter without replacing its parent mapping."""
     current = data
@@ -335,7 +335,7 @@ def update_nested_parameter(
     current[parameter_name] = value
 
 
-def write_params(yaml: YAML, data: Any) -> None:
+def write_params(yaml: YAML, data: dict) -> None:
     """Write params.yaml using ruamel.yaml round-trip serialization."""
     with PARAMS_FILE.open("w", encoding="utf-8") as handle:
         yaml.dump(data, handle)
@@ -344,7 +344,7 @@ def write_params(yaml: YAML, data: Any) -> None:
 def verify_promoted_parameter(
     path: tuple[str, ...],
     parameter_name: str,
-    expected_value: Any,
+    expected_value: object,
 ) -> None:
     """Verify params.yaml contains the promoted value."""
     _, params = load_params()

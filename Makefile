@@ -231,7 +231,7 @@ ablation-suite:
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
-	python scripts/generate_report.py
+	python scripts/generate_ablation_report.py
 	@echo "Saving DVC experiment..."
 	dvc exp save -n ablation_suite
 
@@ -291,7 +291,7 @@ publish-model-artifact:
 	@echo "Experiment:  $(EXPERIMENT)"
 	@echo "Stage:       $(STAGE)"
 	@echo "=========================================================="
-	@python scripts/publish_model_artifact.py \
+	@python scripts/promote_to_registry.py \
 		publication_model="$(MODEL)" \
 		experiment="$(EXPERIMENT)" \
 		stage="$(STAGE)"
@@ -428,7 +428,7 @@ publish-hf-release:
 	@RELEASE_TAG=$$(git describe --tags --abbrev=0) && \
 	echo "Detected latest release tag: $$RELEASE_TAG" && \
 	echo "Using W&B promotion provenance: $(PROVENANCE_FILE)" && \
-	python scripts/push_to_hub.py \
+	python scripts/release_to_hf.py \
 		deployment.release_tag="$$RELEASE_TAG"
 	@echo "=========================================================="
 	@echo "Hugging Face deployment complete."
