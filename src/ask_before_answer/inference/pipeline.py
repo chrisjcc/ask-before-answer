@@ -22,15 +22,23 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================================
-# vLLM Singleton Engine
+# EMERGENCY HOTFIX: Patch missing BloomPreTrainedModel for Transformers 4.57+
 # =====================================================================
 
-_VLLM_ENGINE = None
+if not hasattr(transformers, "BloomPreTrainedModel"):
 
     class MockBloom:
         """Mock BloomPreTrainedModel for PEFT compatibility."""
 
         pass
+
+    transformers.BloomPreTrainedModel = MockBloom
+
+# =====================================================================
+# vLLM Singleton Engine
+# =====================================================================
+
+_VLLM_ENGINE = None
 
 def get_vllm_engine(base_model_id: str):
     """Initialize the vLLM engine exactly once to save VRAM overhead."""
