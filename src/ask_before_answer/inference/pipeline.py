@@ -19,7 +19,6 @@ except ImportError:
     LLM, SamplingParams, LoRARequest = None, None, None
 
 
-
 logger = logging.getLogger(__name__)
 
 
