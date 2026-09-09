@@ -1,0 +1,21 @@
+---
+extends: default
+
+ignore:
+  - "dvc.yaml"
+
+rules:
+  line-length: disable  # Often configs have long URLs or descriptions
+  comments-indentation: disable
+  comments:
+    require-starting-space: true
+    min-spaces-from-content: 1
+  document-start: disable
+  truthy:
+    allowed-values:
+      - "true"
+      - "false"
+      - "True"
+      - "False"
+      - "on"
+      - "off"

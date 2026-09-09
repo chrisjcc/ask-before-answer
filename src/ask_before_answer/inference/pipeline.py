@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 _VLLM_ENGINE = None
 
+    class MockBloom:
+        """Mock BloomPreTrainedModel for PEFT compatibility."""
+
+        pass
 
 def get_vllm_engine(base_model_id: str):
     """Initialize the vLLM engine exactly once to save VRAM overhead."""
@@ -74,6 +78,7 @@ class ClarifyOrActPipeline:
         is_peft: bool = True,
         base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit",
     ) -> None:
+        """Initialize the VLLM inference pipeline."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Loading inference model from {model_path} on {self.device}...")
 
@@ -107,7 +112,9 @@ class ClarifyOrActPipeline:
     ) -> str:
         """Run single-turn inference.
 
-        For high-throughput workloads, prefer ``batch_generate``.
+        Returns:
+            str: The raw generated string from the model.
+
         """
         return self.batch_generate([question], system_prompt)[0]
 

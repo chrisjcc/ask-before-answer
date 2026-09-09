@@ -7,7 +7,6 @@
 When a question is ambiguous ("How do I make pasta?"), multiple valid interpretations exist. This project trains an LLM to surface *which* interpretation a user intends by generating **facets** — structured disambiguation options — and asking targeted clarification questions before answering.
 
 ## 🚀 Overview & Motivation
-
 Open-domain question answering models often hallucinate or guess the user's intent when faced with ambiguous queries. **AskBeforeAnswer** addresses this by aligning the model to a clarification-first behavior using a two-stage training pipeline (Supervised Fine-Tuning followed by Direct Preference Optimization).
 
 This repository has been restructured into a modular, highly maintainable Python codebase suitable for:
@@ -17,10 +16,15 @@ This repository has been restructured into a modular, highly maintainable Python
 
 > **Architecture Note:** At the core of the inference framework lies the `ClarifyOrActPipeline`. This module is designed to autonomously parse user queries and route them using a dual-action mechanism: if the query is ambiguous, it returns an `Action: Clarify` schema with facets and a targeted question; if the query is clear, it routes to `Action: Answer` and answers directly.
 
+## 📚 Comprehensive Documentation
+
+The complete end-to-end lifecycle of this project—from synthetic data generation and hyperparameter sweeps to W&B model promotion and HF Space deployment—is thoroughly documented in the `docs/` directory.
+
+👉 **[Start here: Documentation Overview (9-Phase Architecture)](docs/README.md)**
+
 ---
 
 ## 🌐 Hugging Face Artifacts
-
 You can explore the deployed final model, the dataset, and interact with the UI demo on Hugging Face:
 - **🤗 Space Demo:** [AskBeforeAnswer Demo](https://huggingface.co/spaces/chrisjcc/ask-before-answer-demo)
 - **🤗 Model Card:** [AskBeforeAnswer Qwen Model](https://huggingface.co/chrisjcc/ask-before-answer)
@@ -29,7 +33,6 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 ---
 
 ## 💻 System Requirements
-
 **Software:**
 - Python: `3.10` recommended (>= 3.9 supported)
 - OS: Linux (Ubuntu 20.04/22.04 recommended) or macOS (for limited CPU-only inference)
@@ -40,28 +43,22 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 - **Inference (GPU):** 1x NVIDIA T4/L4/RTX 3060 (minimum 8-12GB VRAM using 4-bit/8-bit precision).
 - **Inference (CPU):** Possible via `bitsandbytes` or `llama.cpp` quantization, but significantly slower. Not recommended for production.
 
-**Hardware Acceleration Stack:**
-To prevent OOM errors and maximize throughput during SFT, DPO, and GRPO training, this project supports a fully integrated acceleration stack combining **Flash Attention**, **xFormers**, and **Unsloth**. 
-For a detailed breakdown of how these technologies interact and optimize memory, please read our [Hardware Acceleration Stack Documentation](docs/acceleration_stack.md).
+*For details on our Unsloth and FlashAttention hardware acceleration stack, see [Model Training](docs/03_model_training.md).*
 
 ---
 
 ## 🛠️ Installation
-
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/chrisjcc/ask-before-answer.git
    cd ask-before-answer
    ```
-
 2. **Setup virtual environment & install dependencies:**
    ```bash
    make install
    make install-dvc  # Recommended: Installs DVC globally via uv or pipx
    ```
-
 3. **Configure Environment Variables:**
-   Copy the example config and add your keys:
    ```bash
    cp .env.example .env
    # Edit .env with your HF_TOKEN, GEMINI_API_KEY, WANDB_ENTITY, and WANDB_PROJECT
@@ -69,159 +66,48 @@ For a detailed breakdown of how these technologies interact and optimize memory,
 
 ---
 
-## 🔬 Training Workflow & Ablation Studies
+## 🔬 Quick Start: Training & Evaluation
 
-The training pipeline is modular and configured via [Hydra](https://hydra.cc/). It supports full ablation testing to measure the impact of different training stages.
+The training pipeline is modular, configured via [Hydra](https://hydra.cc/), and versioned via **DVC**. 
 
-### 1. Data Preprocessing & LLM Synthetic Generation
-Prepares the AmbigNQ dataset for SFT and DPO stages. The pipeline features a built-in LLM Synthetic Generation engine (configurable in `configs/data/ambignq.yaml`) that dynamically prompts a lightweight instructor model (e.g., `unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit`) to generate rich `Reasoning`, missing `Facets`, and contrastive pairs (`chosen` vs `rejected`) for DPO training.
-
-**Rigorous Data Curation Strategy:**
-To prevent catastrophic "mode collapse" (where an SFT model simply learns to always answer and forgets how to clarify), the preprocessing pipeline enforces strict data curation techniques inspired by robust alignment research:
-- **Strict Row Filtering:** Discards generated rows where the synthetic LLM hallucinated conflicting labels (e.g., classifying a question as an "Answer" while simultaneously generating disambiguating facets).
-- **Class Balancing:** Dynamically undersamples the majority class to guarantee a perfect 50/50 split between `Clarify` and `Answer` actions, ensuring the SFT model learns a balanced policy.
-- **Generative Hard Negatives (DPO):** Replaces trivial rejected responses with logically flawed but highly plausible synthetic Hard Negatives. Instead of blindly string-flipping the action, the local SyntheticGenerator is dynamically prompted to explicitly hallucinate an incorrect reasoning chain (e.g., confidently arguing that a clear question is actually ambiguous). This robust contrastive data forces the DPO algorithm to genuinely learn semantic ambiguity rather than exploiting simple reasoning shortcuts or formatting artifacts.
-
+### 1. Data Preprocessing
+Prepares the AmbigNQ dataset for SFT and DPO stages. 
 ```bash
-python scripts/preprocess_data.py
+make preprocess
 ```
+*For a detailed breakdown of our strict curation and contrastive negative synthesis, see [Data Preprocessing](docs/02_data_preprocessing.md).*
 
 ### 2. Full Pipeline (via DVC)
 Run the complete automated pipeline (Data -> SFT -> SFT Eval -> DPO -> SFT+DPO Eval) using Data Version Control (DVC):
 ```bash
 make run-pipeline
-# Alternatively, use: dvc repro
 ```
 
-### Running Individual Stages
+### 3. Individual Training Stages
 - **Supervised Fine-Tuning (SFT):** `make train-sft`
-  - *Optimization:* Standard Cross-Entropy Loss (learning to imitate the exact tokens of the ground-truth formatting).
 - **Direct Preference Optimization (DPO):** `make train-dpo`
-  - *Optimization:* Bradley-Terry preference margin (increasing the log probability of the "chosen" response while decreasing the log probability of the "rejected" response).
 - **Odds Ratio Preference Optimization (ORPO):** `make train-orpo`
-  - *Optimization:* Combines instruction tuning and preference alignment into a single objective. It uses an odds ratio penalty to suppress the generation of rejected paths without needing a frozen reference model in memory.
 - **Group Relative Policy Optimization (GRPO):** `make train-grpo`
-  - *Optimization:* A reinforcement learning algorithm that serves as a Stage 2 optimizer. It warm-starts from the Stage 1 SFT model (inheriting perfect structural formatting) and uses Python-based deterministic reward functions to optimize factual accuracy and action logic relative to the group average.
-By default, models and checkpoints are saved to `models/sft/`, `models/dpo/`, `models/orpo/`, and `models/grpo/`.
 
-### 🏆 GRPO Reward Shaping
-GRPO relies entirely on its reward functions to shape the model's behavior. We utilize four distinct reward functions to holistically enforce both formatting and factual accuracy:
-1. **`format_reward_func`**: Enforces strict structural adherence. The model receives a positive reward only if it outputs all required syntax headers (`Action:`, `Reasoning:`, `Facets:`, `Response:`).
-2. **`action_reward_func`**: Penalizes the model for choosing the wrong path (e.g. trying to answer an ambiguous question, or clarifying a clear question) by checking the predicted action against the dataset ground-truth.
-3. **`facet_logic_reward_func`**: Enforces logical consistency. If the action is `Clarify`, the facets list *must* be non-empty. If the action is `Answer`, the facets list *must* be empty.
-4. **`accuracy_reward_func`**: The most critical reward for mitigating hallucination. For direct answers, it calculates a Token F1 overlap between the model's generated response and the factual ground-truth answer. It heavily rewards exact factual retrieval while severely penalizing hallucinations, solving the "reward hacking" problem where a model learns perfect formatting but generates factually incorrect text.
+*For advanced information on GRPO reward shaping or emergency checkpoint recovery, see [Model Training](docs/03_model_training.md).*
 
-> [!TIP]
-> **Configurable Reward Shaping:** All proportionality weights and penalties for these four reward functions are fully decoupled from the source code. You can easily adjust them or run automated W&B Hyperparameter Sweeps by modifying the `reward_weights:` block inside `configs/training/grpo.yaml`.
-
-### 🛠️ Emergency Recovery (Resuming Checkpoints)
-If your remote server crashes midway through a training run, you can resume from the latest Hugging Face checkpoint. 
-**Do NOT edit your `.yaml` configs to set `resume_from_checkpoint: true`.** Because DVC strictly tracks the YAML configs, modifying them will permanently alter the file hash and pollute your Git history with an "emergency recovery" flag, causing future runs on new datasets to fail.
-
-Instead, utilize Hydra's dynamic CLI override to bypass DVC temporarily and finish the job:
-1. Run the script directly from the terminal, injecting the override dynamically:
-   ```bash
-   CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py training.resume_from_checkpoint=true
-   ```
-2. Once the script successfully finishes and generates the `models/sft/final` folder, tell DVC to manually hash the outputs and mark the stage as complete:
-   ```bash
-   dvc commit train-sft
-   ```
-
-### Orchestrating Sweeps (W&B + DVC)
-This project leverages **Weights & Biases Sweeps** to orchestrate Bayesian hyperparameter optimization, and **DVC** to track the reproducibility and caching of those trials.
-
-To launch a sweep optimizing hyperparameters for a specific stage:
+### 4. Hyperparameter Sweeps
+This project leverages **Weights & Biases Sweeps** to orchestrate Bayesian hyperparameter optimization.
 ```bash
-# 1. Initialize the sweep for the stage you want (this will return a SWEEP_ID)
 make sweep-sft
-# or
-make sweep-dpo
-
-# 2. Start the sweep agent
 wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10
-```
-The agent script (`scripts/run_sweep_trial.py`) will automatically fetch the hyperparameters from W&B, update the local Hydra configuration, and invoke `dvc exp run` to securely version and execute the pipeline trial.
-
-### Generating Reports & Applying Best Configurations
-Once your sweeps have completed, you can automatically synthesize a report ranking all your trials:
-```bash
 make ablation-suite
 ```
-This command triggers a script that pulls the W&B API and generates `docs/ablation_report.md` along with learning curve plots. 
+*For comprehensive instructions on how sweeps are orchestrated, validated, and applied using our human-in-the-loop architecture, see [Hyperparameter Sweeps](docs/05_hyperparameter_sweeps.md) and the [Ablation Study](docs/06_ablation_study.md).*
 
-**Applying the Best Configuration Automatically:**
-Because DVC tracked the exact YAML config state for every single sweep trial, you do not need to manually copy-paste the winning hyper-parameters!
-1. Check the generated `ablation_report.md` for the W&B **Run ID** of the best performing trial (e.g., `5cxs95q7`).
-2. Run the following command to instantly revert your local YAML configuration files to that exact optimal state:
-```bash
-dvc exp apply sweep_<Run ID>
-```
-3. `git commit` the newly updated config files as your new defaults!
-
-
-
-## 📊 Observability & Systematic Evaluation (W&B Weave)
-
-This project integrates tightly with **Weights & Biases Weave** to provide comprehensive LLM observability, trace logging, and systematic evaluation pipelines. 
-
-> 🚀 **High-Throughput Evaluation:** The evaluation script integrates `vLLM` PagedAttention and offline batching to dramatically accelerate inference and LLM-as-a-judge scoring via Weave. For deep technical details on how the offline batching strategy works, please read the [Evaluation Pipeline Documentation](docs/evaluation_pipeline.md). 
-
-### LLM Tracing
-The production Streamlit app (`app/app.py`) automatically logs all user interactions, prompts, and model generations to the Weave dashboard, enabling you to inspect exact input/output traces in real-time.
-
-### Dynamic Leaderboards, LLM-as-a-Judge, & Rule-Based Scoring
-The automated evaluation pipeline (`scripts/evaluate.py`) uses a dual-scoring approach to systematically evaluate all model configurations against the test dataset:
-
-**1. LLM-as-a-Judge (Gemini 2.5 Flash / Gemma 4):**
-Evaluates the subjective nuance and quality of the response:
-- Ambiguity Detection F1
-- Clarification Quality F1
-- Clarification Usefulness
-
-**2. Rule-Based Programmatic Scoring (`ActionScorer`):**
-Evaluates the deterministic structural accuracy of the agent's chosen action:
-- Model Accuracy (Raw percentage of correct `Action` choices—Clarify vs. Answer—compared to the ground-truth labels).
-
-To run the full suite and generate a dynamic leaderboard:
+### 5. Systematic Evaluation
+The automated evaluation pipeline uses a dual-scoring approach (LLM-as-a-judge & rule-based scoring).
 ```bash
 make evaluate
 ```
-1. The script automatically fetches the `sewon/ambig_qa` test dataset and publishes it to Weave (`weave.Dataset`).
-2. It iteratively instantiates each configured post-trained model (`base`, `sft_only`, `dpo_only`, `sft`, `dpo`) wrapped in a `weave.Model` and runs a `weave.Evaluation` against the dataset.
-3. The results are logged directly to a centralized **Weave Dynamic Leaderboard** where you can compare model outputs, view judge justifications side-by-side, and save custom UI filters.
-4. The metrics are automatically exported to `results/weave_eval_summary.json` so they can be seamlessly injected into the Markdown ablation report!
+*For a deep dive into the 6 distinct model variants and our final leaderboard, see [Evaluation & Analysis](docs/04_evaluation_analysis.md).*
 
-### 📏 Evaluation Metrics Breakdown
-
-To fully capture the nuances of the "clarify-or-act" problem, AskBeforeAnswer tracks multiple distinct metrics across both classes (`Clarify` and `Answer`) to expose model biases, such as over-clarification or answer-hallucination:
-
-1. **Action Accuracy (Macro Accuracy)**: The overall percentage of times the model correctly predicts the target action (`Clarify` vs `Answer`). 
-2. **Clarify Detection (Precision/Recall/F1)**: Treats "Clarify" as the positive class. Evaluates if the model correctly identified ambiguous questions (Recall) without hallucinating ambiguity where there was none (Precision).
-3. **Clarify F1 (Class 1 F1)**: The harmonic mean of Clarify Precision and Clarify Recall. Penalizes the model for missing ambiguous questions or asking unnecessary questions.
-4. **Action F1 (Answer Class)**: Evaluates policy action selection rather than text quality. Treats "Answer" as the positive class. Penalizes the model for refusing to answer a straightforward question (False Negatives) or for confidently answering a question that it should have clarified (False Positives).
-5. **Macro F1**: The unweighted mathematical average of Clarify F1 and Action F1 (Answer Class). This is the ultimate balanced metric to prevent a model from scoring high simply by defaulting to the majority class.
-6. **Answer Accuracy**: Evaluated *only* on ground-truth `Answer` cases. It measures whether the model's generated answer semantically matches the target answer using a fuzzy token-matching algorithm (`difflib.SequenceMatcher`).
-7. **Clarify Ratio**: The total number of predicted `Clarify` actions divided by the total number of ground-truth `Clarify` actions. A ratio > 1.0 indicates a bias toward over-clarifying. A ratio < 1.0 indicates a bias toward under-clarifying.
-8. **Facet Generation Rate**: The percentage of predicted `Clarify` actions that successfully included a non-empty list of extracted facets. This ensures that when the model asks for clarification, it explicitly grounds its request in identified missing information, rather than asking a generic "What do you mean?" question.
-
-### Internal Model Registry (Lifecycle Management)
-While Hugging Face Hub is used for public distribution, this project leverages the **W&B Model Registry** for internal lifecycle management (`AskBeforeAnswer-Models` portfolio).
-During evaluation (`make evaluate`), every model (`sft_only`, `sft_dpo`, etc.) is:
-1. Published as a formal `weave.Model` object.
-2. Logged as a `wandb.Artifact` directly into the central Model Registry.
-3. Automatically linked so you can instantly trace any registered checkpoint back to its private Weave evaluation dashboard!
-
-### Public Deployment (Hugging Face Hub)
-We use the W&B Model Registry as our single source of truth for public deployments!
-1. Review your `docs/ablation_report.md` or Weave Leaderboard to see which model variant won the suite.
-2. Go to your W&B project's Artifacts tab, click the `AskBeforeAnswer-Models` portfolio collection, and add the `production` alias to the winning model version (e.g., `v2`).
-3. Run the deployment script from your server:
-```bash
-make deploy-hf
-```
-This script dynamically asks W&B which model has the `production` tag, maps it to your local disk, injects the Weave Leaderboard into a dynamic Hugging Face Model Card, and pushes the final weights directly to the public Hub!
-
+> 🚀 **High-Throughput Evaluation:** The evaluation script integrates `vLLM` PagedAttention and offline batching to dramatically accelerate inference and LLM-as-a-judge scoring via Weave. For deep technical details on how the offline batching strategy works, please read the [Evaluation Pipeline Documentation](docs/evaluation_pipeline.md). 
 ---
 
 ## 💬 Inference & UI
@@ -230,7 +116,6 @@ This script dynamically asks W&B which model has the `production` tag, maps it t
 Run interactive inference in the terminal:
 ```bash
 make infer
-# Or specify a model: python scripts/infer.py model_name=sft_dpo
 ```
 
 ### Streamlit Web App
@@ -238,42 +123,14 @@ Launch a local Hugging Face Spaces-compatible Streamlit UI:
 ```bash
 make run-app
 ```
-*(Note: When loading the default `AskBeforeAnswer (SFT+DPO)` adapter in the UI, the pipeline is hardcoded to automatically pull `unsloth/qwen2.5-7b-instruct` as the underlying base model for memory efficiency and PEFT compatibility).*
 
 ### Docker Deployment
-You can easily pull the pre-compiled, multi-architecture Docker image directly from the GitHub Container Registry (GHCR) and run it locally. 
-
-**Option 1: Using a local `.env` file (Recommended)**
-If you have a `.env` file in your directory configured with `WANDB_API_KEY`, `WANDB_ENTITY`, and `WANDB_PROJECT`, you can inject it into the Docker container using the `--env-file` flag so the app can enable Weave tracing locally:
+Pull the pre-compiled Docker image directly from the GitHub Container Registry (GHCR):
 ```bash
 docker pull ghcr.io/chrisjcc/ask-before-answer:latest
 docker run --env-file .env -p 8501:8501 ghcr.io/chrisjcc/ask-before-answer:latest
 ```
-
-**Option 2: Using Inline Environment Variables**
-Alternatively, if you don't want to create a `.env` file, you can pass the secret directly in the terminal using the `-e` flag:
-```bash
-docker pull ghcr.io/chrisjcc/ask-before-answer:latest
-docker run -e WANDB_API_KEY="your_api_key_here" -p 8501:8501 ghcr.io/chrisjcc/ask-before-answer:latest
-```
-
-*(Note: If you run the container without passing a W&B API key, the app will gracefully disable telemetry and run 100% offline).*
-
----
-
-## 🗂️ Data Version Control (DVC) Integration
-
-This project uses **DVC (Data Version Control)** to manage large datasets, model checkpoints, and orchestrated training pipelines alongside Git. 
-
-### Key Features Used:
-1. **Tracking Large Datasets & Artifacts:**
-   Large files in `data/` and `models/` are tracked via DVC. This prevents your Git repository from becoming bloated while still allowing you to version the `.dvc` tracking files.
-2. **Managing Model Checkpoints:**
-   LoRA weights generated in `models/sft` and `models/dpo` are managed by DVC. You can use `dvc checkout` to revert to previous model weights perfectly synced with your Git commits.
-3. **Pipeline Reproducibility (`dvc.yaml`):**
-   The entire training pipeline (data preprocessing, SFT, DPO, and evaluation) is defined declaratively in `dvc.yaml` as a Directed Acyclic Graph (DAG). DVC automatically detects dependency changes (e.g., if you edit `configs/training/sft.yaml`) and intelligently re-runs only the required stages, skipping unchanged ones.
-4. **Metrics Tracking:**
-   Evaluation results generated in `results/` are configured as DVC metrics. You can compare how changes affect your model's F1 scores across branches using `dvc metrics diff`.
+*For instructions on how the Streamlit demo is automatically deployed to Hugging Face, see [Demo Deployment](docs/09_demo_deployment.md).*
 
 ---
 
@@ -284,19 +141,14 @@ ask-before-answer/
 ├── app/                  # Streamlit Hugging Face Space UI
 ├── configs/              # Hydra YAML configurations (model, data, training)
 ├── data/                 # Processed dataset files (ignored in git)
-├── docs/                 # Auto-generated markdown reports and analysis
+├── docs/                 # Comprehensive 9-phase lifecycle documentation
 ├── models/               # Model checkpoints (ignored in git)
 ├── scripts/              # Executable CLI entry points (e.g., train_sft.py, evaluate.py)
 ├── src/                  # Core Python modules
 │   ├── data/             # Preprocessing logic
-│   │   └── preprocess.py # Data curation, synthetic generation, and DPO pairing
 │   ├── evaluation/       # Evaluation logic
-│   │   ├── judge.py      # Stochastic, LLM-as-a-judge scorers (GeminiJudge)
-│   │   └── metrics.py    # Deterministic, rule/regex-based scorers (ActionScorer)
 │   ├── inference/        # Generation pipeline
-│   │   └── pipeline.py   # HuggingFace pipeline wrappers for clarify-or-act routing
 │   └── training/         # Training orchestrators
-│       └── trainer.py    # SFT, DPO, and GRPO training logic and reward functions
 ├── sweeps/               # W&B sweep orchestration configurations
 ├── tests/                # Pytest unit tests
 ├── .env.example          # Environment secrets template

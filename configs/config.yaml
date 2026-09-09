@@ -1,3 +1,10 @@
+# @package _global_
+# -----------------------------------------------------------------------------
+# Ask Before Answer - Global Configuration
+# -----------------------------------------------------------------------------
+# This file serves as the root Hydra configuration for the project.
+# It composes all sub-configurations and defines global parameters.
+
 defaults:
   - model: qwen2_5_7b
   - data: ambignq
@@ -6,24 +13,27 @@ defaults:
   - deployment: hf
   - _self_
 
-seed: 42
-model_name: "sft"
-output_dir: "outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+# --- Global Settings ---
+seed: 42                                                  # Global random seed for reproducibility
+model_name: "sft"                                         # Base identifier for the current run
+output_dir: "outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}"     # Dynamic output directory based on runtime
 
-publication_model: null
-experiment: null
-stage: null
+# --- Experiment Metadata ---
+publication_model: null                                   # Target publication model (e.g. gemma, qwen)
+experiment: null                                          # Specific experiment tracking name
+stage: null                                               # Stage of the pipeline (e.g., train, eval)
 
-# Global paths
-project_dir: ${hydra:runtime.cwd}
-data_dir: "${project_dir}/data"
-models_dir: "${project_dir}/models"
+# --- Path Configurations ---
+project_dir: ${hydra:runtime.cwd}                         # Root directory of the project
+data_dir: "${project_dir}/data"                           # Data storage location
+models_dir: "${project_dir}/models"                       # Saved models storage location
 
-# Weights & Biases Configuration
+# --- Weights & Biases Configuration ---
+# Configures the W&B logging and model registry connections.
 wandb:
-  project: ${oc.env:WANDB_PROJECT,ask-before-answer}
-  entity: ${oc.env:WANDB_ENTITY,rl4aa}
-  registry_entity: ${oc.env:WANDB_REGISTRY_ENTITY,rl4aa-org}
-  registry_name: Model
-  registry_collection: "AskBeforeAnswer-${publication_model}"
-  registry_alias: production
+  project: ${oc.env:WANDB_PROJECT,ask-before-answer}      # Main project name
+  entity: ${oc.env:WANDB_ENTITY,rl4aa}                    # Organization/User entity
+  registry_entity: ${oc.env:WANDB_REGISTRY_ENTITY,rl4aa-org}  # Entity for Model Registry
+  registry_name: Model                                    # Type of registry
+  registry_collection: "AskBeforeAnswer-${publication_model}" # Target collection name
+  registry_alias: production                              # Alias for pushing/pulling models

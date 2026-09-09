@@ -1,16 +1,30 @@
-output_dir: ${models_dir}/orpo
-per_device_train_batch_size: 1
-gradient_accumulation_steps: 8
-num_train_epochs: 1
-learning_rate: 5e-6
-warmup_ratio: 0.1
-bf16: true
-logging_steps: 10
-save_steps: 200
-save_total_limit: 2
-optim: adamw_torch
-report_to: wandb
-remove_unused_columns: false
-max_prompt_length: 1024
-max_length: 2048
-beta: 0.1
+# -----------------------------------------------------------------------------
+# ORPO (Odds Ratio Preference Optimization) Configuration
+# -----------------------------------------------------------------------------
+# Configuration for reference-free alignment using ORPO.
+
+# --- Global & Paths ---
+output_dir: ${models_dir}/orpo            # Directory to save model checkpoints
+
+# --- Batching & Steps ---
+per_device_train_batch_size: 1            # Batch size per GPU
+gradient_accumulation_steps: 8            # Number of steps to accumulate gradients
+num_train_epochs: 1                       # Total number of training epochs
+
+# --- Optimization & Loss ---
+learning_rate: 5e-6                       # Initial learning rate
+warmup_ratio: 0.1                         # Proportion of steps for learning rate warmup
+optim: adamw_torch                        # Optimizer type
+bf16: true                                # Use bfloat16 precision
+beta: 0.1                                 # Penalty coefficient for ORPO loss
+
+# --- Logging & Saving ---
+logging_steps: 10                         # How often to log training metrics
+save_steps: 200                           # How often to save a checkpoint
+save_total_limit: 2                       # Maximum number of checkpoints to keep
+report_to: wandb                          # Integration to report metrics to
+
+# --- Sequence & Data ---
+remove_unused_columns: false              # Whether to remove unused columns from the dataset
+max_prompt_length: 1024                   # Maximum length of the prompt sequence
+max_length: 2048                          # Maximum total sequence length

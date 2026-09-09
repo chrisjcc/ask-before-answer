@@ -1,32 +1,31 @@
-model_repo: "chrisjcc/ask-before-answer"
+# -----------------------------------------------------------------------------
+# HuggingFace Deployment Configuration
+# -----------------------------------------------------------------------------
+# Configuration for releasing models and datasets to the HuggingFace Hub.
 
+# --- HuggingFace Repositories ---
+model_repo: "chrisjcc/ask-before-answer"
 dataset_repo: "chrisjcc/ask-before-answer-dataset"
 
+# --- Release Metadata ---
 # Optional GitHub Release tag to link in the Model/Dataset cards.
 release_tag: "v0.1.3"
 
-# W&B Model Registry configuration.
+# --- W&B Model Registry Settings ---
 registry_name: "Model"
 registry_collection: "AskBeforeAnswer-Models"
 registry_alias: "production"
 
+# --- Provenance & Verification ---
 # Promotion provenance produced by scripts/promote_model.py.
 promotion_provenance: "provenance/model_promotion.json"
 
-# Verify that the mutable production alias still points to the exact
-# artifact approved by the promotion record.
-# When enabled, deployment verifies that the mutable production alias still
-# points to the exact same W&B artifact digest as verified_artifact_ref.
-#
-# If production has moved since verification, deployment fails rather than
-# publishing a different model.
-# verify_production_alias: true
-
 # Exact immutable W&B artifact that was verified and approved for deployment.
-#
-# This is populated by the promotion workflow and consumed by push_to_hub.py.
+# This is populated by the promotion workflow and consumed by release_to_hf.py.
 verified_artifact_ref: ""
 
 # When enabled, deployment verifies that the mutable production alias still
 # points to the exact same W&B artifact digest as verified_artifact_ref.
+# If production has moved since verification, deployment fails rather than
+# publishing a different model.
 verify_production_alias: true
