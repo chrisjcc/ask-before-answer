@@ -227,7 +227,7 @@ train-grpo:
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train-sft train-dpo train-dpo-only train-orpo train-grpo
+	dvc repro train-sft train-sft-only train-dpo train-dpo-only train-orpo train-grpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
