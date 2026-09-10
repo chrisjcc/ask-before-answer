@@ -322,11 +322,13 @@ def main() -> None:
 
     run_name = f"sweep_{run_id}"
 
+    dvc_stage = stage.replace("_", "-")
+
     cmd = [
         "dvc",
         "exp",
         "run",
-        stage,
+        dvc_stage,
         "-n",
         run_name,
         *dvc_param_overrides,
