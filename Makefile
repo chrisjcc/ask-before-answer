@@ -370,7 +370,7 @@ sweep:
 	@echo "Project:          $(WANDB_PROJECT)"
 	@echo "Trial count:      $(COUNT)"
 	@echo "=========================================================="
-	@OUTPUT=$$(wandb sweep sweeps/$(FINE_TUNE_METHOD).yaml 2>&1) || { \
+	@OUTPUT=$$(python -m wandb sweep sweeps/$(FINE_TUNE_METHOD).yaml 2>&1) || { \
 		echo "$$OUTPUT"; \
 		echo "ERROR: Failed to create W&B sweep."; \
 		exit 1; \
@@ -383,7 +383,7 @@ sweep:
 	fi; \
 	echo "Parsed Sweep ID: $$SWEEP_ID"; \
 	echo "Starting W&B sweep agent..."; \
-	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT) || { \
+	python -m wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT) || { \
 		echo "ERROR: W&B sweep agent failed."; \
 		exit 1; \
 	}; \
