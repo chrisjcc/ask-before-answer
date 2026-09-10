@@ -19,8 +19,6 @@ models_to_evaluate:
   - name: "base"
     path: "${evaluation.base_model_id}"
     is_peft: false
-
-    is_peft: true
   - name: "dpo_only"
     path: "models/dpo_only/final"
     is_peft: true
