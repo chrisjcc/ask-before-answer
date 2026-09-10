@@ -59,7 +59,7 @@ help:
 	@echo ""
 	@echo "  make train-sft               Run SFT training variant"
 	@echo "  make train-dpo               Run DPO training variant (requires SFT)"
-	@echo "  make train-sft-only          Run SFT-only baseline"
+
 	@echo "  make train-dpo-only          Run DPO-only baseline"
 	@echo "  make train-orpo              Run ORPO baseline"
 	@echo "  make train-grpo              Run GRPO baseline"
@@ -182,7 +182,7 @@ pull:
 
 # Supported DVC training variants.
 
-TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
+TRAIN_VARIANTS := sft dpo dpo-only orpo grpo
 
 # Generic training interface.
 #
@@ -213,8 +213,7 @@ train-sft:
 train-dpo:
 	$(MAKE) train TRAIN_VARIANT=dpo
 
-train-sft-only:
-	$(MAKE) train TRAIN_VARIANT=sft-only
+
 
 train-dpo-only:
 	$(MAKE) train TRAIN_VARIANT=dpo-only
@@ -227,7 +226,7 @@ train-grpo:
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train-sft train-sft-only train-dpo train-dpo-only train-orpo train-grpo
+	dvc repro train-sft train-dpo train-dpo-only train-orpo train-grpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."

@@ -54,19 +54,6 @@ stages:
       - models/dpo/final
 
 
-  # ----------------------------
-  # ABLATION: SFT ONLY
-  # ----------------------------
-  train-sft-only:
-    cmd: CUDA_VISIBLE_DEVICES=0 python scripts/train_sft.py training.output_dir=models/sft_only
-    deps:
-      - data/sft_train.jsonl
-      - data/sft_val.jsonl
-      - configs/training/sft.yaml
-      - configs/model/qwen2_5_7b.yaml
-    outs:
-      - models/sft_only/final
-
 
   # ----------------------------
   # ABLATION: DPO ONLY

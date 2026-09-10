@@ -52,7 +52,6 @@ logger = logging.getLogger(__name__)
 
 MODEL_PATHS = {
     "base": "Qwen/Qwen2.5-7B-Instruct",
-    "sft_only": "models/sft_only/final",
     "dpo_only": "models/dpo_only/final",
     "sft": "models/sft/final",
     "dpo": "models/dpo/final",
@@ -665,7 +664,7 @@ def generate_model_card(
     release_text = f"- **Release:** `{release_tag}`\n" if release_tag else ""
 
     training_descriptions = {
-        "sft_only": "Supervised Fine-Tuning (SFT)",
+        "base": "Qwen 2.5 7B Instruct (Base)",
         "dpo_only": "Direct Preference Optimization (DPO)",
         "sft": "Supervised Fine-Tuning (SFT)",
         "dpo": "Direct Preference Optimization (DPO)",

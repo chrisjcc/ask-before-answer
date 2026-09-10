@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 PARAM_MAP = {
     "train_sft": "training.sft",
     "train_dpo": "training.dpo",
-    "train_sft_only": "training.sft",
     "train_dpo_only": "training.dpo",
     "train_orpo": "training.orpo",
     "train_grpo": "training.grpo",
