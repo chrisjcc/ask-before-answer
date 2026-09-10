@@ -323,6 +323,8 @@ def main() -> None:
     run_name = f"sweep_{run_id}"
 
     cmd = [
+        "python",
+        "-m",
         "dvc",
         "exp",
         "run",
