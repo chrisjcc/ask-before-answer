@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 # DVC parameter namespace corresponding to each training stage.
 PARAM_MAP = {
-    "train_sft": "training.sft",
-    "train_dpo": "training.dpo",
-    "train_dpo_only": "training.dpo",
-    "train_orpo": "training.orpo",
-    "train_grpo": "training.grpo",
+    "train-sft": "training.sft",
+    "train-dpo": "training.dpo",
+    "train-dpo-only": "training.dpo",
+    "train-orpo": "training.orpo",
+    "train-grpo": "training.grpo",
 }
 
 
@@ -322,13 +322,11 @@ def main() -> None:
 
     run_name = f"sweep_{run_id}"
 
-    dvc_stage = stage.replace("_", "-")
-
     cmd = [
         "dvc",
         "exp",
         "run",
-        dvc_stage,
+        stage,
         "-n",
         run_name,
         *dvc_param_overrides,

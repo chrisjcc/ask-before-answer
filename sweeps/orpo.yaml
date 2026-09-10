@@ -6,7 +6,7 @@
 # --- Sweep Settings ---
 name: orpo-bayes-hyperband
 description: >
-  Bayesian hyperparameter sweep for the train_orpo pipeline.
+  Bayesian hyperparameter sweep for the train-orpo pipeline.
   Searches the ORPO beta coefficient and learning rate while maximizing
   eval/rewards/accuracies using Hyperband early stopping.
 
@@ -19,7 +19,7 @@ command:
   - ${interpreter}
   - ${program}
   - "--stage"
-  - "train_orpo"
+  - "train-orpo"
   - ${args}
 
 method: bayes
