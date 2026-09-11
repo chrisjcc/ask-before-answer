@@ -1,0 +1,21 @@
+# -----------------------------------------------------------------------------
+# Evaluation Configuration
+# -----------------------------------------------------------------------------
+# Configuration for evaluating trained models against baseline datasets.
+
+# --- Dataset & Scoring ---
+dataset_name: "sewon/ambig_qa"                    # Dataset to evaluate against
+split: "validation"                               # Split to evaluate
+config_name: "light"                              # Config or subset of the dataset
+max_samples: 50                                   # Number of samples to evaluate (for speed/testing)
+judge_model: "google/gemma-2-2b-it"               # Local LLM as a Judge model identifier
+
+# --- Base Model Definition ---
+base_model_id: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit" # Underlying base architecture
+
+# --- Models to Evaluate ---
+# List of all models/adapters to run evaluation sweeps against.
+models_to_evaluate:
+  - name: "grpo_sweep"        # <-- Renamed this to differentiate it on the leaderboard
+    path: "models/grpo/final"
+    is_peft: true
