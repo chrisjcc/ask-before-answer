@@ -67,18 +67,21 @@ help:
 	@echo ""
 
 	@echo "Evaluation & Inference:"
-	@echo "  make evaluate                Run evaluation scripts"
+	@echo "  make evaluate [EVAL_CONFIG=custom]"
+	@echo "                               Run evaluation scripts (defaults to default.yaml)"
 	@echo "  make infer                   Run inference"
 	@echo ""
 
 	@echo "Model Promotion & Publication:"
 	@echo ""
 	@echo "Release workflow:"
-	@echo "  1. make promote-dvc MODEL=<model> EXPERIMENT=<id>"
-	@echo "     Promote a DVC experiment to the promoted model"
-	@echo "  2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
+	@echo "  1. make apply-experiment EXPERIMENT=<id>"
+	@echo "     Apply a DVC experiment to the workspace (checks out model weights)"
+	@echo "  2. make promote-dvc MODEL=<model> EXPERIMENT=<id>"
+	@echo "     Promote a DVC experiment's hyperparameters to params.yaml permanently"
+	@echo "  3. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
 	@echo "     Publish and promote the verified DVC model to W&B production"
-	@echo "  3. make publish-hf-release"
+	@echo "  4. make publish-hf-release"
 	@echo "     Verify production provenance and publish Model and Data cards to Hugging Face"
 	@echo ""
 	@echo "Direct/alternative W&B promotion:"
@@ -238,8 +241,10 @@ ablation-suite:
 # Evaluation / inference
 # -------------------------
 
+EVAL_CONFIG ?= default
+
 evaluate:
-	python scripts/evaluate.py
+	python scripts/evaluate.py evaluation=$(EVAL_CONFIG)
 
 infer:
 	python scripts/infer.py
@@ -247,6 +252,14 @@ infer:
 # -------------------------
 # DVC experiment promotion
 # -------------------------
+
+apply-experiment:
+	@if [ -z "$(EXPERIMENT)" ]; then \
+		echo "ERROR: EXPERIMENT is required."; \
+		echo "Usage: make apply-experiment EXPERIMENT=<id>"; \
+		exit 1; \
+	fi
+	dvc exp apply $(EXPERIMENT)
 
 promote-dvc:
 	@if [ -z "$(MODEL)" ]; then \
