@@ -500,7 +500,9 @@ def action_reward_func(prompts, completions, **kwargs):
 
 \section{Appendix: Training Hyperparameters}
 \label{sec:hyperparams}
-To ensure full reproducibility, we report the exact hyperparameters utilized during the Supervised Fine-Tuning (SFT), Direct Preference Optimization (DPO), and Group Relative Policy Optimization (GRPO) stages. Both stages utilized LoRA (Low-Rank Adaptation) injected into the attention and MLP modules. All experiments were conducted using the \texttt{transformers} and \texttt{trl} libraries, utilizing the Unsloth framework for efficient hardware acceleration via Triton kernels and Flash Attention. Models were trained on NVIDIA RTX A6000 and A100 GPUs using \texttt{bfloat16} precision.
+To ensure full reproducibility, we report the exact hyperparameters utilized during the Supervised Fine-Tuning (SFT), Direct Preference Optimization (DPO), and Group Relative Policy Optimization (GRPO) stages. To mitigate the extreme VRAM overhead inherent to online reinforcement learning and preference optimization, all training stages utilized QLoRA (Quantized Low-Rank Adaptation). Specifically, the base models were loaded in 4-bit precision via the \texttt{bitsandbytes} library (\texttt{bnb-4bit}), while adapter weights were injected into the attention and MLP modules and trained in \texttt{bfloat16} precision. 
+
+All experiments were conducted using the \texttt{transformers} and \texttt{trl} libraries, heavily utilizing the Unsloth framework for efficient hardware acceleration via custom Triton kernels and Flash Attention. This combination of 4-bit quantization and Unsloth's optimized kernels enabled the successful execution of memory-intensive GRPO pipelines on single NVIDIA RTX A6000 and A100 GPUs.
 
 \begin{table}[h]
 \centering
