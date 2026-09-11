@@ -25,6 +25,11 @@ To run the full suite and generate a dynamic leaderboard on Weave:
 make evaluate
 ```
 
+To run a specific evaluation configuration (e.g. `configs/evaluation/custom.yaml`) without modifying the default:
+```bash
+make evaluate EVAL_CONFIG=custom
+```
+
 ## 1. The Core Trade-off: Clarification vs Answering
 
 The post-training evaluation demonstrates that there is **no single model that dominates every metric**. The evaluated models naturally separate into two distinct policies:

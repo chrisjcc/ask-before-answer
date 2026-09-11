@@ -71,7 +71,11 @@ def get_sweep_parameters(sweep: wandb.apis.public.Sweep) -> dict:
     return list(parameters.keys())
 
 
-def get_sweep_metric(sweep: wandb.apis.public.Sweep, override_name: str = None, override_goal: str = None) -> dict:
+def get_sweep_metric(
+    sweep: wandb.apis.public.Sweep,
+    override_name: str = None,
+    override_goal: str = None,
+) -> dict:
     """Return the sweep objective metric and optimization goal."""
     if override_name and override_goal:
         return override_name, override_goal
@@ -94,7 +98,12 @@ def format_parameter_name(name: str) -> str:
     return name.replace("_", " ").title()
 
 
-def generate_sweep_report(fine_tune_method: str, sweep_id: str, metric_name_override: str = None, metric_goal_override: str = None) -> None:
+def generate_sweep_report(
+    fine_tune_method: str,
+    sweep_id: str,
+    metric_name_override: str = None,
+    metric_goal_override: str = None,
+) -> None:
     """Generate a Markdown report for a W&B hyperparameter sweep.
 
     Args:
@@ -129,7 +138,9 @@ def generate_sweep_report(fine_tune_method: str, sweep_id: str, metric_name_over
     sweep_name = getattr(sweep, "name", None) or f"Sweep {sweep_id}"
 
     parameter_names = get_sweep_parameters(sweep)
-    metric_name, metric_goal = get_sweep_metric(sweep, metric_name_override, metric_goal_override)
+    metric_name, metric_goal = get_sweep_metric(
+        sweep, metric_name_override, metric_goal_override
+    )
 
     if not metric_name:
         raise RuntimeError(f"Sweep {sweep_id} does not define a metric.")
