@@ -20,7 +20,7 @@ command:
   - ${args}
 method: bayes
 metric:
-  name: rewards/accuracy_reward/mean
+  name: train/rewards/accuracy_reward/mean
   goal: maximize
 
 # Enable Hyperband Early Stopping
