@@ -839,7 +839,7 @@ The local DVC training artifact is treated as immutable during deployment.
 def push_model(
     cfg: DictConfig,
     api: HfApi,
-    artifact: wandb.apis.public.Artifact,
+    artifact: "wandb.Artifact",
     promotion: dict[str, object],
 ) -> None:
     """Download the promoted W&B artifact and publish it to Hugging Face.
