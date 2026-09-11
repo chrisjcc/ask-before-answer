@@ -13,8 +13,8 @@ training:
     beta: 0.1
 
   grpo:
-    learning_rate: 5e-6
-    beta: 0.1
+    learning_rate: 3.342726347808486e-05
+    beta: 0.010096932866024708
 
   orpo:
     learning_rate: 5e-6
