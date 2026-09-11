@@ -313,7 +313,7 @@ The reward function $\mathcal{R}(x, y)$ is calculated entirely via deterministic
 \section{Empirical Evaluation \& Pipeline Comparisons}
 For a detailed analysis of optimization stability, sample efficiency, and training/validation loss curves across our ablation suite, we direct the reader to Appendix \ref{sec:training_details}.
 
-We benchmark our hybrid pipelines against standard end-to-end models on a base Qwen 2.5 7B architecture using the AmbigNQ dataset. Our primary comparisons are between the classic $\text{SFT} \rightarrow \text{DPO}$ pipeline and our proposed $\text{GRPO} \rightarrow \text{DPO}$ approach.
+We benchmark our hybrid pipelines against standard end-to-end models utilizing the \texttt{unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit} base architecture, evaluated on the validation split of the \texttt{sewon/ambig\_qa} dataset. Our primary comparisons are between the classic $\text{SFT} \rightarrow \text{DPO}$ pipeline and our proposed $\text{SFT} \rightarrow \text{GRPO}$ approach.
 
 \subsection{Evaluation Metrics}
 To fully capture the nuances of the clarify-or-act problem, we evaluate the models using 9 core metrics across deterministic structural scoring and LLM-as-a-judge evaluations:
@@ -326,7 +326,7 @@ To fully capture the nuances of the clarify-or-act problem, we evaluate the mode
 \item \textbf{Answer Accuracy:} Evaluated only on ground-truth Answer cases, measuring whether the generated answer semantically matches the target answer using fuzzy token-matching.
 \item \textbf{Clarify Ratio:} The total number of predicted Clarify actions divided by the total number of ground-truth Clarify actions, indicating bias toward over- or under-clarifying.
 \item \textbf{Facet Generation Rate:} The percentage of predicted Clarify actions that successfully included a non-empty list of extracted facets.
-\item \textbf{LLM-as-a-Judge Quality Metrics:} Ambiguity Detection F1, Clarification Quality F1, and Clarification Usefulness, scored subjectively by a strong teacher model.
+\item \textbf{LLM-as-a-Judge Quality Metrics:} Ambiguity Detection F1, Clarification Quality F1, and Clarification Usefulness, scored subjectively by a strong teacher model (\texttt{google/gemma-2-2b-it}).
 \end{enumerate}
 
 \subsection{Main Alignment Results}
@@ -581,21 +581,53 @@ To provide a complete picture of the optimization landscape, Table \ref{tab:full
           \toprule
           Metric & Base & DPO Only & SFT & SFT $\rightarrow$ DPO & ORPO & SFT $\rightarrow$ GRPO \\
           \midrule
-          Ambiguity Detection & 0.966 & 0.968 & 0.970 & 0.946 & 0.968 & 0.970 \\
-          Clarification Quality & 0.784 & 0.786 & 0.796 & 0.778 & 0.796 & 0.800 \\
-          Usefulness & 0.880 & 0.882 & 0.896 & 0.878 & 0.896 & 0.892 \\
-          Model Accuracy & 0.620 & 0.640 & 0.620 & 0.620 & 0.620 & 0.620 \\
-          Clarify Precision & 0.617 & 0.630 & 0.641 & 0.657 & 0.622 & 0.634 \\
-          Clarify Recall & 0.967 & 0.967 & 0.833 & 0.767 & 0.933 & 0.867 \\
-          Clarify F1 & 0.753 & 0.763 & 0.725 & 0.708 & 0.747 & 0.732 \\
-          Action F1 (Answer) & 0.174 & 0.250 & 0.387 & 0.457 & 0.240 & 0.345 \\
-          Macro F1 & 0.464 & 0.507 & 0.556 & 0.582 & 0.493 & 0.539 \\
-          Answer Accuracy & 0.050 & 0.050 & 0.050 & 0.000 & 0.050 & 0.150 \\
-          Facet Generation Rate & 0.085 & 0.109 & 1.000 & 1.000 & 0.956 & 1.000 \\
-          Clarify Ratio & 1.567 & 1.533 & 1.300 & 1.167 & 1.500 & 1.370 \\
+          Ambiguity Detection & 0.966 & 0.968 & \textbf{0.970} & 0.946 & 0.968 & \textbf{0.970} \\
+          Clarification Quality & 0.784 & 0.786 & 0.796 & 0.778 & 0.796 & \textbf{0.800} \\
+          Usefulness & 0.880 & 0.882 & \textbf{0.896} & 0.878 & \textbf{0.896} & 0.892 \\
+          Model Accuracy & 0.620 & \textbf{0.640} & 0.620 & 0.620 & 0.620 & 0.620 \\
+          Clarify Precision & 0.617 & 0.630 & 0.641 & \textbf{0.657} & 0.622 & 0.634 \\
+          Clarify Recall & \textbf{0.967} & \textbf{0.967} & 0.833 & 0.767 & 0.933 & 0.867 \\
+          Clarify F1 & 0.753 & \textbf{0.763} & 0.725 & 0.708 & 0.747 & 0.732 \\
+          Action F1 (Answer) & 0.174 & 0.250 & 0.387 & \textbf{0.457} & 0.240 & 0.345 \\
+          Macro F1 & 0.464 & 0.507 & 0.556 & \textbf{0.582} & 0.493 & 0.539 \\
+          Answer Accuracy & 0.050 & 0.050 & 0.050 & 0.000 & 0.050 & \textbf{0.150} \\
+          Facet Generation Rate & 0.085 & 0.109 & \textbf{1.000} & \textbf{1.000} & 0.956 & \textbf{1.000} \\
+          Clarify Ratio & 1.567 & 1.533 & 1.300 & \textbf{1.167} & 1.500 & 1.370 \\
           \bottomrule
         \end{tabular}
       \end{sc}
+    \end{small}
+  \end{center}
+\end{table*}
+
+\section{Appendix: Hyper-parameter Optimization (GRPO)}
+\label{sec:appendix_hyperparams}
+Given the sensitivity of Reinforcement Learning algorithms to hyper-parameters, we conducted a rigorous Bayesian hyper-parameter sweep for the GRPO stage utilizing Weights \& Biases. The objective of the sweep was to maximize the mean accuracy reward (\texttt{train/rewards/accuracy\_reward/mean}). 
+
+To ensure computational efficiency, the sweep employed a Hyperband early stopping protocol (\texttt{min\_iter: 50}, \texttt{eta: 3}), which dynamically terminates under-performing trials early in the optimization process. We searched over the following parameter space:
+\begin{itemize}
+    \item \textbf{KL Penalty ($\beta$)}: Uniform distribution over $[0.01, 0.2]$
+    \item \textbf{Learning Rate}: Log-uniform distribution over $[1\times10^{-6}, 1\times10^{-4}]$
+\end{itemize}
+
+The top 5 performing configurations are detailed in Table \ref{tab:grpo_sweep}. The winning trial (\texttt{u8xjwcjv}) converged on a highly aggressive learning rate with a minimal KL penalty, yielding the highest objective score. This configuration was selected for the final SFT $\rightarrow$ GRPO pipeline deployed in our main results.
+
+\begin{table*}[!ht]
+  \caption{Top Performing GRPO Hyper-parameter Configurations}
+  \label{tab:grpo_sweep}
+  \begin{center}
+    \begin{small}
+      \begin{tabular}{llccc}
+        \toprule
+        Rank & Run ID & $\beta$ Penalty & Learning Rate & Mean Accuracy Reward \\
+        \midrule
+        \textbf{1} & \textbf{u8xjwcjv} & \textbf{0.0101} & \textbf{3.34e-05} & \textbf{0.2479} \\
+        2 & 496fdb4q & 0.0585 & 1.65e-05 & 0.2325 \\
+        3 & f4m7i3qn & 0.1645 & 2.95e-06 & 0.2321 \\
+        4 & c4ygyajl & 0.1572 & 1.13e-06 & 0.2046 \\
+        5 & rhwp8er0 & 0.1095 & 1.16e-06 & 0.1383 \\
+        \bottomrule
+      \end{tabular}
     \end{small}
   \end{center}
 \end{table*}
