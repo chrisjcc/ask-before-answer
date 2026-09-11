@@ -100,8 +100,40 @@ make ablation-suite
 ```
 *For comprehensive instructions on how sweeps are orchestrated, validated, and applied using our human-in-the-loop architecture, see [Hyperparameter Sweeps](docs/05_hyperparameter_sweeps.md) and the [Ablation Study](docs/06_ablation_study.md).*
 
-### 5. Systematic Evaluation
-The automated evaluation pipeline uses a dual-scoring approach (LLM-as-a-judge & rule-based scoring).
+**Applying the Best Configuration Automatically:**
+Because DVC tracked the exact YAML config state for every single sweep trial, you do not need to manually copy-paste the winning hyper-parameters!
+1. Check the generated `ablation_report.md` for the W&B **Run ID** of the best performing trial (e.g., `5cxs95q7`).
+2. Run the following command to instantly revert your local YAML configuration files to that exact optimal state:
+```bash
+dvc exp apply sweep_<Run ID>
+```
+3. `git commit` the newly updated config files as your new defaults!
+
+
+
+## 📊 Observability & Systematic Evaluation (W&B Weave)
+
+This project integrates tightly with **Weights & Biases Weave** to provide comprehensive LLM observability, trace logging, and systematic evaluation pipelines. 
+
+> 🚀 **High-Throughput Evaluation:** The evaluation script integrates `vLLM` PagedAttention and offline batching to dramatically accelerate inference and LLM-as-a-judge scoring via Weave. For deep technical details on how the offline batching strategy works, please read the [Evaluation Pipeline Documentation](docs/evaluation_pipeline.md). 
+
+### LLM Tracing
+The production Streamlit app (`app/app.py`) automatically logs all user interactions, prompts, and model generations to the Weave dashboard, enabling you to inspect exact input/output traces in real-time.
+
+### Dynamic Leaderboards, LLM-as-a-Judge, & Rule-Based Scoring
+The automated evaluation pipeline (`scripts/evaluate.py`) uses a dual-scoring approach to systematically evaluate all model configurations against the test dataset:
+
+**1. LLM-as-a-Judge (Gemini 2.5 Flash / Gemma 4):**
+Evaluates the subjective nuance and quality of the response:
+- Ambiguity Detection F1
+- Clarification Quality F1
+- Clarification Usefulness
+
+**2. Rule-Based Programmatic Scoring (`ActionScorer`):**
+Evaluates the deterministic structural accuracy of the agent's chosen action:
+- Model Accuracy (Raw percentage of correct `Action` choices—Clarify vs. Answer—compared to the ground-truth labels).
+
+To run the full suite and generate a dynamic leaderboard:
 ```bash
 make evaluate
 ```

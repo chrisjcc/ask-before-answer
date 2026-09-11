@@ -67,7 +67,7 @@ def update_wandb_provenance(
 ) -> None:
     """Record the explicit W&B <-> DVC provenance relationship.
 
-    in the existing W&B sweep run.
+    The provenance is written to the existing W&B sweep run.
     """
     api = wandb.Api()
 
@@ -114,12 +114,10 @@ def verify_wandb_provenance(
     dvc_experiment: str,
     dvc_experiment_sha: str,
 ) -> None:
-    """Re-read the W&B run through the API and verify that the provenance.
-
+    """Re-read the W&B run through the API and verify that the provenance
     fields were actually persisted.
     """
     api = wandb.Api()
-
     run = api.run(f"{entity}/{project}/{run_id}")
 
     expected = {
@@ -191,6 +189,7 @@ def write_provenance_file(
 
 def main() -> None:
     """Execute the DVC sweep trial and record provenance metadata."""
+    # Load environment variables, including WANDB_API_KEY.
     load_dotenv()
 
     # ---------------------------------------------------------------
@@ -215,6 +214,18 @@ def main() -> None:
     print(f"WANDB_ENTITY={entity}")
     print(f"WANDB_PROJECT={project}")
     print("=======================")
+
+    # Initialize the existing W&B sweep run immediately.
+    #
+    # This is intentional. DVC may spend significant time in
+    # preprocessing before the training stage starts, so we establish
+    # the W&B run immediately.
+    run = wandb.init(
+        id=run_id,
+        resume="allow",
+    )
+
+    print(f"W&B active run ID={run.id}")
 
     # ---------------------------------------------------------------
     # 2. Parse arguments
@@ -310,8 +321,6 @@ def main() -> None:
     # 6. Construct deterministic W&B <-> DVC identity
     # ---------------------------------------------------------------
 
-    # This is the W&B -> DVC link.
-    #
     # Example:
     #
     #   W&B run:
@@ -341,9 +350,20 @@ def main() -> None:
     logger.info("WANDB_ENTITY=%s", entity)
     logger.info("==================================")
 
-    logger.info("DVC parameter overrides: %s", dvc_param_overrides)
-    logger.info("DVC experiment name: %s", run_name)
-    logger.info("DVC command: %s", " ".join(cmd))
+    logger.info(
+        "DVC parameter overrides: %s",
+        dvc_param_overrides,
+    )
+
+    logger.info(
+        "DVC experiment name: %s",
+        run_name,
+    )
+
+    logger.info(
+        "DVC command: %s",
+        " ".join(cmd),
+    )
 
     # ---------------------------------------------------------------
     # 7. Handle stale DVC locks
@@ -363,7 +383,7 @@ def main() -> None:
             pass
 
     # ---------------------------------------------------------------
-    # 8. Execute DVC experiment
+    # 8. Write provenance context and execute DVC experiment
     # ---------------------------------------------------------------
 
     try:
@@ -374,10 +394,17 @@ def main() -> None:
             project=project,
             stage=stage,
         )
-        subprocess.run(cmd, check=True)
+
+        subprocess.run(
+            cmd,
+            check=True,
+        )
 
     except Exception as e:
-        logger.error("DVC experiment failed: %s", e)
+        logger.error(
+            "DVC experiment failed: %s",
+            e,
+        )
 
         if os.path.exists(dvc_lock_file):
             try:
@@ -438,13 +465,13 @@ def main() -> None:
     # ---------------------------------------------------------------
 
     logger.info("=== PROVENANCE COMPLETE ===")
-    logger.info("W&B entity:   %s", entity)
-    logger.info("W&B project:  %s", project)
-    logger.info("W&B sweep:    %s", sweep_id)
-    logger.info("W&B run:      %s", run_id)
-    logger.info("DVC experiment: %s", run_name)
-    logger.info("DVC SHA:        %s", dvc_experiment_sha)
-    logger.info("DVC stage:      %s", stage)
+    logger.info("W&B entity:      %s", entity)
+    logger.info("W&B project:     %s", project)
+    logger.info("W&B sweep:       %s", sweep_id)
+    logger.info("W&B run:         %s", run_id)
+    logger.info("DVC experiment:  %s", run_name)
+    logger.info("DVC SHA:         %s", dvc_experiment_sha)
+    logger.info("DVC stage:       %s", stage)
     logger.info("============================")
 
 
