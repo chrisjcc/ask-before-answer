@@ -6,7 +6,7 @@
 # --- Sweep Settings ---
 name: grpo-bayes-hyperband
 description: >
-  Bayesian hyperparameter sweep for the train_grpo pipeline.
+  Bayesian hyperparameter sweep for the train-grpo pipeline.
   Searches GRPO beta and learning rate while maximizing eval/reward/accuracy using
   Hyperband early stopping
 project: ask-before-answer
@@ -16,11 +16,11 @@ command:
   - ${interpreter}
   - ${program}
   - "--stage"
-  - "train_grpo"
+  - "train-grpo"
   - ${args}
 method: bayes
 metric:
-  name: eval/reward/accuracy
+  name: train/rewards/accuracy_reward/mean
   goal: maximize
 
 # Enable Hyperband Early Stopping

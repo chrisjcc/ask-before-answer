@@ -1,6 +1,7 @@
 # -----------------------------------------------------------------------------
 # Evaluation Configuration
 # -----------------------------------------------------------------------------
+# Configuration for evaluating trained models against baseline datasets.
 
 # --- Dataset & Scoring ---
 dataset_name: "sewon/ambig_qa"                    # Dataset to evaluate against
@@ -10,29 +11,11 @@ max_samples: 50                                   # Number of samples to evaluat
 judge_model: "google/gemma-2-2b-it"               # Local LLM as a Judge model identifier
 
 # --- Base Model Definition ---
-base_model_id: "unsloth/Qwen2.5-7B-Instruct" # Underlying base architecture
+base_model_id: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit" # Underlying base architecture
 
 # --- Models to Evaluate ---
 # List of all models/adapters to run evaluation sweeps against.
 models_to_evaluate:
-  - name: "base"
-    path: "${evaluation.base_model_id}"
-    is_peft: false
-  - name: "dpo_only"
-    path: "models/dpo_only/final"
-    is_peft: true
-  - name: "sft"
-    path: "models/sft/final"
-    is_peft: true
-  - name: "sft_dpo"
-    path: "models/dpo/final"
-    is_peft: true
-  - name: "clarifier_lora"
-    path: "itsbhoomika/clarifier-dpo-lora"
-    is_peft: true
-  - name: "orpo"
-    path: "models/orpo/final"
-    is_peft: true
-  - name: "grpo"
+  - name: "grpo_sweep"        # <-- Renamed this to differentiate it on the leaderboard
     path: "models/grpo/final"
     is_peft: true

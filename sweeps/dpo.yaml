@@ -6,8 +6,8 @@
 # --- Sweep Settings ---
 name: dpo-bayes-hyperband
 description: >
-  Bayesian hyperparameter sweep for the train_dpo pipeline.
-  Searches DPO beta while maximizing eval/rewards/accuracies using
+  Bayesian hyperparameter sweep for the train-dpo pipeline.
+  Searches DPO beta and learning rate while maximizing eval/action_f1_answer using
   Hyperband early stopping
 project: ask-before-answer
 program: scripts/run_sweep_trial.py
@@ -16,7 +16,7 @@ command:
   - ${interpreter}
   - ${program}
   - "--stage"
-  - "train_dpo"
+  - "train-dpo"
   - ${args}
 method: bayes
 metric:

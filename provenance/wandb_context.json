@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-09-11T15:18:01.281551+00:00",
+  "operation": "model_promotion",
+  "status": "verified",
+  "source": {
+    "artifact_ref": "rl4aa/ask-before-answer/Clarifier-grpo:v3",
+    "artifact_name": "Clarifier-grpo",
+    "qualified_name": "rl4aa/ask-before-answer/Clarifier-grpo:latest",
+    "digest": "3ca7a3f7ee515f110ea352060e28e0be",
+    "model_variant": "grpo",
+    "dvc_stage": "production",
+    "dvc_experiment": "sweep_u8xjwcjv",
+    "dvc_experiment_sha": "78390abdf385520881300a05c3ed51d3018af242"
+  },
+  "registry": {
+    "name": "Model",
+    "collection": "AskBeforeAnswer-grpo",
+    "alias": "production",
+    "artifact_ref": "wandb-registry-Model/AskBeforeAnswer-grpo:v0",
+    "artifact_name": "Clarifier-grpo",
+    "digest": "3ca7a3f7ee515f110ea352060e28e0be"
+  },
+  "verification": {
+    "artifact_integrity": true,
+    "verification_command": "make publish-model-artifact",
+    "digest_match": true
+  },
+  "git": {
+    "commit": "35a5b7c51d6f3505a0251007a367aa7abebcebfb"
+  }
+}
+(ask-before-answer-311) [clseitz@max-display010]~/projects/ask-before-answer% cat provenance/wandb_context.json  
+{
+  "wandb_run_id": "496fdb4q",
+  "wandb_sweep_id": "69ur85wx",
+  "wandb_entity": "rl4aa",
+  "wandb_project": "ask-before-answer",
+  "dvc_stage": "train-grpo",
+  "timestamp": "2026-09-11T00:32:04.804967+00:00"
+}

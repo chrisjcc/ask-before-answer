@@ -34,32 +34,51 @@ from ruamel.yaml import YAML
 
 MODEL_CONFIG = {
     "sft": {
-        "stage": "train_sft",
+        "stage": "train-sft",
         "output": "models/sft/final",
-        "param_key": "training.sft.learning_rate",
-        "param_path": ("training", "sft"),
-        "parameter": "learning_rate",
+        "parameters": [
+            {
+                "key": "training.sft.learning_rate",
+                "path": ("training", "sft"),
+                "name": "learning_rate",
+            },
+        ],
     },
     "dpo": {
-        "stage": "train_dpo",
+        "stage": "train-dpo",
         "output": "models/dpo/final",
-        "param_key": "training.dpo.learning_rate",
-        "param_path": ("training", "dpo"),
-        "parameter": "learning_rate",
+        "parameters": [
+            {
+                "key": "training.dpo.learning_rate",
+                "path": ("training", "dpo"),
+                "name": "learning_rate",
+            },
+            {"key": "training.dpo.beta", "path": ("training", "dpo"), "name": "beta"},
+        ],
     },
     "grpo": {
-        "stage": "train_grpo",
+        "stage": "train-grpo",
         "output": "models/grpo/final",
-        "param_key": "training.grpo.learning_rate",
-        "param_path": ("training", "grpo"),
-        "parameter": "learning_rate",
+        "parameters": [
+            {
+                "key": "training.grpo.learning_rate",
+                "path": ("training", "grpo"),
+                "name": "learning_rate",
+            },
+            {"key": "training.grpo.beta", "path": ("training", "grpo"), "name": "beta"},
+        ],
     },
     "orpo": {
-        "stage": "train_orpo",
+        "stage": "train-orpo",
         "output": "models/orpo/final",
-        "param_key": "training.orpo.learning_rate",
-        "param_path": ("training", "orpo"),
-        "parameter": "learning_rate",
+        "parameters": [
+            {
+                "key": "training.orpo.learning_rate",
+                "path": ("training", "orpo"),
+                "name": "learning_rate",
+            },
+            {"key": "training.orpo.beta", "path": ("training", "orpo"), "name": "beta"},
+        ],
     },
 }
 
@@ -471,9 +490,6 @@ def promote(
 
     stage_name = config["stage"]
     expected_output = config["output"]
-    param_key = config["param_key"]
-    param_path = config["param_path"]
-    parameter_name = config["parameter"]
 
     print_header("Promoting DVC experiment")
     print()
@@ -551,66 +567,70 @@ def promote(
 
     print()
 
-    print("Reading experiment parameter...")
-
-    promoted_value = extract_stage_parameter(
-        stage,
-        param_key,
-    )
-
-    print(f"  Parameter: {param_key}")
-    print(f"  Value:     {promoted_value}")
-
-    print()
-
-    print("Loading current params.yaml...")
+    print("Reading experiment parameters...")
 
     yaml, params = load_params()
 
     if params is None:
         raise RuntimeError("params.yaml is empty.")
 
-    current_value = get_nested_parameter(
-        params,
-        param_path,
-        parameter_name,
-    )
+    changes_made = False
 
-    print(f"  Current value:    {current_value}")
-    print(f"  Experiment value: {promoted_value}")
+    for p in config["parameters"]:
+        param_key = p["key"]
+        param_path = p["path"]
+        parameter_name = p["name"]
 
-    if current_value == promoted_value:
-        print()
-        print("Parameter already matches experiment.")
-        print("No params.yaml update is necessary.")
-    else:
-        print()
-        print(f"Promoting {'.'.join((*param_path, parameter_name))}:")
-        print(f"  {current_value} -> {promoted_value}")
+        promoted_value = extract_stage_parameter(
+            stage,
+            param_key,
+        )
 
-        update_nested_parameter(
+        current_value = get_nested_parameter(
             params,
             param_path,
             parameter_name,
-            promoted_value,
         )
 
+        print(f"  Parameter: {param_key}")
+        print(f"    Current value:    {current_value}")
+        print(f"    Experiment value: {promoted_value}")
+
+        if current_value == promoted_value:
+            print("    -> Matches experiment (no change).")
+        else:
+            print(f"    -> Promoting {'.'.join((*param_path, parameter_name))}:")
+            print(f"         {current_value} -> {promoted_value}")
+            update_nested_parameter(
+                params,
+                param_path,
+                parameter_name,
+                promoted_value,
+            )
+            changes_made = True
+
+    if changes_made:
         write_params(
             yaml,
             params,
         )
-
-        print("params.yaml updated successfully.")
+        print("\nparams.yaml updated successfully.")
+    else:
+        print(
+            "\nAll parameters already match experiment. "
+            "No params.yaml update is necessary."
+        )
 
     print()
 
-    print("Verifying promoted parameter...")
+    print("Verifying promoted parameters...")
 
-    verify_promoted_parameter(
-        param_path,
-        parameter_name,
-        promoted_value,
-    )
+    for p in config["parameters"]:
+        verify_promoted_parameter(
+            p["path"],
+            p["name"],
+            extract_stage_parameter(stage, p["key"]),
+        )
 
     print()
 

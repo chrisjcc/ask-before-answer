@@ -26,12 +26,19 @@ Our codebase completely isolates the hyperparameter sweep trials from your final
 
 ### Step 2: Applying the Best Configuration Automatically
 Because DVC tracked the exact YAML config state for every single sweep trial, you do not need to manually copy-paste the winning hyper-parameters!
-1. Check the generated `docs/06_ablation_study.md` for the W&B **Run ID** of the best performing trial (e.g., `5cxs95q7`).
-2. Run the following command to instantly revert your local YAML configuration files to that exact optimal state:
+1. Check the generated sweep report for the W&B **Run ID** of the best performing trial (e.g., `5cxs95q7`). If a report was not automatically generated, you can generate it manually:
    ```bash
-   dvc exp apply sweep_<Run ID>
+   python scripts/generate_sweep_report.py --fine-tune-method grpo --sweep-id <SWEEP_ID>
    ```
-3. `git commit` the newly updated config files as your new defaults!
+2. Run the following command to instantly apply that exact optimal state to your workspace (which also checks out the model weights):
+   ```bash
+   make apply-experiment EXPERIMENT=sweep_<Run ID>
+   ```
+3. To permanently lock in those hyperparameters to your `params.yaml`:
+   ```bash
+   make promote-dvc MODEL=<model> EXPERIMENT=sweep_<Run ID>
+   ```
+4. `git commit` the newly updated config files as your new defaults!
 4. **Isolate the Ablation Report:** You run `make ablation-suite` (which executes standard `dvc repro`). Because this manual run was not executed by the agent, W&B does *not* tag it with the `.sweep` metadata property. When `scripts/generate_ablation_report.py` generates the ablation report, it loops through the cloud and skips any run that possesses a `.sweep` tag, ensuring your report contains only your clean, final baseline rows.
 
 ## 2. Advanced Interactive W&B Charts

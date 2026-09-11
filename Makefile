@@ -59,7 +59,7 @@ help:
 	@echo ""
 	@echo "  make train-sft               Run SFT training variant"
 	@echo "  make train-dpo               Run DPO training variant (requires SFT)"
-	@echo "  make train-sft-only          Run SFT-only baseline"
+
 	@echo "  make train-dpo-only          Run DPO-only baseline"
 	@echo "  make train-orpo              Run ORPO baseline"
 	@echo "  make train-grpo              Run GRPO baseline"
@@ -67,18 +67,21 @@ help:
 	@echo ""
 
 	@echo "Evaluation & Inference:"
-	@echo "  make evaluate                Run evaluation scripts"
+	@echo "  make evaluate [EVAL_CONFIG=custom]"
+	@echo "                               Run evaluation scripts (defaults to default.yaml)"
 	@echo "  make infer                   Run inference"
 	@echo ""
 
 	@echo "Model Promotion & Publication:"
 	@echo ""
 	@echo "Release workflow:"
-	@echo "  1. make promote-dvc MODEL=<model> EXPERIMENT=<id>"
-	@echo "     Promote a DVC experiment to the promoted model"
-	@echo "  2. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
+	@echo "  1. make apply-experiment EXPERIMENT=<id>"
+	@echo "     Apply a DVC experiment to the workspace (checks out model weights)"
+	@echo "  2. make promote-dvc MODEL=<model> EXPERIMENT=<id>"
+	@echo "     Promote a DVC experiment's hyperparameters to params.yaml permanently"
+	@echo "  3. make publish-model-artifact MODEL=<model> EXPERIMENT=<id> STAGE=<stage>"
 	@echo "     Publish and promote the verified DVC model to W&B production"
-	@echo "  3. make publish-hf-release"
+	@echo "  4. make publish-hf-release"
 	@echo "     Verify production provenance and publish Model and Data cards to Hugging Face"
 	@echo ""
 	@echo "Direct/alternative W&B promotion:"
@@ -182,7 +185,7 @@ pull:
 
 # Supported DVC training variants.
 
-TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
+TRAIN_VARIANTS := sft dpo dpo-only orpo grpo
 
 # Generic training interface.
 #
@@ -213,8 +216,7 @@ train-sft:
 train-dpo:
 	$(MAKE) train TRAIN_VARIANT=dpo
 
-train-sft-only:
-	$(MAKE) train TRAIN_VARIANT=sft-only
+
 
 train-dpo-only:
 	$(MAKE) train TRAIN_VARIANT=dpo-only
@@ -239,8 +241,10 @@ ablation-suite:
 # Evaluation / inference
 # -------------------------
 
+EVAL_CONFIG ?= default
+
 evaluate:
-	python scripts/evaluate.py
+	python scripts/evaluate.py evaluation=$(EVAL_CONFIG)
 
 infer:
 	python scripts/infer.py
@@ -248,6 +252,14 @@ infer:
 # -------------------------
 # DVC experiment promotion
 # -------------------------
+
+apply-experiment:
+	@if [ -z "$(EXPERIMENT)" ]; then \
+		echo "ERROR: EXPERIMENT is required."; \
+		echo "Usage: make apply-experiment EXPERIMENT=<id>"; \
+		exit 1; \
+	fi
+	dvc exp apply $(EXPERIMENT)
 
 promote-dvc:
 	@if [ -z "$(MODEL)" ]; then \
@@ -371,7 +383,7 @@ sweep:
 	@echo "Project:          $(WANDB_PROJECT)"
 	@echo "Trial count:      $(COUNT)"
 	@echo "=========================================================="
-	@OUTPUT=$$(wandb sweep sweeps/$(FINE_TUNE_METHOD).yaml 2>&1) || { \
+	@OUTPUT=$$(python -m wandb sweep sweeps/$(FINE_TUNE_METHOD).yaml 2>&1) || { \
 		echo "$$OUTPUT"; \
 		echo "ERROR: Failed to create W&B sweep."; \
 		exit 1; \
@@ -384,7 +396,7 @@ sweep:
 	fi; \
 	echo "Parsed Sweep ID: $$SWEEP_ID"; \
 	echo "Starting W&B sweep agent..."; \
-	wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT) || { \
+	python -m wandb agent $(WANDB_ENTITY)/$(WANDB_PROJECT)/$$SWEEP_ID --count $(COUNT) || { \
 		echo "ERROR: W&B sweep agent failed."; \
 		exit 1; \
 	}; \
