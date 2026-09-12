@@ -418,6 +418,13 @@ In this section, we report the training dynamics to demonstrate optimization sta
 
 \begin{figure}[htbp]
 \centering
+\includegraphics[width=0.6\textwidth]{figures/val_curve_lr.png}
+\caption{Validation loss across different learning rates during hyper-parameter tuning.}
+\label{fig:val_curve_lr}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
 \includegraphics[width=0.48\textwidth]{figures/dpo_margin.png}
 \hfill
 \includegraphics[width=0.48\textwidth]{figures/dpo_implicit_rewards.png}
@@ -437,8 +444,10 @@ In this section, we report the training dynamics to demonstrate optimization sta
 \includegraphics[width=0.48\textwidth]{figures/kl_divergence.png}
 
 \vspace{0.3cm}
-\includegraphics[width=0.8\textwidth]{figures/grpo_reward_components.png}
-\caption{Detailed GRPO training metrics: Total Training Reward (top left), KL Divergence from the reference policy (top right), and the convergence of individual programmatic reward components (bottom).}
+\includegraphics[width=0.48\textwidth]{figures/grpo_reward_components.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{figures/reward_convergence.png}
+\caption{Detailed GRPO training metrics: Total Training Reward (top left), KL Divergence from the reference policy (top right), individual programmatic reward components (bottom left), and overall reward convergence (bottom right).}
 \label{fig:grpo_details}
 \end{figure}
 
@@ -633,6 +642,15 @@ The top 5 performing configurations are detailed in Table \ref{tab:grpo_sweep}. 
     \end{small}
   \end{center}
 \end{table*}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/sweep_val_curve_dppeb7ks.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{figures/sweep_val_curve_h74t7aj3.png}
+\caption{Validation curves across hyper-parameter trials demonstrating the Hyperband early stopping protocol, highlighting trials that were dynamically terminated early (e.g., Trial \texttt{dppeb7ks} and \texttt{h74t7aj3}).}
+\label{fig:sweep_val_curves}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
