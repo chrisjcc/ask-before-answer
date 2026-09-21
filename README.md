@@ -209,6 +209,7 @@ ask-before-answer/
 ├── Makefile              # Reproducible command aliases
 ├── package.json          # Node.js tooling configuration
 ├── package-lock.json     # Locked Node.js dependencies
+├── puppeteer-config.json # Puppeteer configuration with --no-sandbox when running in CI
 ├── pyproject.toml        # Project metadata and linting config
 └── requirements.txt      # Python dependencies
 ```
