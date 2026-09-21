@@ -184,8 +184,8 @@ ask-before-answer/
 ├── app/                  # Streamlit Hugging Face Space UI
 ├── configs/              # Hydra YAML configurations (model, data, training)
 ├── data/                 # Processed dataset files (ignored in git)
-├── docs/                 # Comprehensive 9-phase lifecycle documentation
 ├── assets/               # Generated documentation diagrams
+├── docs/                 # Comprehensive 9-phase lifecycle documentation
 ├── models/               # Model checkpoints (ignored in git)
 ├── scripts/              # Executable CLI entry points (e.g., train_sft.py, evaluate.py)
 ├── src/                  # Core Python modules
@@ -199,6 +199,8 @@ ask-before-answer/
 ├── Dockerfile            # Container deployment definition
 ├── dvc.yaml              # DVC pipeline definition
 ├── Makefile              # Reproducible command aliases
+├── package.json          # Node.js tooling configuration
+├── package-lock.json     # Locked Node.js dependencies
 ├── pyproject.toml        # Project metadata and linting config
 └── requirements.txt      # Python dependencies
 ```

@@ -1,28 +1,27 @@
-```mermaid
 flowchart TD
 
 subgraph group_experience["User Experience"]
-  node_streamlit_app["Streamlit App<br/>[app.py]"]
-  node_response_parser["Response Parser<br/>[app.py]"]
+    node_streamlit_app["Streamlit App<br/>[app.py]"]
+    node_response_parser["Response Parser<br/>[app.py]"]
 end
 
 subgraph group_inference["Inference Runtime"]
-  node_clarify_pipeline["Clarify Pipeline<br/>[pipeline.py]"]
-  node_model_runtime["Causal Model<br/>[pipeline.py]"]
+    node_clarify_pipeline["Clarify Pipeline<br/>[pipeline.py]"]
+    node_model_runtime["Causal Model<br/>[pipeline.py]"]
 end
 
 subgraph group_research["Data And Training"]
-  node_preprocessor["Data Preprocessor<br/>[preprocess.py]"]
-  node_sft_training["SFT Training<br/>[trainer.py]"]
-  node_dpo_training["DPO Training<br/>[trainer.py]"]
-  node_orpo_training["ORPO Training<br/>[trainer.py]"]
-  node_grpo_training["GRPO Training<br/>[trainer.py]"]
+    node_preprocessor["Data Preprocessor<br/>[preprocess.py]"]
+    node_sft_training["SFT Training<br/>[trainer.py]"]
+    node_dpo_training["DPO Training<br/>[trainer.py]"]
+    node_orpo_training["ORPO Training<br/>[trainer.py]"]
+    node_grpo_training["GRPO Training<br/>[trainer.py]"]
 end
 
 subgraph group_evaluation["Evaluation"]
-  node_evaluation_runner["Evaluation Runner"]
-  node_action_metrics["Action Metrics<br/>[metrics.py]"]
-  node_llm_judge["LLM Judge<br/>[judge.py]"]
+    node_evaluation_runner["Evaluation Runner"]
+    node_action_metrics["Action Metrics<br/>[metrics.py]"]
+    node_llm_judge["LLM Judge<br/>[judge.py]"]
 end
 
 node_user(("User"))
@@ -32,49 +31,87 @@ node_gemini["Gemini API"]
 node_weave["Weave Tracking"]
 
 node_user -->|"submits question"| node_streamlit_app
+
 node_streamlit_app -->|"calls inference"| node_clarify_pipeline
+
 node_clarify_pipeline -->|"generates response"| node_model_runtime
+
 node_clarify_pipeline -->|"loads model"| node_hf_hub
+
 node_model_runtime -->|"returns text"| node_clarify_pipeline
+
 node_clarify_pipeline -->|"returns output"| node_response_parser
+
 node_response_parser -->|"extracts fields"| node_streamlit_app
+
 node_streamlit_app -->|"displays result"| node_user
+
 node_clarify_pipeline -.->|"traces inference"| node_weave
+
 node_preprocessor -->|"loads records"| node_ambignq
+
 node_preprocessor -->|"provides data"| node_sft_training
+
 node_preprocessor -->|"provides data"| node_dpo_training
+
 node_preprocessor -->|"provides data"| node_orpo_training
+
 node_preprocessor -->|"provides data"| node_grpo_training
+
 node_evaluation_runner -->|"runs scoring"| node_action_metrics
+
 node_evaluation_runner -->|"runs judging"| node_llm_judge
+
 node_llm_judge -.->|"requests scores"| node_gemini
+
 node_action_metrics -.->|"logs metrics"| node_weave
+
 node_llm_judge -.->|"logs scores"| node_weave
 
 click node_streamlit_app "https://github.com/chrisjcc/ask-before-answer/blob/main/app/app.py"
+
 click node_response_parser "https://github.com/chrisjcc/ask-before-answer/blob/main/app/app.py"
+
 click node_clarify_pipeline "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/inference/pipeline.py"
+
 click node_model_runtime "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/inference/pipeline.py"
+
 click node_preprocessor "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/data/preprocess.py"
+
 click node_sft_training "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/training/trainer.py"
+
 click node_dpo_training "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/training/trainer.py"
+
 click node_orpo_training "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/training/trainer.py"
+
 click node_grpo_training "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/training/trainer.py"
+
 click node_evaluation_runner "https://github.com/chrisjcc/ask-before-answer/tree/main/src/ask_before_answer/evaluation"
+
 click node_action_metrics "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/evaluation/metrics.py"
+
 click node_llm_judge "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/evaluation/judge.py"
 
 classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
-classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
-classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
-classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
-classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
-classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
-classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
-class node_streamlit_app,node_response_parser,node_user toneBlue
-class node_clarify_pipeline,node_model_runtime toneAmber
-class node_preprocessor,node_sft_training,node_dpo_training,node_orpo_training,node_grpo_training,node_gemini toneMint
-class node_evaluation_runner,node_action_metrics,node_llm_judge toneRose
-class node_hf_hub,node_ambignq,node_weave toneIndigo
 
-```
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+
+class node_streamlit_app,node_response_parser,node_user toneBlue
+
+class node_clarify_pipeline,node_model_runtime toneAmber
+
+class node_preprocessor,node_sft_training,node_dpo_training,node_orpo_training,node_grpo_training,node_gemini toneMint
+
+class node_evaluation_runner,node_action_metrics,node_llm_judge toneRose
+
+class node_hf_hub,node_ambignq,node_weave toneIndigo
