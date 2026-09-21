@@ -74,6 +74,10 @@ jobs:
           npx mmdc --version
           npx puppeteer browsers list
 
+      - name: Show diagram dependencies
+        run: |
+          npm ls @mermaid-js/mermaid-cli puppeteer puppeteer-core
+
       - name: Regenerate diagram
         run: make diagram
 
