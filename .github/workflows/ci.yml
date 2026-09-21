@@ -72,6 +72,7 @@ jobs:
           node --version
           npm --version
           npx mmdc --version
+          npx puppeteer browsers list
 
       - name: Regenerate diagram
         run: make diagram
