@@ -52,3 +52,23 @@ jobs:
           USE_TF: "0"
         run: |
           pytest tests/
+
+  diagram-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Regenerate diagram
+        run: make diagram
+
+      - name: Fail if SVG is out of date
+        run: git diff --exit-code assets/architecture.svg
