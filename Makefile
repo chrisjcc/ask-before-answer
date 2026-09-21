@@ -160,8 +160,11 @@ install-dvc:
 # DVC is the source of truth
 # -------------------------
 
-GPU := $(shell nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | \
-       sort -t',' -k2 -nr | head -1 | cut -d',' -f1 | tr -d ' ')
+GPU := $(shell \
+	if command -v nvidia-smi >/dev/null 2>&1; then \
+		nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | \
+		sort -t',' -k2 -nr | head -1 | cut -d',' -f1 | tr -d ' '; \
+	fi)
 
 run-pipeline:
 	dvc repro
@@ -418,6 +421,7 @@ sweep:
 # Generate rendered architecture diagram from Mermaid source
 diagram:
 	npx mmdc \
+		-p puppeteer-config.json \
 		-i docs/diagrams/architecture.mmd \
 		-o assets/architecture.svg
 

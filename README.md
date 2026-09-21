@@ -71,14 +71,22 @@ You can explore the deployed final model, the dataset, and interact with the UI 
    cd ask-before-answer
    ```
 
-2. **Setup virtual environment & install dependencies:**
+2. **Install Python dependencies:**
 
    ```bash
    make install
    make install-dvc  # Recommended: Installs DVC globally via uv or pipx
    ```
 
-3. **Configure Environment Variables:**
+3. **Install Node.js dependencies:**
+
+Node.js is required for repository documentation tooling, including the Mermaid architecture diagram.
+   ```bash
+   npm ci
+   ```
+This installs the exact Node.js dependency versions recorded in package-lock.json.
+
+4. **Configure Environment Variables:**
 
    ```bash
    cp .env.example .env
@@ -123,7 +131,7 @@ make run-pipeline
 This project leverages **Weights & Biases Sweeps** to orchestrate Bayesian hyperparameter optimization.
 
 ```bash
-make sweep-sft
+make sweep FINE_TUNE_METHOD=sft  # Runs six variants: sft, dpo, sft-only, dpo-only, grpo, and orpo
 
 wandb agent <USERNAME>/<PROJECT>/<SWEEP_ID> --count 10
 
@@ -201,6 +209,7 @@ ask-before-answer/
 ├── Makefile              # Reproducible command aliases
 ├── package.json          # Node.js tooling configuration
 ├── package-lock.json     # Locked Node.js dependencies
+├── puppeteer-config.json # Puppeteer configuration with --no-sandbox when running in CI
 ├── pyproject.toml        # Project metadata and linting config
 └── requirements.txt      # Python dependencies
 ```
