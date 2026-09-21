@@ -67,6 +67,12 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Show diagram rendering environment
+        run: |
+          node --version
+          npm --version
+          npx mmdc --version
+
       - name: Regenerate diagram
         run: make diagram
 
