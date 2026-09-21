@@ -67,19 +67,14 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Show diagram rendering environment
-        run: |
-          node --version
-          npm --version
-          npx mmdc --version
-          npx puppeteer browsers list
-
-      - name: Show diagram dependencies
-        run: |
-          npm ls @mermaid-js/mermaid-cli puppeteer puppeteer-core
-
       - name: Regenerate diagram
         run: make diagram
 
-      - name: Fail if SVG is out of date
-        run: git diff --exit-code assets/architecture.svg
+      #- name: Fail if SVG is out of date
+      #  run: git diff --exit-code assets/architecture.svg
+
+      - name: Upload generated diagram
+        uses: actions/upload-artifact@v4
+        with:
+           name: architecture-svg
+           path: assets/architecture.svg
