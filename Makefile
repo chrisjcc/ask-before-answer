@@ -25,7 +25,7 @@ PROVENANCE_FILE ?= provenance/model_promotion.json
 .PHONY: \
 	help \
 	install install-dvc \
-	preprocess run-pipeline train \
+	preprocess run-pipeline train apply-experiment diagram \
 	train-sft train-dpo train-sft-only train-dpo-only train-orpo \
 	train-grpo ablation-suite \
 	evaluate infer \
@@ -59,7 +59,7 @@ help:
 	@echo ""
 	@echo "  make train-sft               Run SFT training variant"
 	@echo "  make train-dpo               Run DPO training variant (requires SFT)"
-
+	@echo "  make train-sft-only          Run SFT-only baseline"
 	@echo "  make train-dpo-only          Run DPO-only baseline"
 	@echo "  make train-orpo              Run ORPO baseline"
 	@echo "  make train-grpo              Run GRPO baseline"
@@ -90,7 +90,7 @@ help:
 	@echo "     (alternative to publish-model-artifact)"
 	@echo ""
 
-	@echo "W&B promotion requires an immutable: vN artifact reference."
+	@echo "W&B promotion requires an immutable vN artifact reference."
 	@echo "Example: rl4aa/ask-before-answer/Clarifier-grpo:v17"
 	@echo ""
 
@@ -104,6 +104,10 @@ help:
 	@echo "  make sweep FINE_TUNE_METHOD=<sft|dpo|orpo|grpo> COUNT=<n>"
 	@echo "                               Run W&B hyperparameter sweep"
 	@echo "                               COUNT defaults to $(COUNT)"
+	@echo ""
+
+	@echo "Documentation:"
+	@echo "  make diagram                 Render architecture diagram SVG from Mermaid source"
 	@echo ""
 
 	@echo "Dev tools:"
@@ -151,12 +155,16 @@ install-dvc:
 
 # -------------------------
 # Core pipeline / data (DVC is source of truth)
+# -------------------------
 
 # DVC is the source of truth
 # -------------------------
 
-GPU := $(shell nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | \
-       sort -t',' -k2 -nr | head -1 | cut -d',' -f1 | tr -d ' ')
+GPU := $(shell \
+	if command -v nvidia-smi >/dev/null 2>&1; then \
+		nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | \
+		sort -t',' -k2 -nr | head -1 | cut -d',' -f1 | tr -d ' '; \
+	fi)
 
 run-pipeline:
 	dvc repro
@@ -185,7 +193,7 @@ pull:
 
 # Supported DVC training variants.
 
-TRAIN_VARIANTS := sft dpo dpo-only orpo grpo
+TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
 
 # Generic training interface.
 #
@@ -216,7 +224,8 @@ train-sft:
 train-dpo:
 	$(MAKE) train TRAIN_VARIANT=dpo
 
-
+train-sft-only:
+	$(MAKE) train TRAIN_VARIANT=sft-only
 
 train-dpo-only:
 	$(MAKE) train TRAIN_VARIANT=dpo-only
@@ -229,7 +238,7 @@ train-grpo:
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train-sft train-dpo train-dpo-only train-orpo train-grpo
+	dvc repro train-sft train-dpo train-dpo-only train-sft-only train-orpo train-grpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
 	python scripts/evaluate.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
@@ -404,6 +413,17 @@ sweep:
 	python scripts/generate_sweep_report.py \
 		--fine-tune-method "$(FINE_TUNE_METHOD)" \
 		--sweep-id "$$SWEEP_ID"
+
+# -------------------------
+# Documentation / Architecture
+# -------------------------
+
+# Generate rendered architecture diagram from Mermaid source
+diagram:
+	npx mmdc \
+		-p puppeteer-config.json \
+		-i docs/diagrams/architecture.mmd \
+		-o assets/architecture.svg
 
 # -------------------------
 # Dev tools
