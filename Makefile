@@ -418,6 +418,7 @@ sweep:
 # Generate rendered architecture diagram from Mermaid source
 diagram:
 	npx mmdc \
+		-p puppeteer-config.json \
 		-i docs/diagrams/architecture.mmd \
 		-o assets/architecture.svg
 
