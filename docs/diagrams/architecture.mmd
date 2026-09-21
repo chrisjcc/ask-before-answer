@@ -1,34 +1,27 @@
-%%{init: {"layout": "elk"}}%%
 flowchart TD
 
-subgraph online["Online Serving Path"]
-  direction LR
-  subgraph group_experience["User Experience"]
-    node_streamlit_app["Streamlit App<br/>[app.py]"]
-    node_response_parser["Response Parser<br/>[app.py]"]
-  end
-
-  subgraph group_inference["Inference Runtime"]
-    node_clarify_pipeline["Clarify Pipeline<br/>[pipeline.py]"]
-    node_model_runtime["Causal Model<br/>[pipeline.py]"]
-  end
+subgraph group_experience["User Experience"]
+  node_streamlit_app["Streamlit App<br/>[app.py]"]
+  node_response_parser["Response Parser<br/>[app.py]"]
 end
 
-subgraph offline["Offline Research Pipeline"]
-  direction LR
-  subgraph group_research["Data And Training"]
-    node_preprocessor["Data Preprocessor<br/>[preprocess.py]"]
-    node_sft_training["SFT Training<br/>[trainer.py]"]
-    node_dpo_training["DPO Training<br/>[trainer.py]"]
-    node_orpo_training["ORPO Training<br/>[trainer.py]"]
-    node_grpo_training["GRPO Training<br/>[trainer.py]"]
-  end
+subgraph group_inference["Inference Runtime"]
+  node_clarify_pipeline["Clarify Pipeline<br/>[pipeline.py]"]
+  node_model_runtime["Causal Model<br/>[pipeline.py]"]
+end
 
-  subgraph group_evaluation["Evaluation"]
-    node_evaluation_runner["Evaluation Runner"]
-    node_action_metrics["Action Metrics<br/>[metrics.py]"]
-    node_llm_judge["LLM Judge<br/>[judge.py]"]
-  end
+subgraph group_research["Data And Training"]
+  node_preprocessor["Data Preprocessor<br/>[preprocess.py]"]
+  node_sft_training["SFT Training<br/>[trainer.py]"]
+  node_dpo_training["DPO Training<br/>[trainer.py]"]
+  node_orpo_training["ORPO Training<br/>[trainer.py]"]
+  node_grpo_training["GRPO Training<br/>[trainer.py]"]
+end
+
+subgraph group_evaluation["Evaluation"]
+  node_evaluation_runner["Evaluation Runner"]
+  node_action_metrics["Action Metrics<br/>[metrics.py]"]
+  node_llm_judge["LLM Judge<br/>[judge.py]"]
 end
 
 node_user(("User"))
@@ -57,9 +50,6 @@ node_evaluation_runner -->|"runs judging"| node_llm_judge
 node_llm_judge -.->|"requests scores"| node_gemini
 node_action_metrics -.->|"logs metrics"| node_weave
 node_llm_judge -.->|"logs scores"| node_weave
-
-%% Optional: shows how a trained checkpoint reaches the Hub that Inference loads from.
-%% Remove this line if that publishing step isn't part of your actual pipeline.
 node_grpo_training -.->|"publishes checkpoints"| node_hf_hub
 
 click node_streamlit_app "https://github.com/chrisjcc/ask-before-answer/blob/main/app/app.py"
@@ -74,6 +64,11 @@ click node_grpo_training "https://github.com/chrisjcc/ask-before-answer/blob/mai
 click node_evaluation_runner "https://github.com/chrisjcc/ask-before-answer/tree/main/src/ask_before_answer/evaluation"
 click node_action_metrics "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/evaluation/metrics.py"
 click node_llm_judge "https://github.com/chrisjcc/ask-before-answer/blob/main/src/ask_before_answer/evaluation/judge.py"
+
+style group_experience fill:#eff6ff,stroke:#60a5fa,stroke-width:1px
+style group_inference fill:#fffbeb,stroke:#fbbf24,stroke-width:1px
+style group_research fill:#f0fdf4,stroke:#4ade80,stroke-width:1px
+style group_evaluation fill:#fff1f2,stroke:#fb7185,stroke-width:1px
 
 classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
 classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
