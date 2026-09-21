@@ -30,6 +30,7 @@ remove_unused_columns: false              # Must be false for GRPO dynamic data
 max_prompt_length: 512                    # Maximum length of the prompt sequence
 max_completion_length: 512                # Maximum length of the generated completion
 num_generations: 8                        # Number of generations per prompt for relative scoring
+fast_inference: true                      # Use fast vLLM engine for generation
 
 # --- Reward Weights ---
 reward_weights:
