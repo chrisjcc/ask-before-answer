@@ -3,7 +3,7 @@
 # CPU-only inference and Streamlit demo
 # ------------------------------------------------------------
 
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 LABEL org.opencontainers.image.source="https://github.com/chrisjcc/ask-before-answer"
 LABEL org.opencontainers.image.description="AskBeforeAnswer: an RLHF-trained agent that clarifies ambiguity."
