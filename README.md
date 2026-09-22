@@ -48,7 +48,7 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 
 **Software:**
 
-* Python: `3.10` recommended (>= 3.9 supported)
+* Python: `3.11` recommended (>= 3.10 supported)
 * OS: Linux (Ubuntu 20.04/22.04 recommended) or macOS (for limited CPU-only inference)
 * CUDA: `12.1+` or `13.0` for training/GPU inference (Required for PyTorch 2.6+)
 

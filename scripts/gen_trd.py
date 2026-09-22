@@ -615,7 +615,7 @@ story.append(
     data_table(
         ["Package", "Min Version", "Purpose"],
         [
-            ["Python", "3.10 (&ge;3.9 supported)", "Runtime environment"],
+            ["Python", "3.11 (&ge;3.10 supported)", "Runtime environment"],
             [
                 "PyTorch",
                 "2.6+",
