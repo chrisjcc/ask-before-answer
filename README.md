@@ -90,7 +90,7 @@ This installs the exact Node.js dependency versions recorded in package-lock.jso
 
    ```bash
    cp .env.example .env
-   # Edit .env with your HF_TOKEN, GEMINI_API_KEY, WANDB_ENTITY, and WANDB_PROJECT
+   # Edit .env with your Hugging Face, AWS/DVC, W&B, and Gemini credentials
    ```
 
 ---
