@@ -235,6 +235,32 @@ The AskBeforeAnswer research framework systematically evaluates both offline pre
 
 *Figure 4: The two-stage training progression evaluated in AskBeforeAnswer, comparing offline preference alignment (DPO) with online programmatic RL (GRPO).*
 
+### Training Infrastructure, Quantization, and Hyperparameters
+
+For ML engineers and practitioners looking to reproduce or build upon this setup, training memory management is a major technical consideration. Online RL algorithms like GRPO sample multiple generations per prompt ($G=8$ rollouts), which can cause substantial VRAM spikes.
+
+To make full post-training accessible on accessible single-GPU hardware (e.g., NVIDIA A100 or RTX A6000), the project leverages **QLoRA (Quantized Low-Rank Adaptation)** and hardware-accelerated kernels via the **Unsloth** framework:
+
+* **Quantization & Adapter Precision:** Base models are loaded in 4-bit NormalFloat (`bnb-4bit`) precision via `bitsandbytes`, while LoRA adapter weights are injected into attention and MLP projection layers and trained in `bfloat16`.
+* **Kernel Acceleration:** Unsloth's custom Triton kernels and FlashAttention-2 enable fast forward/backward passes and efficient memory handling during multi-rollout sampling.
+
+Table 3 summarizes the exact hyperparameter configurations used across the SFT, DPO, and GRPO training stages:
+
+| Hyperparameter | Supervised Fine-Tuning (SFT) | Direct Preference Optimization (DPO) | Group Relative Policy Optimization (GRPO) |
+| :--- | :--- | :--- | :--- |
+| **Learning Rate** | $2 \times 10^{-5}$ | $5 \times 10^{-7}$ | $5 \times 10^{-6}$ |
+| **Optimizer** | AdamW (`adamw_torch`) | AdamW (`adamw_torch`) | AdamW (`adamw_torch`) |
+| **Epochs / Passes** | 3 | 1 | 1 |
+| **Per-Device Batch Size** | 1 | 1 | 1 |
+| **Gradient Accumulation** | 8 | 8 | 8 |
+| **Warmup Ratio** | 0.05 | 0.10 | 0.10 |
+| **Max Context Length** | 2048 tokens | 2048 tokens | 512 (prompt) / 512 (completion) |
+| **KL Penalty ($\beta$)** | N/A | 0.10 | 0.10 |
+| **Rollouts per Prompt ($G$)** | N/A | N/A | 8 |
+| **Precision** | `bfloat16` adapter / 4-bit base | `bfloat16` adapter / 4-bit base | `bfloat16` adapter / 4-bit base |
+
+*Table 3: Exact training hyperparameters across SFT, DPO, and GRPO stages.*
+
 ### Stage 1: Supervised Fine-Tuning (SFT)
 
 The SFT stage serves as behavioral cloning. It conditions the base LLM on the structured four-tiered schema, teaching the model to output valid reasoning traces, extract open-ended facets, and format final responses.
@@ -336,9 +362,15 @@ The framework benchmarks performance across 9 core metrics:
 
 ## 7. Experimental Results
 
-The experimental results on the `sewon/ambig_qa` benchmark reveal important trade-offs between post-training paradigms.
+To evaluate whether models post-trained under AskBeforeAnswer successfully navigate the clarify-or-act decision boundary, we benchmarked six distinct model variants on the evaluation split of the `sewon/ambig_qa` benchmark.
+
+Our empirical evaluation measures both deterministic structural performance (rule-based routing precision, schema adherence, and factual accuracy) and qualitative generation safety (LLM-as-a-judge scoring).
 
 ### Main Alignment Leaderboard
+
+To establish a clear comparative baseline, we evaluate the un-tuned base model (`unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit`), single-stage preference variants (`DPO Only` and `ORPO`), supervised behavioral cloning (`SFT`), and two-stage post-training pipelines (`SFT → DPO` and `SFT → GRPO`).
+
+Table 1 summarizes the primary decision-routing metrics, schema compliance rates, and downstream answer accuracy across all six configurations:
 
 | Model / Pipeline | Action Acc | Clarify F1 | Answer F1 | Macro F1 | Clarify Ratio | Answer Acc | Facet Gen Rate (FGR) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -351,7 +383,19 @@ The experimental results on the `sewon/ambig_qa` benchmark reveal important trad
 
 *Table 1: Performance comparison across post-training pipelines on the AmbigNQ evaluation split.*
 
+#### Key Insights from the Main Leaderboard:
+
+1. **The SFT Warm-Start Cures Schema Collapse:** Both un-tuned Base (8.5%) and `DPO Only` (10.9%) suffer from near-total failure in outputting structured facets when deciding to clarify. In contrast, every model that underwent SFT warm-starting (`SFT`, `SFT → DPO`, and `SFT → GRPO`) achieved a **flawless 100.0% Facet Generation Rate (FGR)**, confirming that behavioral cloning is strictly required to establish structured execution schemas.
+2. **DPO Optimizes Action Classification at the Cost of Generative Accuracy:** `SFT → DPO` achieves the highest Macro F1 (58.2%) and brings the Clarify Ratio down to a near-ideal 1.17 (reducing over-clarification). However, its factual Answer Accuracy drops to **0.0%**. DPO's static loss function heavily optimizes the log-probability margin on header classification tokens (`Action: Answer`), but completely neglects the generative factual tokens in the answer payload.
+3. **Programmatic GRPO Triples Factual Answer Accuracy:** The `SFT → GRPO` pipeline leverages dynamic online rollouts with deterministic reward functions that penalize hallucinated answers. This enables GRPO to **triple factual Answer Accuracy (15.0% vs. 5.0% for SFT and 0.0% for DPO)** while maintaining 100% schema compliance. Because wrong answers carry strict negative rewards during training, the GRPO agent learns a calibrated, cautious policy—preferring to clarify when uncertain (Clarify Ratio of 1.37).
+
+---
+
 ### Qualitative LLM-as-a-Judge Evaluation
+
+In addition to deterministic rule-based metrics, we evaluated the natural language quality, ambiguity detection capability, and practical usefulness of the generated clarifying questions.
+
+Using `LocalGemmaJudge` (powered by `google/gemma-2-2b-it`), each model output was evaluated on a 0.0 to 1.0 scale across three qualitative dimensions. Table 2 details these results:
 
 | Model / Pipeline | Ambiguity Detection F1 | Clarification Quality | Clarification Usefulness |
 | :--- | :---: | :---: | :---: |
@@ -362,6 +406,12 @@ The experimental results on the `sewon/ambig_qa` benchmark reveal important trad
 | **SFT $\rightarrow$ GRPO** | **0.970** | **0.800** | 0.892 |
 
 *Table 2: Subjective qualitative metrics scored by LocalGemmaJudge (`gemma-2-2b-it`).*
+
+#### Key Insights from Qualitative Judge Scoring:
+
+1. **High Baseline Ambiguity Detection:** Across all variants, Ambiguity Detection F1 remains consistently high (>0.946). This indicates that modern pre-trained instruction-tuned bases (such as Qwen 2.5 7B) already possess strong latent semantic understanding of query underspecification; post-training primarily aligns *how* the model acts on that understanding.
+2. **GRPO Achieves the Highest Clarification Quality:** `SFT → GRPO` recorded the top score in **Clarification Quality (0.800)**, demonstrating that training with programmatic reward functions does not degrade conversational naturalness or syntactic phrasing.
+3. **Structured Constraints Do Not Compromise Usefulness:** Across all post-trained variants, Clarification Usefulness remains near or above 0.88–0.89. Enforcing a strict 4-field output schema (`Action`, `Reasoning`, `Facets`, `Response`) preserves the semantic richness and helpfulness of the clarification response.
 
 ---
 
