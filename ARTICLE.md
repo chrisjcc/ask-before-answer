@@ -235,6 +235,32 @@ The AskBeforeAnswer research framework systematically evaluates both offline pre
 
 *Figure 4: The two-stage training progression evaluated in AskBeforeAnswer, comparing offline preference alignment (DPO) with online programmatic RL (GRPO).*
 
+### Training Infrastructure, Quantization, and Hyperparameters
+
+For ML engineers and practitioners looking to reproduce or build upon this setup, training memory management is a major technical consideration. Online RL algorithms like GRPO sample multiple generations per prompt ($G=8$ rollouts), which can cause substantial VRAM spikes.
+
+To make full post-training accessible on accessible single-GPU hardware (e.g., NVIDIA A100 or RTX A6000), the project leverages **QLoRA (Quantized Low-Rank Adaptation)** and hardware-accelerated kernels via the **Unsloth** framework:
+
+* **Quantization & Adapter Precision:** Base models are loaded in 4-bit NormalFloat (`bnb-4bit`) precision via `bitsandbytes`, while LoRA adapter weights are injected into attention and MLP projection layers and trained in `bfloat16`.
+* **Kernel Acceleration:** Unsloth's custom Triton kernels and FlashAttention-2 enable fast forward/backward passes and efficient memory handling during multi-rollout sampling.
+
+Table 3 summarizes the exact hyperparameter configurations used across the SFT, DPO, and GRPO training stages:
+
+| Hyperparameter | Supervised Fine-Tuning (SFT) | Direct Preference Optimization (DPO) | Group Relative Policy Optimization (GRPO) |
+| :--- | :--- | :--- | :--- |
+| **Learning Rate** | $2 \times 10^{-5}$ | $5 \times 10^{-7}$ | $5 \times 10^{-6}$ |
+| **Optimizer** | AdamW (`adamw_torch`) | AdamW (`adamw_torch`) | AdamW (`adamw_torch`) |
+| **Epochs / Passes** | 3 | 1 | 1 |
+| **Per-Device Batch Size** | 1 | 1 | 1 |
+| **Gradient Accumulation** | 8 | 8 | 8 |
+| **Warmup Ratio** | 0.05 | 0.10 | 0.10 |
+| **Max Context Length** | 2048 tokens | 2048 tokens | 512 (prompt) / 512 (completion) |
+| **KL Penalty ($\beta$)** | N/A | 0.10 | 0.10 |
+| **Rollouts per Prompt ($G$)** | N/A | N/A | 8 |
+| **Precision** | `bfloat16` adapter / 4-bit base | `bfloat16` adapter / 4-bit base | `bfloat16` adapter / 4-bit base |
+
+*Table 3: Exact training hyperparameters across SFT, DPO, and GRPO stages.*
+
 ### Stage 1: Supervised Fine-Tuning (SFT)
 
 The SFT stage serves as behavioral cloning. It conditions the base LLM on the structured four-tiered schema, teaching the model to output valid reasoning traces, extract open-ended facets, and format final responses.
