@@ -1,13 +1,14 @@
 """Mock test for the multi-turn evaluation framework."""
 
-import os
 from unittest.mock import MagicMock
+
 from ask_before_answer.evaluation.multi_turn import (
     ProviderAgent,
     SeekerAgent,
     simulate_conversation,
 )
 from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
+
 
 def test_multi_turn_success():
     """Verify that a successful conversation terminates before max_turns."""
@@ -19,8 +20,10 @@ def test_multi_turn_success():
     # Turn 1: It asks a clarification question.
     # Turn 2: It decides to output an Answer based on the Provider's reply.
     mock_pipeline.generate_from_messages.side_effect = [
-        "Action: Clarify\nReasoning: Need time.\nFacets: Time\nResponse: What time is the flight?",
-        "Action: Answer\nReasoning: I know the time now.\nFacets: \nResponse: The flight is at 5 PM."
+        "Action: Clarify\nReasoning: Need time.\nFacets: Time\n"
+        "Response: What time is the flight?",
+        "Action: Answer\nReasoning: I know the time now.\nFacets: \n"
+        "Response: The flight is at 5 PM.",
     ]
     
     seeker = SeekerAgent(pipeline=mock_pipeline)

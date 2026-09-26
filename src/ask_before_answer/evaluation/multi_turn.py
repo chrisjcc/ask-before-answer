@@ -1,15 +1,14 @@
 """Multi-turn evaluation framework simulating Seeker and Provider agents.
 
 This framework is inspired by ClarQ-LLM, enabling the evaluation of ClarifyOrAct 
-models (Seeker Agents) in a dynamic, multi-turn loop with a simulated human (Provider Agent).
+models (Seeker Agents) in a dynamic, multi-turn loop with a simulated human 
+(Provider Agent).
 """
 
-import os
 import re
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple
 
 from google import genai
-from pydantic import BaseModel
 
 from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
@@ -22,17 +21,22 @@ class ProviderAgent:
         self.disambiguations = disambiguations
         self.client = genai.Client()
         self.system_prompt = (
-            f"You are simulating a user who asked the following question: '{self.original_question}'\n"
-            f"However, this question is ambiguous. You secretly hold the following valid interpretations "
-            f"and their answers: {disambiguations}\n\n"
+            f"You are simulating a user who asked the following question: "
+            f"'{self.original_question}'\n"
+            f"However, this question is ambiguous. You secretly hold the following "
+            f"valid interpretations and their answers: {disambiguations}\n\n"
             f"The AI (Seeker Agent) is asking you a clarifying question. "
-            f"Pick ONE valid interpretation that best answers their clarifying question, and respond succinctly "
-            f"as the user. Do not reveal other interpretations they didn't ask for. Do not break character."
+            f"Pick ONE valid interpretation that best answers their clarifying "
+            f"question, and respond succinctly as the user. Do not reveal other "
+            f"interpretations they didn't ask for. Do not break character."
         )
 
     def reply(self, clarification_question: str) -> str:
         """Generate a reply based on the hidden facets."""
-        prompt = f"{self.system_prompt}\n\nSeeker asks: {clarification_question}\nYour reply:"
+        prompt = (
+            f"{self.system_prompt}\n\nSeeker asks: {clarification_question}\n"
+            f"Your reply:"
+        )
         response = self.client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
@@ -41,7 +45,8 @@ class ProviderAgent:
 
 
 class SeekerAgent:
-    """Wraps the ClarifyOrAct pipeline to maintain state across multi-turn interactions."""
+    """Wraps the ClarifyOrAct pipeline to maintain state across multi-turn 
+    interactions."""
     
     def __init__(self, pipeline: ClarifyOrActPipeline):
         self.pipeline = pipeline

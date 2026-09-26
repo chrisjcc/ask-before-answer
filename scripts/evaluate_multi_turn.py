@@ -31,7 +31,9 @@ def main(cfg: DictConfig) -> None:
     max_turns = cfg.evaluation.get("multi_turn_max_turns", 3)
 
     logger.info(f"Loading dataset: {dataset_name}")
-    dataset = load_dataset(dataset_name, config_name, split=split_name, trust_remote_code=False)
+    dataset = load_dataset(
+        dataset_name, config_name, split=split_name, trust_remote_code=False
+    )
     
     # We only want to evaluate ambiguous questions for the multi-turn loop
     ambiguous_samples = []
@@ -42,7 +44,11 @@ def main(cfg: DictConfig) -> None:
             ann_type = ann[0].get("type", "")
         elif isinstance(ann, dict):
             type_val = ann.get("type", "")
-            ann_type = type_val[0] if isinstance(type_val, list) and len(type_val) > 0 else type_val
+            ann_type = (
+                type_val[0]
+                if isinstance(type_val, list) and len(type_val) > 0
+                else type_val
+            )
             
         if ann_type == "multipleQAs":
             # Extract the hidden interpretations
@@ -60,7 +66,9 @@ def main(cfg: DictConfig) -> None:
                 
     max_samples = min(cfg.evaluation.get("max_samples", 50), len(ambiguous_samples))
     ambiguous_samples = ambiguous_samples[:max_samples]
-    logger.info(f"Filtered to {len(ambiguous_samples)} ambiguous samples for multi-turn evaluation.")
+    logger.info(
+        f"Filtered to {len(ambiguous_samples)} ambiguous samples for multi-turn eval."
+    )
     
     models_to_eval = cfg.evaluation.get("models_to_evaluate", [])
     if not models_to_eval:
@@ -77,11 +85,18 @@ def main(cfg: DictConfig) -> None:
             if os.path.exists(local_path):
                 model_path = local_path
             elif model_path.startswith("models/") or model_path.startswith("./"):
-                logger.warning(f"Local model path {local_path} does not exist. Skipping {model_name}...")
+                logger.warning(
+                    f"Local model path {local_path} does not exist. "
+                    f"Skipping {model_name}..."
+                )
                 continue
                 
-        logger.info(f"Evaluating model in multi-turn mode: {model_name} from {model_path}")
-        pipeline = ClarifyOrActPipeline(model_path, is_peft, base_model_id=cfg.evaluation.base_model_id)
+        logger.info(
+            f"Evaluating model in multi-turn mode: {model_name} from {model_path}"
+        )
+        pipeline = ClarifyOrActPipeline(
+            model_path, is_peft, base_model_id=cfg.evaluation.base_model_id
+        )
         seeker = SeekerAgent(pipeline)
         
         success_count = 0
@@ -89,13 +104,18 @@ def main(cfg: DictConfig) -> None:
         
         for sample in tqdm(ambiguous_samples, desc=f"Evaluating {model_name}"):
             provider = ProviderAgent(sample["question"], sample["disambiguations"])
-            result = simulate_conversation(seeker, provider, sample["question"], max_turns=max_turns)
+            result = simulate_conversation(
+                seeker, provider, sample["question"], max_turns=max_turns
+            )
             
             if result["success"]:
                 success_count += 1
             total_turns += result["turns"]
             
-            logger.info(f"Q: '{sample['question']}' -> Success: {result['success']} (Turns: {result['turns']})")
+            logger.info(
+                f"Q: '{sample['question']}' -> Success: {result['success']} "
+                f"(Turns: {result['turns']})"
+            )
             
         sr = (success_count / max(1, len(ambiguous_samples))) * 100
         avg_turns = total_turns / max(1, len(ambiguous_samples))
@@ -106,6 +126,7 @@ def main(cfg: DictConfig) -> None:
         
         # Explicit memory clean up to avoid OOM when iterating across models
         import gc
+
         import torch
         del pipeline
         del seeker
