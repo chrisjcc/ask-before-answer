@@ -4,6 +4,7 @@
 *   **Option 2:** *Clarification as an Action: Why Post-Training Needs Programmatic Reinforcement Learning for Ambiguous Intent*
 *   **Option 3:** *Why Answering Every Question Is Wrong: Aligning LLMs on the Clarify-or-Act Decision Boundary*
 *   **Option 4:** *When Preference Alignment Fails: Comparing Offline DPO and Online GRPO in Ambiguity Resolution*
+*   **Option 5:** *Why Answering Every Question Is Wrong: Teaching Language Models When to Clarify and When to Act
 
 ---
 
@@ -79,7 +80,7 @@ As a consequence, language models develop a deep behavioral bias: **they act as 
 
 To understand why this breaks down in real-world deployment, we must distinguish between two fundamentally different types of uncertainty:
 
-1.  **Factual (Epistemic) Uncertainty:** The model does not know a specific fact (e.g., *"What is the exact atomic weight of Ununennium?"*). Here, the user's intent is perfectly clear, but the model lacks knowledge.
+1.  **Factual (Epistemic) Uncertainty:** The model does not know a specific fact (e.g., *"What is the exact atomic weight of Ununennium?"*). Here, the user's intent is perfectly clear, but the model lacks knowledg.
 2.  **Intent (Aleatoric) Uncertainty:** The model knows all relevant facts, but the user's request is underspecified or multi-interpretable (e.g., *"How do I make pasta?"* or *"Who won the election in Washington?"*).
 
 When an LLM hallucinates in response to an ambiguous prompt, the failure is rarely a collapse of its internal knowledge base. Rather, **the model is hallucinating an arbitrary interpretation of the user's intent** and providing a correct factual answer to a question the user never actually asked.
@@ -165,7 +166,7 @@ class ClarifyOrActSchema(BaseModel):
 
 ## 4. Dataset and Ambiguity Taxonomy
 
-To train and evaluate models on the clarify-or-act decision boundary, the project derived a specialized dataset from the open-source **AmbigNQ** corpus (Min et al., 2020), which contains open-domain questions from Natural Questions annotated with multiple plausible interpretations.
+To train and evaluate models on the clarify-or-act decision boundary, the project derives a specialized dataset from AmbigNQ, the dataset introduced as part of the **AmbigQA** task by Min et al. (2020 [1]). **AmbigNQ** contains open-domain questions from Natural Questions annotated with multiple plausible interpretations, providing a foundation for studying when a question is sufficiently ambiguous to warrant clarification.
 
 ### The Ambiguity Taxonomy
 
@@ -362,13 +363,13 @@ The framework benchmarks performance across 9 core metrics:
 
 ## 7. Experimental Results
 
-To evaluate whether models post-trained under AskBeforeAnswer successfully navigate the clarify-or-act decision boundary, we benchmarked six distinct model variants on the evaluation split of the `sewon/ambig_qa` benchmark.
+The experimental results on the AmbigNQ evaluation split reveal important trade-offs between post-training paradigms.
 
 Our empirical evaluation measures both deterministic structural performance (rule-based routing precision, schema adherence, and factual accuracy) and qualitative generation safety (LLM-as-a-judge scoring).
 
 ### Main Alignment Leaderboard
 
-To establish a clear comparative baseline, we evaluate the un-tuned base model (`unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit`), single-stage preference variants (`DPO Only` and `ORPO`), supervised behavioral cloning (`SFT`), and two-stage post-training pipelines (`SFT → DPO` and `SFT → GRPO`).
+To establish a clear comparative baseline, we evaluate the untuned base model (`unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit`), single-stage preference variants (`DPO Only` and `ORPO`), supervised behavioral cloning (`SFT`), and two-stage post-training pipelines (`SFT → DPO` and `SFT → GRPO`).
 
 Table 1 summarizes the primary decision-routing metrics, schema compliance rates, and downstream answer accuracy across all six configurations:
 
@@ -383,11 +384,10 @@ Table 1 summarizes the primary decision-routing metrics, schema compliance rates
 
 *Table 1: Performance comparison across post-training pipelines on the AmbigNQ evaluation split.*
 
-#### Key Insights from the Main Leaderboard:
-
-1. **The SFT Warm-Start Cures Schema Collapse:** Both un-tuned Base (8.5%) and `DPO Only` (10.9%) suffer from near-total failure in outputting structured facets when deciding to clarify. In contrast, every model that underwent SFT warm-starting (`SFT`, `SFT → DPO`, and `SFT → GRPO`) achieved a **flawless 100.0% Facet Generation Rate (FGR)**, confirming that behavioral cloning is strictly required to establish structured execution schemas.
-2. **DPO Optimizes Action Classification at the Cost of Generative Accuracy:** `SFT → DPO` achieves the highest Macro F1 (58.2%) and brings the Clarify Ratio down to a near-ideal 1.17 (reducing over-clarification). However, its factual Answer Accuracy drops to **0.0%**. DPO's static loss function heavily optimizes the log-probability margin on header classification tokens (`Action: Answer`), but completely neglects the generative factual tokens in the answer payload.
-3. **Programmatic GRPO Triples Factual Answer Accuracy:** The `SFT → GRPO` pipeline leverages dynamic online rollouts with deterministic reward functions that penalize hallucinated answers. This enables GRPO to **triple factual Answer Accuracy (15.0% vs. 5.0% for SFT and 0.0% for DPO)** while maintaining 100% schema compliance. Because wrong answers carry strict negative rewards during training, the GRPO agent learns a calibrated, cautious policy—preferring to clarify when uncertain (Clarify Ratio of 1.37).
+#### Leaderboard Insights:
+1. SFT cures schema collapse: Base (8.5%) and DPO Only (10.9%) rarely produce    structured facets, while every SFT-initialized model reaches 100.0%. (Reasoning goes in Surprise #2.)
+2. DPO wins on classification, loses on answers: SFT→DPO leads on Macro F1 (58.2%), but its Answer Accuracy falls to 0.0%. (Mechanism goes in Surprise #1.)
+3. GRPO triples answer accuracy: 15.0% versus 5.0% for SFT, at 100% schema compliance and a Clarify Ratio of 1.37. (Mechanism goes in Surprise #3.)
 
 ---
 
@@ -395,7 +395,7 @@ Table 1 summarizes the primary decision-routing metrics, schema compliance rates
 
 In addition to deterministic rule-based metrics, we evaluated the natural language quality, ambiguity detection capability, and practical usefulness of the generated clarifying questions.
 
-Using `LocalGemmaJudge` (powered by `google/gemma-2-2b-it`), each model output was evaluated on a 0.0 to 1.0 scale across three qualitative dimensions. Table 2 details these results:
+Using `LocalGemmaJudge` (based on `google/gemma-2-2b-it`), each model output was evaluated on a 0.0 to 1.0 scale across three qualitative dimensions. Table 2 details these results:
 
 | Model / Pipeline | Ambiguity Detection F1 | Clarification Quality | Clarification Usefulness |
 | :--- | :---: | :---: | :---: |
@@ -409,9 +409,9 @@ Using `LocalGemmaJudge` (powered by `google/gemma-2-2b-it`), each model output w
 
 #### Key Insights from Qualitative Judge Scoring:
 
-1. **High Baseline Ambiguity Detection:** Across all variants, Ambiguity Detection F1 remains consistently high (>0.946). This indicates that modern pre-trained instruction-tuned bases (such as Qwen 2.5 7B) already possess strong latent semantic understanding of query underspecification; post-training primarily aligns *how* the model acts on that understanding.
-2. **GRPO Achieves the Highest Clarification Quality:** `SFT → GRPO` recorded the top score in **Clarification Quality (0.800)**, demonstrating that training with programmatic reward functions does not degrade conversational naturalness or syntactic phrasing.
-3. **Structured Constraints Do Not Compromise Usefulness:** Across all post-trained variants, Clarification Usefulness remains near or above 0.88–0.89. Enforcing a strict 4-field output schema (`Action`, `Reasoning`, `Facets`, `Response`) preserves the semantic richness and helpfulness of the clarification response.
+1. **High Baseline Ambiguity Detection:** Across all variants, Ambiguity Detection F1 remains consistently high (>0.946). Modern instruction-tuned bases (such as Qwen 2.5 7B) already understand query underspecification well; post-training primarily aligns how the model acts on that understanding.
+2. **GRPO Achieves the Highest Clarification Quality:** `SFT` → `GRPO` recorded the top **Clarification Quality score (0.800)**, showing that training with programmatic reward functions does not degrade conversational naturalness or phrasing.
+3. **Structured Constraints Do Not Compromise Usefulness:** Across all post-trained variants, Clarification Usefulness stays around 0.88–0.89 or higher. Enforcing a strict 4-field output schema (`Action`, `Reasoning`, `Facets`, `Response`) preserves the helpfulness of the clarification.
 
 ---
 
@@ -446,21 +446,17 @@ Because preference optimization computes log-probability ratios over static offl
 
 ### 2. Preference Optimization Fails Without an SFT Prior
 
-Running preference alignment directly on the base model without an SFT warm-start (`DPO Only`) resulted in structural failure:
-*   Facet Generation Rate dropped to an abysmal **10.9%**.
-*   The model routinely failed to parse or adhere to the four-tiered schema.
+Running preference alignment directly on the base model, with no SFT warm-start (`DPO Only`), resulted in structural failure: the model routinely failed to parse or adhere to the four-tiered schema.
 
 This demonstrates that preference optimization functions primarily as a stylistic tuner. It cannot teach structured execution or complex schemas from scratch; it requires a behavioral prior established by SFT.
 
 ### 3. Online GRPO Enforces Factual Safety and Prevents Reward Hacking
 
-By replacing static preference pairs with dynamic programmatic rollouts, the **SFT $\rightarrow$ GRPO** pipeline successfully avoided reward hacking:
-*   **Answer Accuracy tripled to 15.0%** (compared to 5.0% for SFT and 0.0% for DPO).
-*   **Facet Generation Rate remained flawless at 100.0%**.
+By replacing static preference pairs with dynamic programmatic rollouts, the `SFT` → `GRPO` pipeline successfully avoided reward hacking: it tripled Answer Accuracy while keeping schema compliance flawless.
 
-Because the programmatic reward function strictly penalizes incorrect answers during rollouts, GRPO learned a **highly calibrated, cautious agent personality**. When faced with uncertainty, the GRPO agent prefers to clarify rather than risk an incorrect answer—raising the Clarify Ratio to 1.37 and lowering Answer F1 to 34.5%.
+Because the programmatic reward function strictly penalizes incorrect answers during rollouts, GRPO learned a highly calibrated, cautious agent personality. When faced with uncertainty, the GRPO agent prefers to clarify rather than risk an incorrect answer, raising the Clarify Ratio to 1.37 and lowering Answer F1 to 34.5%.
 
-For safety-critical applications where guessing incurs severe penalties, **SFT $\rightarrow$ GRPO produces the most hallucination-resistant policy**.
+For safety-critical applications where guessing incurs severe penalties, `SFT` → `GRPO` produces the most hallucination-resistant policy.
 
 ```text
                GRPO Online RL: Hallucination-Resistant Safety
@@ -537,3 +533,26 @@ The AskBeforeAnswer project is fully open-source. Code, dataset processing scrip
 *   **Research Paper Draft:** [AskBeforeAnswer Draft (ICML Style)](https://github.com/chrisjcc/ask-before-answer/blob/main/papers/draft/main.pdf)
 *   **Hugging Face Model Card:** [chrisjcc/ask-before-answer](https://huggingface.co/chrisjcc/ask-before-answer)
 *   **Hugging Face Space Demo:** [AskBeforeAnswer Interactive Demo](https://huggingface.co/spaces/chrisjcc/ask-before-answer-demo)
+
+## 🤗 Models & Dataset
+
+* [Qwen2.5–7B-Instruct / Hugging Face] (https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+* [Unsloth 4-bit Qwen2.5–7B-Instruct / Hugging Face] (https://huggingface.co/unsloth/Qwen2.5-7B-Instruct-unsloth-bnb-4bit)
+* [Gemma 2 2B IT / Hugging Face] (https://huggingface.co/google/gemma-2-2b-it)
+* [AmbigQA dataset / Hugging Face](https://huggingface.co/datasets/sewon/ambig_qa)
+
+## References
+1. [Min et al. (2020)](https://arxiv.org/abs/2004.10645)
+ Sewon Min, Julian Michael, Hannaneh Hajishirzi, and Luke Zettlemoyer. AmbigQA: Answering Ambiguous Open-domain Questions. EMNLP 2020. 
+2. [Hu et al. (2021)](https://arxiv.org/abs/2106.09685)
+ Edward J. Hu et al. LoRA: Low-Rank Adaptation of Large Language Models. 2021. 
+3. [Dettmers et al. (2023)](https://arxiv.org/abs/2305.14314)
+ Tim Dettmers et al. QLoRA: Efficient Fine-tuning of Quantized LLMs. 2023. 
+4. [Rafailov et al. (2023)](https://arxiv.org/abs/2305.18290)
+ Rafael Rafailov et al. Direct Preference Optimization: Your Language Model is Secretly a Reward Model. NeurIPS 2023. 
+5. [Shao et al. (2024)](https://arxiv.org/abs/2402.03300)
+ Zhihong Shao et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. 2024. 
+6. [Yang et al. (2024)](https://arxiv.org/abs/2407.10671)
+ An Yang et al. Qwen2 Technical Report. 2024. This is the underlying technical reference for the Qwen2 family that Qwen2.5 builds upon. 
+7. [Li et al. (2025)](https://arxiv.org/abs/2411.16594)
+ Dawei Li et al. From Generation to Judgment: Opportunities and Challenges of LLM-as-a-judge. EMNLP 2025. 
