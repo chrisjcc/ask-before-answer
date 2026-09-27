@@ -22,6 +22,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
     """Execute the multi-turn evaluation loop."""
@@ -34,7 +35,7 @@ def main(cfg: DictConfig) -> None:
     dataset = load_dataset(
         dataset_name, config_name, split=split_name, trust_remote_code=False
     )
-    
+
     # We only want to evaluate ambiguous questions for the multi-turn loop
     ambiguous_samples = []
     for row in dataset:
@@ -49,7 +50,7 @@ def main(cfg: DictConfig) -> None:
                 if isinstance(type_val, list) and len(type_val) > 0
                 else type_val
             )
-            
+
         if ann_type == "multipleQAs":
             # Extract the hidden interpretations
             qa_pairs = []
@@ -57,19 +58,18 @@ def main(cfg: DictConfig) -> None:
                 qa_pairs = ann[0].get("qaPairs", [])
             elif isinstance(ann, dict):
                 qa_pairs = ann.get("qaPairs", [])
-            
+
             if qa_pairs:
-                ambiguous_samples.append({
-                    "question": row["question"],
-                    "disambiguations": qa_pairs
-                })
-                
+                ambiguous_samples.append(
+                    {"question": row["question"], "disambiguations": qa_pairs}
+                )
+
     max_samples = min(cfg.evaluation.get("max_samples", 50), len(ambiguous_samples))
     ambiguous_samples = ambiguous_samples[:max_samples]
     logger.info(
         f"Filtered to {len(ambiguous_samples)} ambiguous samples for multi-turn eval."
     )
-    
+
     models_to_eval = cfg.evaluation.get("models_to_evaluate", [])
     if not models_to_eval:
         logger.warning("No models_to_evaluate found in config.")
@@ -79,7 +79,7 @@ def main(cfg: DictConfig) -> None:
         model_name = model_cfg.name
         model_path = model_cfg.path
         is_peft = model_cfg.is_peft
-        
+
         if not os.path.isabs(model_path):
             local_path = os.path.join(cfg.project_dir, model_path)
             if os.path.exists(local_path):
@@ -90,7 +90,7 @@ def main(cfg: DictConfig) -> None:
                     f"Skipping {model_name}..."
                 )
                 continue
-                
+
         logger.info(
             f"Evaluating model in multi-turn mode: {model_name} from {model_path}"
         )
@@ -98,41 +98,43 @@ def main(cfg: DictConfig) -> None:
             model_path, is_peft, base_model_id=cfg.evaluation.base_model_id
         )
         seeker = SeekerAgent(pipeline)
-        
+
         success_count = 0
         total_turns = 0
-        
+
         for sample in tqdm(ambiguous_samples, desc=f"Evaluating {model_name}"):
             provider = ProviderAgent(sample["question"], sample["disambiguations"])
             result = simulate_conversation(
                 seeker, provider, sample["question"], max_turns=max_turns
             )
-            
+
             if result["success"]:
                 success_count += 1
             total_turns += result["turns"]
-            
+
             logger.info(
                 f"Q: '{sample['question']}' -> Success: {result['success']} "
                 f"(Turns: {result['turns']})"
             )
-            
+
         sr = (success_count / max(1, len(ambiguous_samples))) * 100
         avg_turns = total_turns / max(1, len(ambiguous_samples))
-        
+
         logger.info(f"--- Model: {model_name} Multi-Turn Results ---")
         logger.info(f"Task Success Rate: {sr:.2f}%")
         logger.info(f"Average Turns: {avg_turns:.2f}\n")
-        
+
         # Explicit memory clean up to avoid OOM when iterating across models
         import gc
 
         import torch
+
         del pipeline
         del seeker
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
 
 if __name__ == "__main__":
     main()

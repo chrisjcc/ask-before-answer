@@ -1,7 +1,7 @@
 """Multi-turn evaluation framework simulating Seeker and Provider agents.
 
-This framework is inspired by ClarQ-LLM, enabling the evaluation of ClarifyOrAct 
-models (Seeker Agents) in a dynamic, multi-turn loop with a simulated human 
+This framework is inspired by ClarQ-LLM, enabling the evaluation of ClarifyOrAct
+models (Seeker Agents) in a dynamic, multi-turn loop with a simulated human
 (Provider Agent).
 """
 
@@ -15,7 +15,7 @@ from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 class ProviderAgent:
     """Simulates a human holding hidden disambiguation facets."""
-    
+
     def __init__(self, original_question: str, disambiguations: List[dict]):
         self.original_question = original_question
         self.disambiguations = disambiguations
@@ -45,9 +45,9 @@ class ProviderAgent:
 
 
 class SeekerAgent:
-    """Wraps the ClarifyOrAct pipeline to maintain state across multi-turn 
+    """Wraps the ClarifyOrAct pipeline to maintain state across multi-turn
     interactions."""
-    
+
     def __init__(self, pipeline: ClarifyOrActPipeline):
         self.pipeline = pipeline
         self.system_prompt = (
@@ -70,58 +70,55 @@ def extract_action_and_response(raw_text: str) -> Tuple[str, str]:
     """Helper to parse the Clarify|Answer output from the Seeker agent."""
     action = "Answer"
     response = raw_text
-    
+
     action_match = re.search(r"Action:\s*(Clarify|Answer)", raw_text, re.IGNORECASE)
     if action_match:
         action = action_match.group(1).capitalize()
-        
+
     resp_match = re.search(r"Response:\s*(.*)", raw_text, re.IGNORECASE | re.DOTALL)
     if resp_match:
         response = resp_match.group(1).strip()
-        
+
     return action, response
 
 
 def simulate_conversation(
-    seeker: SeekerAgent,
-    provider: ProviderAgent,
-    question: str,
-    max_turns: int = 3
+    seeker: SeekerAgent, provider: ProviderAgent, question: str, max_turns: int = 3
 ) -> Dict[str, Any]:
     """Simulate a multi-turn conversation between Seeker and Provider.
-    
+
     Returns:
         dict: Contains simulation results including success boolean,
               total turns, complete dialogue history, and final response.
     """
     history = [{"role": "user", "content": question}]
-    
+
     for turn in range(max_turns):
         # Seeker's turn
         raw_output = seeker.step(history)
         action, response = extract_action_and_response(raw_output)
-        
+
         # Append seeker's output as an assistant message
         history.append({"role": "assistant", "content": response})
-        
+
         if action == "Answer":
             return {
                 "success": True,
                 "turns": turn + 1,
                 "history": history,
                 "final_answer": response,
-                "raw_output": raw_output
+                "raw_output": raw_output,
             }
-            
+
         # Provider's turn
         provider_reply = provider.reply(response)
         history.append({"role": "user", "content": provider_reply})
-        
+
     # Reached max turns without the Seeker deciding to act
     return {
         "success": False,
         "turns": max_turns,
         "history": history,
         "final_answer": None,
-        "raw_output": None
+        "raw_output": None,
     }
