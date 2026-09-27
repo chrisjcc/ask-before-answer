@@ -16,10 +16,15 @@ from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 class ProviderAgent:
     """Simulates a human holding hidden disambiguation facets."""
 
-    def __init__(self, original_question: str, disambiguations: List[dict]):
+    def __init__(
+        self,
+        original_question: str,
+        disambiguations: List[dict],
+        client: genai.Client | None = None,
+    ):
         self.original_question = original_question
         self.disambiguations = disambiguations
-        self.client = genai.Client()
+        self.client = client if client is not None else genai.Client()
         self.system_prompt = (
             f"You are simulating a user who asked the following question: "
             f"'{self.original_question}'\n"

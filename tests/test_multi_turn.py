@@ -28,10 +28,13 @@ def test_multi_turn_success():
 
     seeker = SeekerAgent(pipeline=mock_pipeline)
 
-    # Mock the ProviderAgent to avoid hitting the Gemini API during testing
+    # Inject a mock genai.Client so ProviderAgent never constructs a real
+    # client (and therefore never requires a real API key / network access).
     original_question = "When is the flight?"
     disambiguations = [{"question": "What time is the flight?", "answer": "5 PM"}]
-    provider = ProviderAgent(original_question, disambiguations)
+    provider = ProviderAgent(
+        original_question, disambiguations, client=MagicMock()
+    )
 
     # Override the reply method to return a hardcoded facet
     provider.reply = MagicMock(return_value="The flight is at 5 PM.")
