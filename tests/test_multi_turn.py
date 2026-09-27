@@ -32,9 +32,7 @@ def test_multi_turn_success():
     # client (and therefore never requires a real API key / network access).
     original_question = "When is the flight?"
     disambiguations = [{"question": "What time is the flight?", "answer": "5 PM"}]
-    provider = ProviderAgent(
-        original_question, disambiguations, client=MagicMock()
-    )
+    provider = ProviderAgent(original_question, disambiguations, client=MagicMock())
 
     # Override the reply method to return a hardcoded facet
     provider.reply = MagicMock(return_value="The flight is at 5 PM.")
