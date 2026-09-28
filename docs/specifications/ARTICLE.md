@@ -80,7 +80,7 @@ As a consequence, language models develop a deep behavioral bias: **they act as 
 
 To understand why this breaks down in real-world deployment, we must distinguish between two fundamentally different types of uncertainty:
 
-1.  **Factual (Epistemic) Uncertainty:** The model does not know a specific fact (e.g., *"What is the exact atomic weight of Ununennium?"*). Here, the user's intent is perfectly clear, but the model lacks knowledg.
+1.  **Factual (Epistemic) Uncertainty:** The model does not know a specific fact (e.g., *"What is the exact atomic weight of Ununennium?"*). Here, the user's intent is perfectly clear, but the model lacks knowledge.
 2.  **Intent (Aleatoric) Uncertainty:** The model knows all relevant facts, but the user's request is underspecified or multi-interpretable (e.g., *"How do I make pasta?"* or *"Who won the election in Washington?"*).
 
 When an LLM hallucinates in response to an ambiguous prompt, the failure is rarely a collapse of its internal knowledge base. Rather, **the model is hallucinating an arbitrary interpretation of the user's intent** and providing a correct factual answer to a question the user never actually asked.
