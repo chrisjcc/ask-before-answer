@@ -250,7 +250,7 @@ $$\min_\theta \max_{P \in \mathcal{P}} \mathbb{E}_{x \sim P} \left[ \mathcal{L}_
 
 \subsection{Deterministic Programmatic Reward Function}
 The reward function $\mathcal{R}(x, y)$ is calculated entirely via deterministic Python validation scripts. It is a linear combination of four sub-rewards:
-%$$\mathcal{R}(x, y) = \omega_1 \mathcal{R}_{\text{format}}(y) + \omega_2 \mathcal{R}_{\text{routing}}(x, a) + \omega_3 \mathcal{R}_{\text{facet}}(x, f) + \omega_4 \mathcal{R}_{\text{len}}(y)$$ 
+%$$\mathcal{R}(x, y) = \omega_1 \mathcal{R}_{\text{format}}(y) + \omega_2 \mathcal{R}_{\text{routing}}(x, a) + \omega_3 \mathcal{R}_{\text{facet}}(x, f) + \omega_4 \mathcal{R}_{\text{accuracy}}(y)$$
 \begin{align}
 \mathcal{R}(x, y)
 &=
@@ -261,7 +261,7 @@ The reward function $\mathcal{R}(x, y)$ is calculated entirely via deterministic
 \mathcal{R}_1 &= \mathcal{R}_{\text{format}}(y), \quad
 \mathcal{R}_2 = \mathcal{R}_{\text{routing}}(x, a), \\
 \mathcal{R}_3 &= \mathcal{R}_{\text{facet}}(x, f), \quad
-\mathcal{R}_4 = \mathcal{R}_{\text{len}}(y)
+\mathcal{R}_4 = \mathcal{R}_{\text{accuracy}}(y)
 \end{align}
 
 %\begin{figure}[ht]
@@ -294,9 +294,9 @@ The reward function $\mathcal{R}(x, y)$ is calculated entirely via deterministic
 %                  |
 %                  v Pass
 %+----------------------------------+
-%|     Length Penalty: R_len        |
-%| Penalizes verbose outputs using  |
-%| a dynamic length scaling term    |
+%|   Factual Accuracy: R_accuracy   |
+%| Rewards generated answers for    |
+%| matching the ground truth facts  |
 %+----------------------------------+
 %\end{verbatim}
 %\caption{The Deterministic Programmatic Reward pipeline for GRPO.}
