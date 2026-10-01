@@ -489,177 +489,7 @@ def run_orpo_training(cfg: DictConfig) -> None:
     logger.info("ORPO Training complete and model saved.")
 
 
-def format_reward_func(
-    prompts: list[str],
-    completions: list[list[dict]],
-    reward_weights: dict | None = None,
-    **kwargs: object,
-) -> list[float]:
-    """Reward function that checks for the exact format constraints."""
-    if reward_weights is None:
-        reward_weights = {}
-    format_reward = reward_weights.get("format_reward", 1.0)
-    format_penalty = reward_weights.get("format_penalty", -2.0)
 
-    rewards = []
-    for completion in completions:
-        # A simple check: do we have all the sections in order?
-        text = completion[0]["content"] if isinstance(completion, list) else completion
-        has_action = "Action:" in text
-        has_reasoning = "Reasoning:" in text
-        has_facets = "Facets:" in text
-        has_response = "Response:" in text
-
-        if has_action and has_reasoning and has_facets and has_response:
-            rewards.append(format_reward)
-        else:
-            rewards.append(format_penalty)
-    return rewards
-
-
-def action_reward_func(
-    prompts: list[str],
-    completions: list[list[dict]],
-    reward_weights: dict | None = None,
-    **kwargs: object,
-) -> list[float]:
-    """Reward function that checks if the predicted action matches the target."""
-    if reward_weights is None:
-        reward_weights = {}
-    action_reward = reward_weights.get("action_reward", 1.0)
-    action_penalty = reward_weights.get("action_penalty", -1.0)
-
-    rewards = []
-    target_actions = kwargs.get("target_action", [])
-
-    for i, completion in enumerate(completions):
-        text = completion[0]["content"] if isinstance(completion, list) else completion
-        target = target_actions[i]
-
-        action_match = re.search(r"Action:\s*(Clarify|Answer)", text)
-        if action_match:
-            pred_action = action_match.group(1)
-            if pred_action == target:
-                rewards.append(action_reward)
-            else:
-                rewards.append(action_penalty)
-        else:
-            rewards.append(action_penalty)
-    return rewards
-
-
-def facet_logic_reward_func(
-    prompts: list[str],
-    completions: list[list[dict]],
-    reward_weights: dict | None = None,
-    **kwargs: object,
-) -> list[float]:
-    """Reward function that checks facet presence/absence based on action."""
-    if reward_weights is None:
-        reward_weights = {}
-    facet_reward = reward_weights.get("facet_logic_reward", 0.5)
-    facet_penalty = reward_weights.get("facet_logic_penalty", -0.5)
-
-    rewards = []
-    for completion in completions:
-        text = completion[0]["content"] if isinstance(completion, list) else completion
-        action_match = re.search(r"Action:\s*(Clarify|Answer)", text)
-        facets_match = re.search(r"Facets:\s*(\[.*?\])", text, re.DOTALL)
-
-        if not action_match or not facets_match:
-            rewards.append(facet_penalty)
-            continue
-
-        pred_action = action_match.group(1)
-        facets_str = facets_match.group(1)
-
-        try:
-            facets = ast.literal_eval(facets_str)
-            if not isinstance(facets, list):
-                facets = []
-        except Exception:
-            facets = []
-
-        if pred_action == "Clarify":
-            # Clarify MUST have non-empty facets
-            if len(facets) > 0:
-                rewards.append(facet_reward)
-            else:
-                rewards.append(facet_penalty)
-        else:
-            # Answer MUST have empty facets
-            if len(facets) == 0:
-                rewards.append(facet_reward)
-            else:
-                rewards.append(facet_penalty)
-    return rewards
-
-
-def accuracy_reward_func(
-    prompts: list[str],
-    completions: list[list[dict]],
-    reward_weights: dict | None = None,
-    **kwargs: object,
-) -> list[float]:
-    """Reward function that checks for factual accuracy (word overlap).
-
-    for direct answers.
-    """
-    if reward_weights is None:
-        reward_weights = {}
-    acc_scale = reward_weights.get("accuracy_scale", 1.5)
-    acc_shift = reward_weights.get("accuracy_shift", -0.5)
-    acc_miss_penalty = reward_weights.get("accuracy_miss_penalty", -1.0)
-    acc_format_penalty = reward_weights.get("accuracy_format_penalty", -0.5)
-
-    rewards = []
-    target_responses = kwargs.get("target_response", [])
-    target_actions = kwargs.get("target_action", [])
-
-    for i, completion in enumerate(completions):
-        text = completion[0]["content"] if isinstance(completion, list) else completion
-        target_resp = target_responses[i]
-        target_act = target_actions[i]
-
-        # Only heavily shape accuracy for direct answers to prevent hallucination.
-        # Clarification questions are too linguistically diverse to strictly grade
-        # with word overlap.
-        if target_act != "Answer":
-            rewards.append(0.0)
-            continue
-
-        response_match = re.search(r"Response:\s*(.*)", text, re.DOTALL)
-        if not response_match or not target_resp:
-            rewards.append(acc_format_penalty)
-            continue
-
-        pred_resp = response_match.group(1).strip()
-
-        # Token overlap F1
-        pred_words = set(re.findall(r"\b\w+\b", pred_resp.lower()))
-        target_words = set(re.findall(r"\b\w+\b", target_resp.lower()))
-
-        if not target_words:
-            rewards.append(0.0)
-            continue
-
-        intersection = pred_words.intersection(target_words)
-
-        if not intersection:
-            rewards.append(acc_miss_penalty)  # Totally missed the facts
-            continue
-
-        recall = len(intersection) / len(target_words)
-        precision = len(intersection) / len(pred_words)
-
-        f1 = 2 * (precision * recall) / (precision + recall)
-
-        # Map F1 to reward: low overlap is penalized,
-        # high overlap is moderately rewarded
-        reward = (f1 * acc_scale) + acc_shift
-        rewards.append(reward)
-
-    return rewards
 
 
 def run_grpo_training(cfg: DictConfig) -> None:
@@ -680,45 +510,58 @@ def run_grpo_training(cfg: DictConfig) -> None:
     )
     dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
-    def format_grpo(example: dict) -> dict:
-        system_prompt = (
-            "You are a helpful assistant. "
-            "Given a question, you must decide whether it is ambiguous or not. "
-            "Output MUST follow this format:\n"
-            "Action: Clarify|Answer\n"
-            "Reasoning: <your reasoning>\n"
-            "Facets: <list of facets if ambiguous, else empty>\n"
-            "Response: <clarifying question or direct answer>"
-        )
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": example["prompt"]},
-        ]
-
-        prompt_str = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-
-        # Extract the target action from the 'chosen' string in the DPO dataset
-        target_action = "Answer"
-        if "Action: Clarify" in example["chosen"]:
-            target_action = "Clarify"
-
-        target_response = ""
-        response_match = re.search(r"Response:\s*(.*)", example["chosen"], re.DOTALL)
-        if response_match:
-            target_response = response_match.group(1).strip()
-
-        return {
-            "prompt": prompt_str,
-            "target_action": target_action,
-            "target_response": target_response,
-        }
-
-    dataset_train = dataset_train.map(
-        format_grpo, remove_columns=dataset_train.column_names
+    from ask_before_answer.rewards import (
+        FormatCriterion,
+        ActionCriterion,
+        FacetLogicCriterion,
+        AccuracyCriterion,
+        Rubric,
+        SingleTurnEnv,
     )
-    dataset_val = dataset_val.map(format_grpo, remove_columns=dataset_val.column_names)
+
+    reward_weights = cfg.training.get("reward_weights", {})
+
+    # Initialize criteria based on config weights
+    criteria = [
+        FormatCriterion(
+            weight=reward_weights.get("format_reward", 1.0),
+            penalty=reward_weights.get("format_penalty", -2.0)
+        ),
+        ActionCriterion(
+            weight=reward_weights.get("action_reward", 1.0),
+            penalty=reward_weights.get("action_penalty", -1.0)
+        ),
+        FacetLogicCriterion(
+            weight=reward_weights.get("facet_logic_reward", 0.5),
+            penalty=reward_weights.get("facet_logic_penalty", -0.5)
+        ),
+        AccuracyCriterion(
+            weight=1.0,  # Handled inside evaluate_batch logic
+            scale=reward_weights.get("accuracy_scale", 1.5),
+            shift=reward_weights.get("accuracy_shift", -0.5),
+            miss_penalty=reward_weights.get("accuracy_miss_penalty", -1.0),
+            format_penalty=reward_weights.get("accuracy_format_penalty", -0.5)
+        )
+    ]
+
+    rubric = Rubric(criteria=criteria)
+
+    system_prompt = (
+        "You are a helpful assistant. "
+        "Given a question, you must decide whether it is ambiguous or not. "
+        "Output MUST follow this format:\n"
+        "Action: Clarify|Answer\n"
+        "Reasoning: <your reasoning>\n"
+        "Facets: <list of facets if ambiguous, else empty>\n"
+        "Response: <clarifying question or direct answer>"
+    )
+
+    env = SingleTurnEnv(
+        train_dataset=dataset_train,
+        eval_dataset=dataset_val,
+        rubric=rubric,
+        system_prompt=system_prompt,
+    )
 
     training_args = GRPOConfig(
         output_dir=cfg.training.output_dir,
@@ -760,69 +603,12 @@ def run_grpo_training(cfg: DictConfig) -> None:
 
     model.generate = patched_generate
 
-    def make_reward_functions(reward_weights: dict[str, Any]) -> list[Any]:
-        """Create GRPO reward functions with bound reward weights.
-
-        The returned objects are regular Python functions rather than
-        functools.partial instances because Unsloth expects reward functions
-        to expose a __name__ attribute.
-        """
-
-        def format_reward(
-            prompts: list[str], completions: list[list[dict]], **kwargs: object
-        ) -> list[float]:
-            return format_reward_func(
-                prompts,
-                completions,
-                reward_weights=reward_weights,
-                **kwargs,
-            )
-
-        def action_reward(
-            prompts: list[str], completions: list[list[dict]], **kwargs: object
-        ) -> list[float]:
-            return action_reward_func(
-                prompts,
-                completions,
-                reward_weights=reward_weights,
-                **kwargs,
-            )
-
-        def facet_logic_reward(
-            prompts: list[str], completions: list[list[dict]], **kwargs: object
-        ) -> list[float]:
-            return facet_logic_reward_func(
-                prompts,
-                completions,
-                reward_weights=reward_weights,
-                **kwargs,
-            )
-
-        def accuracy_reward(
-            prompts: list[str], completions: list[list[dict]], **kwargs: object
-        ) -> list[float]:
-            return accuracy_reward_func(
-                prompts,
-                completions,
-                reward_weights=reward_weights,
-                **kwargs,
-            )
-
-        return [
-            format_reward,
-            action_reward,
-            facet_logic_reward,
-            accuracy_reward,
-        ]
-
-    reward_weights = cfg.training.get("reward_weights", {})
-
     trainer = GRPOTrainer(
         model=model,
-        reward_funcs=make_reward_functions(reward_weights),
+        reward_funcs=env.get_reward_funcs(),
         args=training_args,
-        train_dataset=dataset_train,
-        eval_dataset=dataset_val,
+        train_dataset=env.get_train_dataset(tokenizer),
+        eval_dataset=env.get_eval_dataset(tokenizer),
         processing_class=tokenizer,
     )
 
