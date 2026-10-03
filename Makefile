@@ -239,7 +239,7 @@ ablation-suite:
 	@echo "Running all experimental baselines..."
 	dvc repro train-sft train-dpo train-dpo-only train-sft-only train-orpo train-grpo
 	@echo "Evaluating all models with LLM-as-a-Judge..."
-	python scripts/evaluate.py
+	python scripts/evaluate_single_turn.py
 	@echo "Synthesizing experiment results into docs/ablation_report.md..."
 	python scripts/generate_ablation_report.py
 	@echo "Saving DVC experiment..."
