@@ -197,12 +197,11 @@ TRAIN_VARIANTS := sft dpo sft-only dpo-only orpo grpo
 
 # Generic training interface.
 #
-# TRAIN_VARIANT uses hyphens for CLI readability while the corresponding
-# DVC stage uses underscores, e.g.:
+# TRAIN_VARIANT uses hyphens for CLI readability which directly maps
+# to the corresponding DVC stage, e.g.:
 #
-#   sft-only -> train_sft_only
-#   dpo-only -> train_dpo_only
-
+#   sft-only -> train-sft-only
+#   dpo-only -> train-dpo-only
 train:
 	@if [ -z "$(TRAIN_VARIANT)" ]; then \
 		echo "ERROR: TRAIN_VARIANT is required."; \
