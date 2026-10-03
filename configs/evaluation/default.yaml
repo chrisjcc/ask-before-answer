@@ -9,6 +9,7 @@ split: "validation"                               # Split to evaluate
 config_name: "light"                              # Config or subset of the dataset
 max_samples: 50                                   # Number of samples to evaluate (for speed/testing)
 judge_model: "google/gemma-2-2b-it"               # Local LLM as a Judge model identifier
+multi_turn_provider: "google/gemma-2-2b-it"       # Provider Agent model for multi-turn simulation
 multi_turn_max_turns: 3                           # Maximum number of clarification loops before task failure
 
 # --- Base Model Definition ---
