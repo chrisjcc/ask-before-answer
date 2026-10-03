@@ -75,7 +75,7 @@ def main(cfg: DictConfig) -> None:
     env = MultiTurnEnv(
         dataset=ambiguous_samples,
         provider_model="gemini-2.5-flash",
-        max_turns=max_turns
+        max_turns=max_turns,
     )
 
     for model_cfg in models_to_eval:
@@ -128,6 +128,7 @@ def main(cfg: DictConfig) -> None:
 
         # Explicit memory clean up to avoid OOM when iterating across models
         import gc
+
         import torch
 
         del pipeline
@@ -135,6 +136,7 @@ def main(cfg: DictConfig) -> None:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
 
 if __name__ == "__main__":
     main()
