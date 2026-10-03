@@ -54,21 +54,24 @@ def test_multi_turn_success():
     assert result["turns_taken"] == 2, f"Expected 2 turns, got {result['turns_taken']}"
 
     # Verify the history contains the exact sequence of turns
-    # Initial Prompt -> Seeker -> Provider -> Seeker
+    # System Prompt -> Initial Prompt -> Seeker -> Provider -> Seeker
     history = result["history"]
-    assert len(history) == 4
+    assert len(history) == 5
 
-    assert history[0]["role"] == "user"
-    assert history[0]["content"] == "When is the flight?"
+    assert history[0]["role"] == "system"
+    assert "You are a helpful assistant" in history[0]["content"]
 
-    assert history[1]["role"] == "assistant"
-    assert "Action: Clarify" in history[1]["content"]
+    assert history[1]["role"] == "user"
+    assert history[1]["content"] == "When is the flight?"
 
-    assert history[2]["role"] == "user"
-    assert history[2]["content"] == "The flight is at 5 PM."
+    assert history[2]["role"] == "assistant"
+    assert "Action: Clarify" in history[2]["content"]
 
-    assert history[3]["role"] == "assistant"
-    assert "Action: Answer" in history[3]["content"]
+    assert history[3]["role"] == "user"
+    assert history[3]["content"] == "The flight is at 5 PM."
+
+    assert history[4]["role"] == "assistant"
+    assert "Action: Answer" in history[4]["content"]
 
     # Verify Provider Agent was called correctly
     mock_provider.reply.assert_called_once()
