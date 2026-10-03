@@ -43,7 +43,7 @@ if "pipeline" not in st.session_state:
 def get_available_models() -> dict:
     """Return a dictionary of available models for the application."""
     models = {
-        "AskBeforeAnswer (SFT+DPO Qwen2.5-7B)": {
+        "AskBeforeAnswer (GRPO Qwen2.5-7B)": {
             "path": "chrisjcc/ask-before-answer",
             "is_peft": True,
         }
@@ -112,57 +112,83 @@ with st.sidebar:
 if st.session_state.pipeline is None:
     st.warning("Please load the model from the sidebar to begin.")
 else:
-    user_query = st.text_input("Enter a potentially ambiguous question:")
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        system_prompt = (
+            "You are a helpful assistant. "
+            "Given a question, you must decide whether it is ambiguous or not. "
+            "Output MUST follow this format:\n"
+            "Action: Clarify|Answer\n"
+            "Reasoning: <your reasoning>\n"
+            "Facets: <list of facets if ambiguous, else empty>\n"
+            "Response: <clarifying question or direct answer>"
+        )
+        st.session_state.messages = [{"role": "system", "content": system_prompt}]
 
-    if st.button("Generate Response") and user_query:
-        with st.spinner("Analyzing..."):
-            raw_response = st.session_state.pipeline.generate(user_query)
-            # Fix any literal escaped newlines from the model
-            raw_response = raw_response.replace("\\n", "\n")
+    # Display chat messages (skip the hidden system prompt)
+    for msg in st.session_state.messages[1:]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-            import ast
-            import re
+    if user_query := st.chat_input("Enter a potentially ambiguous question (or answer a clarification):"):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": user_query})
 
-            action_match = re.search(r"Action:\s*(.*?)\n", raw_response + "\n")
-            reasoning_match = re.search(r"Reasoning:\s*(.*?)\n", raw_response + "\n")
-            facets_match = re.search(r"Facets:\s*(.*?)\n", raw_response + "\n")
-            response_match = re.search(
-                r"Response:\s*(.*)", raw_response + "\n", re.DOTALL
-            )
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(user_query)
 
-            action = action_match.group(1).strip() if action_match else "Unknown"
-            reasoning = (
-                reasoning_match.group(1).strip()
-                if reasoning_match
-                else "None provided."
-            )
-            facets_str = facets_match.group(1).strip() if facets_match else "[]"
-            final_response = (
-                response_match.group(1).strip() if response_match else raw_response
-            )
+        # Generate response
+        with st.chat_message("assistant"):
+            with st.spinner("Analyzing..."):
+                raw_response = st.session_state.pipeline.generate_from_messages(st.session_state.messages)
+                raw_response = raw_response.replace("\\n", "\n")
 
-            try:
-                facets = (
-                    ast.literal_eval(facets_str) if facets_str.startswith("[") else []
+                import ast
+                import re
+
+                action_match = re.search(r"Action:\s*(.*?)\n", raw_response + "\n")
+                reasoning_match = re.search(r"Reasoning:\s*(.*?)\n", raw_response + "\n")
+                facets_match = re.search(r"Facets:\s*(.*?)\n", raw_response + "\n")
+                response_match = re.search(
+                    r"Response:\s*(.*)", raw_response + "\n", re.DOTALL
                 )
-            except (ValueError, SyntaxError, TypeError):
-                facets = [facets_str] if facets_str else []
 
-            st.markdown("### Model Response")
+                action = action_match.group(1).strip() if action_match else "Unknown"
+                reasoning = (
+                    reasoning_match.group(1).strip()
+                    if reasoning_match
+                    else "None provided."
+                )
+                facets_str = facets_match.group(1).strip() if facets_match else "[]"
+                final_response = (
+                    response_match.group(1).strip() if response_match else raw_response
+                )
 
-            if "Clarify" in action:
-                st.warning("🤔 **Ambiguity Detected! Requesting Clarification:**")
-            elif "Answer" in action:
-                st.success("✅ **Clear Question! Answering Directly:**")
-            else:
-                st.info("🤖 **Response:**")
+                try:
+                    facets = (
+                        ast.literal_eval(facets_str) if facets_str.startswith("[") else []
+                    )
+                except (ValueError, SyntaxError, TypeError):
+                    facets = [facets_str] if facets_str else []
 
-            st.markdown(f"**{final_response}**")
+                if "Clarify" in action:
+                    st.warning("🤔 **Ambiguity Detected! Requesting Clarification:**")
+                elif "Answer" in action:
+                    st.success("✅ **Clear Question! Answering Directly:**")
+                else:
+                    st.info("🤖 **Response:**")
 
-            with st.expander("View Agent Internal Reasoning"):
-                st.markdown(f"**Action:** `{action}`")
-                st.markdown(f"**Reasoning:** {reasoning}")
-                if facets:
-                    st.markdown("**Identified Missing Facets:**")
-                    for f in facets:
-                        st.markdown(f"- {f}")
+                st.markdown(f"**{final_response}**")
+
+                with st.expander("View Agent Internal Reasoning"):
+                    st.markdown(f"**Action:** `{action}`")
+                    st.markdown(f"**Reasoning:** {reasoning}")
+                    if facets:
+                        st.markdown("**Identified Missing Facets:**")
+                        for f in facets:
+                            st.markdown(f"- {f}")
+
+                # Append assistant response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": raw_response})
+
