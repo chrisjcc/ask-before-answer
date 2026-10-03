@@ -1,10 +1,12 @@
 import logging
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
+
 class Environment:
     """Base class for interactive evaluation environments."""
+
     def __init__(self, dataset, max_turns: int = 3):
         self.dataset = dataset
         self.max_turns = max_turns
@@ -18,15 +20,19 @@ class Environment:
 
 class ProviderAgent:
     """Simulates a human holding the ground truth information."""
+
     def __init__(self, model_name: str = "gemini-2.5-flash"):
         self.model_name = model_name
 
         import os
+
         from google import genai
 
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            logger.warning("GEMINI_API_KEY is missing. ProviderAgent will fail if called.")
+            logger.warning(
+                "GEMINI_API_KEY is missing. ProviderAgent will fail if called."
+            )
 
         # Initialize the GenAI client
         self.client = genai.Client(api_key=api_key) if api_key else None
@@ -39,24 +45,29 @@ class ProviderAgent:
             return "Error: GEMINI_API_KEY not set. Cannot simulate user response."
 
         system_prompt = (
-            "You are a human user answering a clarifying question from an AI assistant. "
-            "You asked an initial question, and the assistant needs more information to answer it. "
-            f"Here is your hidden knowledge (the ground truth facets): {ground_truth_facets}\n\n"
+            "You are a human user answering a clarifying question from an AI "
+            "assistant. You asked an initial question, and the assistant needs "
+            "more information to answer it. "
+            f"Here is your hidden knowledge (the ground truth facets): "
+            f"{ground_truth_facets}\n\n"
             "Instructions:\n"
-            "1. Answer the assistant's clarifying question truthfully using ONLY the hidden knowledge.\n"
+            "1. Answer the assistant's clarifying question truthfully using "
+            "ONLY the hidden knowledge.\n"
             "2. Be concise and natural, as a human would be.\n"
-            "3. Do NOT reveal information that the assistant didn't specifically ask for."
+            "3. Do NOT reveal information that the assistant didn't "
+            "specifically ask for."
         )
 
         try:
             from google.genai import types
+
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=seeker_message,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
                     temperature=0.3,
-                )
+                ),
             )
             return response.text
         except Exception as e:
@@ -64,11 +75,12 @@ class ProviderAgent:
             return f"User provides clarifying info: {ground_truth_facets}"
 
 
-
 class MultiTurnEnv(Environment):
     """The interactive evaluation environment for AskBeforeAnswer."""
 
-    def __init__(self, dataset, provider_model: str = "gemini-2.5-flash", max_turns: int = 3):
+    def __init__(
+        self, dataset, provider_model: str = "gemini-2.5-flash", max_turns: int = 3
+    ):
         super().__init__(dataset, max_turns)
         self.provider = ProviderAgent(model_name=provider_model)
 
@@ -92,11 +104,7 @@ class MultiTurnEnv(Environment):
         # Calculate how many turns the Seeker took (excluding system/provider messages)
         seeker_turns = sum(1 for msg in history if msg["role"] == "assistant")
 
-        return {
-            "success": success,
-            "turns_taken": seeker_turns,
-            "history": history
-        }
+        return {"success": success, "turns_taken": seeker_turns, "history": history}
 
     def evaluate(self, seeker_model) -> List[Dict[str, Any]]:
         """The core multi-turn rollout loop."""
