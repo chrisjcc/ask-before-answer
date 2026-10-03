@@ -8,7 +8,7 @@ Six model variants were evaluated on the `sewon_ambig_qa_eval` benchmark using b
 
 This project integrates tightly with **Weights & Biases Weave** to provide comprehensive LLM observability and systematic evaluation pipelines. 
 
-The automated evaluation pipeline (`scripts/evaluate.py`) uses a dual-scoring approach to systematically evaluate all model configurations against the test dataset:
+The automated single-turn evaluation pipeline (`scripts/evaluate_single_turn.py`) uses a dual-scoring approach to systematically evaluate all model configurations against the test dataset:
 
 **1. LLM-as-a-Judge (Gemini 2.5 Flash / Gemma 4):**
 Evaluates the subjective nuance and quality of the response:
@@ -20,14 +20,17 @@ Evaluates the subjective nuance and quality of the response:
 Evaluates the deterministic structural accuracy of the agent's chosen action:
 - Model Accuracy (Raw percentage of correct `Action` choices—Clarify vs. Answer—compared to the ground-truth labels).
 
+Additionally, the automated multi-turn evaluation pipeline (`scripts/evaluate_multi_turn.py`) uses an interactive simulation (`MultiTurnEnv`) to test if the agent successfully reaches the final answer after interacting with a simulated user.
+
 To run the full suite and generate a dynamic leaderboard on Weave:
 ```bash
-make evaluate
+make evaluate-single-turn
+make evaluate-multi-turn
 ```
 
 To run a specific evaluation configuration (e.g. `configs/evaluation/custom.yaml`) without modifying the default:
 ```bash
-make evaluate EVAL_CONFIG=custom
+make evaluate-single-turn EVAL_CONFIG=custom
 ```
 
 ## 1. The Core Trade-off: Clarification vs Answering

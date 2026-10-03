@@ -67,8 +67,10 @@ help:
 	@echo ""
 
 	@echo "Evaluation & Inference:"
-	@echo "  make evaluate [EVAL_CONFIG=custom]"
-	@echo "                               Run evaluation scripts (defaults to default.yaml)"
+	@echo "  make evaluate-single-turn [EVAL_CONFIG=custom]"
+	@echo "                               Run single-turn evaluation (LLM-as-a-judge)"
+	@echo "  make evaluate-multi-turn [EVAL_CONFIG=custom]"
+	@echo "                               Run multi-turn agentic evaluation"
 	@echo "  make infer                   Run inference"
 	@echo ""
 
@@ -251,7 +253,7 @@ ablation-suite:
 
 EVAL_CONFIG ?= default
 
-evaluate:
+evaluate-single-turn:
 	python scripts/evaluate_single_turn.py evaluation=$(EVAL_CONFIG)
 
 evaluate-multi-turn:
