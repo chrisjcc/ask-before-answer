@@ -133,6 +133,8 @@ class MultiTurnEnv(Environment):
 
             results.append(self._calculate_metrics(history))
 
+        return results
+
 
 class SeekerAgent:
     """Wraps the ClarifyOrActPipeline to handle multi-turn dialogue history."""
