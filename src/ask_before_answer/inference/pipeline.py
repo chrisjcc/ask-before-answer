@@ -138,6 +138,37 @@ class ClarifyOrActPipeline:
         return self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
 
     @weave.op()
+    def generate_from_messages(self, messages: List[dict]) -> str:
+        """Run inference from a list of conversational messages.
+
+        Args:
+            messages (List[dict]): List of dictionaries with 'role' and 'content'.
+
+        Returns:
+            str: The raw generated string from the model.
+        """
+        input_text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        inputs = self.tokenizer(input_text, return_tensors="pt").to(self.model.device)
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=300,
+                do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+            )
+
+        # Decode only the generated response
+        gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]
+        return self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
+
+    @weave.op()
     def batch_generate(self, questions: List[str]) -> List[str]:
         """Run batch inference."""
         return [self.generate(q) for q in questions]

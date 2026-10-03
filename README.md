@@ -145,7 +145,8 @@ make ablation-suite
 The automated evaluation pipeline uses a dual-scoring approach (LLM-as-a-judge & rule-based scoring).
 
 ```bash
-make evaluate
+make evaluate-single-turn
+make evaluate-multi-turn
 ```
 
 *For a deep dive into the 6 distinct model variants and our final leaderboard, see [Evaluation & Analysis](docs/04_evaluation_analysis.md).*
