@@ -1,0 +1,422 @@
+"""Evaluation script for the LLM-as-a-Judge pipeline.
+
+This script runs the Weave evaluation framework, assessing the generated
+clarifications and actions of various models against semantic and syntactic scorers.
+"""
+
+import asyncio
+import json  # noqa: F401
+import logging
+import os
+import threading
+
+import hydra
+import weave
+from datasets import load_dataset
+from dotenv import load_dotenv
+from omegaconf import DictConfig
+
+from ask_before_answer.evaluation.judge import GeminiJudge, LocalGemmaJudge
+from ask_before_answer.evaluation.metrics import ActionScorer
+from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
+
+load_dotenv()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["WEAVE_PARALLELISM"] = "1"
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+_PIPELINE_CACHE = {}
+_PIPELINE_LOCK = threading.Lock()
+_INFERENCE_LOCK = threading.Lock()
+
+
+def get_cached_pipeline(
+    model_path: str, is_peft: bool, base_model_id: str
+) -> ClarifyOrActPipeline:
+    """Retrieve or instantiate a cached inference pipeline.
+
+    Args:
+        model_path (str): Path to the model weights.
+        is_peft (bool): Whether the model is a LoRA adapter.
+        base_model_id (str): The base model to use.
+
+    Returns:
+        ClarifyOrActPipeline: The loaded inference pipeline.
+
+    """
+    with _PIPELINE_LOCK:
+        if model_path not in _PIPELINE_CACHE:
+            # Clear old models to free VRAM
+            _PIPELINE_CACHE.clear()
+            import gc
+
+            import torch
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            _PIPELINE_CACHE[model_path] = ClarifyOrActPipeline(
+                model_path, is_peft, base_model_id=base_model_id
+            )
+        return _PIPELINE_CACHE[model_path]
+
+
+class ClarifyOrActModel(weave.Model):
+    """Weave Model wrapper for the ClarifyOrActPipeline.
+
+    This class integrates the inference pipeline directly into the Weave
+    evaluation ecosystem, allowing the `weave.Evaluation` class to automatically
+    generate predictions for every sample in the dataset.
+    """
+
+    model_name: str
+    model_path: str
+    is_peft: bool
+    base_model_id: str = "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+
+    @weave.op()
+    def predict(self, question: str) -> str:
+        """Run the prompt through the cached pipeline to predict an
+        action or clarification.
+        """
+        pipeline = get_cached_pipeline(
+            self.model_path, self.is_peft, self.base_model_id
+        )
+        with _INFERENCE_LOCK:
+            return pipeline.generate(question)
+
+
+@hydra.main(version_base="1.3", config_path="../configs", config_name="config")
+def main(cfg: DictConfig) -> None:
+    """Execute the full Weave evaluation pipeline."""
+    logger.info("Starting systematic evaluation pipeline...")
+    weave.init(os.environ.get("WANDB_PROJECT", "ask-before-answer"))
+
+    dataset_name = cfg.evaluation.dataset_name
+    config_name = cfg.evaluation.get("config_name", "light")
+    split_name = cfg.evaluation.split
+
+    logger.info(f"Loading evaluation dataset: {dataset_name} ({split_name} split)")
+    dataset = load_dataset(
+        dataset_name, config_name, split=split_name, trust_remote_code=False
+    )
+
+    max_samples = cfg.evaluation.get("max_samples", 50)
+    dataset = dataset.select(range(min(max_samples, len(dataset))))
+
+    # Preprocess dataset to the format expected by Weave
+    weave_dataset_rows = []
+    for row in dataset:
+        # Determine the true action based on AmbigQA schema
+        ann = row.get("annotations", {})
+        if isinstance(ann, list):
+            ann_type = ann[0].get("type", "") if ann else ""
+        elif isinstance(ann, dict):
+            type_val = ann.get("type", "")
+            ann_type = (
+                type_val[0]
+                if isinstance(type_val, list) and len(type_val) > 0
+                else type_val
+            )
+        else:
+            ann_type = ""
+
+        is_ambiguous = ann_type == "multipleQAs"
+        expected_action = "Clarify" if is_ambiguous else "Answer"
+
+        target_response = ""
+        if expected_action == "Answer":
+            if isinstance(ann, dict):
+                answers = ann.get("answer", [])
+                if isinstance(answers, list) and len(answers) > 0:
+                    first_ans_group = answers[0]
+                    if isinstance(first_ans_group, list) and len(first_ans_group) > 0:
+                        target_response = first_ans_group[0]
+                    elif isinstance(first_ans_group, str):
+                        target_response = first_ans_group
+            if not target_response and "nq_answer" in row and row["nq_answer"]:
+                target_response = row["nq_answer"][0]
+
+        target_str = f"Action: {expected_action}\n"
+        if target_response:
+            target_str += f"Response: {target_response}\n"
+        if "ground_truth" in row:
+            target_str += str(row["ground_truth"])
+
+        weave_dataset_rows.append(
+            {
+                "question": row["question"],
+                "target": target_str,
+            }
+        )
+
+    # Publish the dataset once so all models evaluate against the exact same version
+    eval_dataset = weave.Dataset(
+        name=f"{dataset_name.replace('/', '_')}_eval", rows=weave_dataset_rows
+    )
+    weave.publish(eval_dataset)
+
+    # Setup Scorer
+    judge_model_id = cfg.evaluation.get("judge_model", "gemini-2.0-flash")
+    if "gemini" in judge_model_id.lower():
+        judge = GeminiJudge(model_name=judge_model_id)
+    else:
+        judge = LocalGemmaJudge(model_id=judge_model_id)
+
+    action_scorer = ActionScorer()
+
+    all_results = {}
+    evaluations_list = []
+
+    # Loop over models to evaluate
+    models_to_eval = cfg.evaluation.get("models_to_evaluate", [])
+    if not models_to_eval:
+        logger.warning("No models_to_evaluate found in config.")
+        return
+
+    for model_cfg in models_to_eval:
+        model_name = model_cfg.name
+        model_path = model_cfg.path
+        is_peft = model_cfg.is_peft
+
+        # For non-base models, prepend the project directory to the path
+        # if the path exists locally, otherwise assume it's a HuggingFace hub path
+        if not os.path.isabs(model_path):
+            local_path = os.path.join(cfg.project_dir, model_path)
+            if os.path.exists(local_path):
+                model_path = local_path
+            elif model_path.startswith("models/") or model_path.startswith("./"):
+                logger.warning(
+                    f"Local model path {local_path} does not exist. "
+                    f"Skipping {model_name}..."
+                )
+                continue
+
+        logger.info(f"Evaluating model: {model_name} from {model_path}")
+
+        # Instantiate Weave Model
+        model = ClarifyOrActModel(
+            model_name=model_name,
+            model_path=model_path,
+            is_peft=is_peft,
+            base_model_id=cfg.evaluation.get(
+                "base_model_id", "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+            ),
+        )
+
+        # Run Evaluation
+        evaluation = weave.Evaluation(
+            name=f"eval_{model_name}",
+            dataset=eval_dataset,
+            scorers=[judge, action_scorer],
+        )
+
+        logger.info(f"Running weave.Evaluation for {model_name}...")
+        results = asyncio.run(
+            evaluation.evaluate(model, __weave={"display_name": f"{model_name}_eval"})
+        )
+        evaluations_list.append(evaluation)
+
+        # Format the metric summary nicely
+        metrics = results.get("LocalGemmaJudge") or results.get("GeminiJudge") or {}
+        action_metrics = results.get("ActionScorer") or {}
+
+        all_results[model_name] = {
+            "ambiguity_detection": metrics.get("ambiguity_detection", {}).get(
+                "mean", 0.0
+            ),
+            "clarification_quality": metrics.get("clarification_quality", {}).get(
+                "mean", 0.0
+            ),
+            "usefulness": metrics.get("usefulness", {}).get("mean", 0.0),
+            "model_accuracy": action_metrics.get("accuracy", 0.0),
+            "clarify_precision": action_metrics.get("clarify_precision", 0.0),
+            "clarify_recall": action_metrics.get("clarify_recall", 0.0),
+            "clarify_f1": action_metrics.get("clarify_f1", 0.0),
+            "action_f1_answer": action_metrics.get("action_f1_answer", 0.0),
+            "macro_f1": action_metrics.get("macro_f1", 0.0),
+            "answer_accuracy": action_metrics.get("answer_accuracy", 0.0),
+            "facet_generation_rate": action_metrics.get("facet_generation_rate", 0.0),
+            "clarify_ratio": action_metrics.get("clarify_ratio", 0.0),
+        }
+
+        # ---------------------------------------------------------
+        # W&B Model Registry Integration
+        # ---------------------------------------------------------
+        try:
+            model_ref = weave.publish(model)
+            ENTITY = os.environ.get("WANDB_ENTITY")
+            PROJECT = os.environ.get("WANDB_PROJECT")
+
+            if ENTITY and PROJECT:
+                import wandb
+
+                models_object_name = model_ref.name
+                models_object_version = model_ref.digest
+
+                models_url = f"https://wandb.ai/{ENTITY}/{PROJECT}/weave/objects/{models_object_name}/versions/{models_object_version}"
+                models_link = f"weave://{ENTITY}/{PROJECT}/object/{models_object_name}:{models_object_version}"
+
+                with wandb.init(
+                    project=PROJECT,
+                    entity=ENTITY,
+                    job_type="model-registry",
+                    reinit=True,
+                ) as run:
+                    artifact_model = wandb.Artifact(
+                        name=f"Clarifier-{model_name}",
+                        type="model",
+                        description=f"Weave Model Link for {model_name}",
+                        metadata={"url": models_url},
+                    )
+                    artifact_model.add_reference(
+                        models_link, name="model", checksum=False
+                    )
+                    run.log_artifact(artifact_model, aliases=[models_object_version])
+                    run.link_artifact(
+                        artifact_model,
+                        target_path=f"{ENTITY}/{PROJECT}/AskBeforeAnswer-Models",
+                    )
+                logger.info(f"Registered {model_name} to W&B Model Registry.")
+        except Exception as e:
+            logger.warning(f"Could not register model to W&B Registry: {e}")
+
+        # Cleanup model from GPU memory to make room for the next one
+        if hasattr(model, "_pipeline"):
+            del model._pipeline
+        import torch
+
+        torch.cuda.empty_cache()
+        import gc
+
+        gc.collect()
+
+    # Save summary results to JSON for the report generator
+    os.makedirs(os.path.join(cfg.project_dir, "results"), exist_ok=True)
+    results_path = os.path.join(cfg.project_dir, "results", "weave_eval_summary.json")
+    with open(results_path, "w") as f:
+        json.dump(all_results, f, indent=2)
+
+    try:
+        import pandas as pd
+
+        df_eval = (
+            pd.DataFrame(all_results).reset_index().rename(columns={"index": "Metric"})
+        )
+        leaderboard_md = [
+            "## LLM-as-a-Judge Evaluation Leaderboard",
+            "",
+            "The following scores were computed using W&B Weave with a ",
+            "Gemini-based judge scorer on a randomly selected ",
+            f"**{max_samples}-sample** subset ",
+            f"of the `{dataset_name}` ({split_name} split).",
+            "",
+            df_eval.to_markdown(index=False),
+            "",
+        ]
+        with open(os.path.join(cfg.project_dir, "results", "leaderboard.md"), "w") as f:
+            f.write("\n".join(leaderboard_md))
+    except Exception as e:
+        logger.warning(f"Could not write leaderboard.md: {e}")
+
+    logger.info(f"All evaluations complete. Summary saved to {results_path}")
+
+    # Publish native Weave Leaderboard
+    logger.info("Publishing Weave Leaderboard...")
+    try:
+        from weave.flow import leaderboard
+        from weave.trace.ref_util import get_ref
+
+        # We assume the scorer name is the class name of the judge used
+        scorer_name = judge.__class__.__name__
+
+        columns = []
+        for eval_obj in evaluations_list:
+            try:
+                eval_ref = get_ref(eval_obj).uri()
+                columns.extend(
+                    [
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name=scorer_name,
+                            summary_metric_path="ambiguity_detection.mean",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name=scorer_name,
+                            summary_metric_path="clarification_quality.mean",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name=scorer_name,
+                            summary_metric_path="usefulness.mean",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="accuracy",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_precision",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_recall",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_f1",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="action_f1_answer",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="macro_f1",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="answer_accuracy",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="facet_generation_rate",
+                        ),
+                        leaderboard.LeaderboardColumn(
+                            evaluation_object_ref=eval_ref,
+                            scorer_name="ActionScorer",
+                            summary_metric_path="clarify_ratio",
+                        ),
+                    ]
+                )
+            except Exception as e:
+                logger.warning(f"Could not get ref for evaluation {eval_obj.name}: {e}")
+
+        if columns:
+            spec = leaderboard.Leaderboard(
+                name="Clarify-or-Act Ablation Leaderboard",
+                description="Model ambiguity and clarify quality comparison.",
+                columns=columns,
+            )
+            weave.publish(spec)
+            logger.info("Check your W&B Weave dashboard for the dynamic leaderboard!")
+    except ImportError:
+        logger.warning(
+            "weave.flow.leaderboard not found. Update weave to publish leaderboards."
+        )
+
+
+if __name__ == "__main__":
+    main()

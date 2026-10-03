@@ -252,7 +252,7 @@ ablation-suite:
 EVAL_CONFIG ?= default
 
 evaluate:
-	python scripts/evaluate.py evaluation=$(EVAL_CONFIG)
+	python scripts/evaluate_single_turn.py evaluation=$(EVAL_CONFIG)
 
 infer:
 	python scripts/infer.py
