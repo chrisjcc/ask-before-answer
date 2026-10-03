@@ -133,4 +133,40 @@ class MultiTurnEnv(Environment):
 
             results.append(self._calculate_metrics(history))
 
-        return results
+
+class SeekerAgent:
+    """Wraps the ClarifyOrActPipeline to handle multi-turn dialogue history."""
+    
+    def __init__(self, pipeline):
+        self.pipeline = pipeline
+        
+    def generate(self, dialogue_history: List[Dict[str, str]]) -> str:
+        """
+        Converts the standard ChatML dictionary list into the format the pipeline expects.
+        Since pipeline.generate() expects a single question string, we format the history
+        into a continuous dialogue string, or use the pipeline's internal tokenizer.
+        """
+        # If the pipeline supports passing raw chat history, we could pass it directly.
+        # But if pipeline.generate() expects a string:
+        
+        # We can use the pipeline's tokenizer to format the chat template
+        prompt_str = self.pipeline.tokenizer.apply_chat_template(
+            dialogue_history, tokenize=False, add_generation_prompt=True
+        )
+        
+        # We bypass pipeline.generate(question) because it normally adds its own template.
+        # Instead, we directly use the model to generate from the pre-formatted prompt_str.
+        import torch
+        inputs = self.pipeline.tokenizer(prompt_str, return_tensors="pt").to(self.pipeline.model.device)
+        
+        with torch.no_grad():
+            outputs = self.pipeline.model.generate(
+                **inputs,
+                max_new_tokens=300,
+                do_sample=False,
+                pad_token_id=self.pipeline.tokenizer.pad_token_id
+            )
+            
+        gen_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+        return self.pipeline.tokenizer.decode(gen_tokens, skip_special_tokens=True)
+

@@ -9,11 +9,7 @@ from dotenv import load_dotenv
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from ask_before_answer.evaluation.multi_turn import (
-    ProviderAgent,
-    SeekerAgent,
-    simulate_conversation,
-)
+from ask_before_answer.evaluation.multi_turn import MultiTurnEnv, SeekerAgent
 from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
 
 load_dotenv()
@@ -61,7 +57,7 @@ def main(cfg: DictConfig) -> None:
 
             if qa_pairs:
                 ambiguous_samples.append(
-                    {"question": row["question"], "disambiguations": qa_pairs}
+                    {"prompt": row["question"], "disambiguations": qa_pairs}
                 )
 
     max_samples = min(cfg.evaluation.get("max_samples", 50), len(ambiguous_samples))
@@ -74,6 +70,13 @@ def main(cfg: DictConfig) -> None:
     if not models_to_eval:
         logger.warning("No models_to_evaluate found in config.")
         return
+
+    # Initialize the new MultiTurn Environment
+    env = MultiTurnEnv(
+        dataset=ambiguous_samples,
+        provider_model="gemini-2.5-flash",
+        max_turns=max_turns
+    )
 
     for model_cfg in models_to_eval:
         model_name = model_cfg.name
@@ -102,19 +105,18 @@ def main(cfg: DictConfig) -> None:
         success_count = 0
         total_turns = 0
 
-        for sample in tqdm(ambiguous_samples, desc=f"Evaluating {model_name}"):
-            provider = ProviderAgent(sample["question"], sample["disambiguations"])
-            result = simulate_conversation(
-                seeker, provider, sample["question"], max_turns=max_turns
-            )
+        # Run the rollout loop
+        logger.info(f"Starting MultiTurnEnv rollout for {model_name}...")
+        results = env.evaluate(seeker)
 
+        for sample, result in zip(ambiguous_samples, results):
             if result["success"]:
                 success_count += 1
-            total_turns += result["turns"]
+            total_turns += result["turns_taken"]
 
             logger.info(
-                f"Q: '{sample['question']}' -> Success: {result['success']} "
-                f"(Turns: {result['turns']})"
+                f"Q: '{sample['prompt']}' -> Success: {result['success']} "
+                f"(Turns: {result['turns_taken']})"
             )
 
         sr = (success_count / max(1, len(ambiguous_samples))) * 100
@@ -126,7 +128,6 @@ def main(cfg: DictConfig) -> None:
 
         # Explicit memory clean up to avoid OOM when iterating across models
         import gc
-
         import torch
 
         del pipeline
@@ -134,7 +135,6 @@ def main(cfg: DictConfig) -> None:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-
 
 if __name__ == "__main__":
     main()
