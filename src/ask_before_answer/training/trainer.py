@@ -4,10 +4,8 @@ This module contains the setup and execution logic for fine-tuning language mode
 using Supervised Fine-Tuning and Direct Preference Optimization via the TRL library.
 """
 
-import ast
 import logging
 import os
-import re
 from typing import Any, Tuple
 
 try:
@@ -489,9 +487,6 @@ def run_orpo_training(cfg: DictConfig) -> None:
     logger.info("ORPO Training complete and model saved.")
 
 
-
-
-
 def run_grpo_training(cfg: DictConfig) -> None:
     """Run Group Relative Policy Optimization."""
     logger.info("Initializing GRPO Training...")
@@ -511,10 +506,10 @@ def run_grpo_training(cfg: DictConfig) -> None:
     dataset_val = load_dataset("json", data_files=cfg.data.output_dpo_val_file)["train"]
 
     from ask_before_answer.rewards import (
-        FormatCriterion,
+        AccuracyCriterion,
         ActionCriterion,
         FacetLogicCriterion,
-        AccuracyCriterion,
+        FormatCriterion,
         Rubric,
         SingleTurnEnv,
     )
@@ -525,23 +520,23 @@ def run_grpo_training(cfg: DictConfig) -> None:
     criteria = [
         FormatCriterion(
             weight=reward_weights.get("format_reward", 1.0),
-            penalty=reward_weights.get("format_penalty", -2.0)
+            penalty=reward_weights.get("format_penalty", -2.0),
         ),
         ActionCriterion(
             weight=reward_weights.get("action_reward", 1.0),
-            penalty=reward_weights.get("action_penalty", -1.0)
+            penalty=reward_weights.get("action_penalty", -1.0),
         ),
         FacetLogicCriterion(
             weight=reward_weights.get("facet_logic_reward", 0.5),
-            penalty=reward_weights.get("facet_logic_penalty", -0.5)
+            penalty=reward_weights.get("facet_logic_penalty", -0.5),
         ),
         AccuracyCriterion(
             weight=1.0,  # Handled inside evaluate_batch logic
             scale=reward_weights.get("accuracy_scale", 1.5),
             shift=reward_weights.get("accuracy_shift", -0.5),
             miss_penalty=reward_weights.get("accuracy_miss_penalty", -1.0),
-            format_penalty=reward_weights.get("accuracy_format_penalty", -0.5)
-        )
+            format_penalty=reward_weights.get("accuracy_format_penalty", -0.5),
+        ),
     ]
 
     rubric = Rubric(criteria=criteria)

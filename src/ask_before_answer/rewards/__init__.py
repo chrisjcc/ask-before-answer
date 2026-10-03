@@ -1,5 +1,10 @@
 from .base import Criterion, Rubric, SingleTurnEnv
-from .criteria import FormatCriterion, ActionCriterion, FacetLogicCriterion, AccuracyCriterion
+from .criteria import (
+    AccuracyCriterion,
+    ActionCriterion,
+    FacetLogicCriterion,
+    FormatCriterion,
+)
 from .judge import JudgeRubric
 
 __all__ = [
@@ -10,5 +15,5 @@ __all__ = [
     "ActionCriterion",
     "FacetLogicCriterion",
     "AccuracyCriterion",
-    "JudgeRubric"
+    "JudgeRubric",
 ]
