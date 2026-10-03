@@ -7,7 +7,6 @@ import hydra
 from datasets import load_dataset
 from dotenv import load_dotenv
 from omegaconf import DictConfig
-from tqdm import tqdm
 
 from ask_before_answer.evaluation.multi_turn import MultiTurnEnv, SeekerAgent
 from ask_before_answer.inference.pipeline import ClarifyOrActPipeline
