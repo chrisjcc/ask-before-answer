@@ -254,6 +254,9 @@ EVAL_CONFIG ?= default
 evaluate:
 	python scripts/evaluate_single_turn.py evaluation=$(EVAL_CONFIG)
 
+evaluate-multi-turn:
+	python scripts/evaluate_multi_turn.py evaluation=$(EVAL_CONFIG)
+
 infer:
 	python scripts/infer.py
 
