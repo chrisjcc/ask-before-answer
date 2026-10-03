@@ -170,11 +170,25 @@ class MultiTurnEnv(Environment):
     def evaluate(self, seeker_model) -> List[Dict[str, Any]]:
         """The core multi-turn rollout loop."""
         results = []
+
+        system_prompt = (
+            "You are a helpful assistant. "
+            "Given a question, you must decide whether it is ambiguous or not. "
+            "Output MUST follow this format:\n"
+            "Action: Clarify|Answer\n"
+            "Reasoning: <your reasoning>\n"
+            "Facets: <list of facets if ambiguous, else empty>\n"
+            "Response: <clarifying question or direct answer>"
+        )
+
         for example in self.dataset:
             state = {"disambiguations": example.get("disambiguations", [])}
 
-            # Use standard ChatML history
-            history = [{"role": "user", "content": example["prompt"]}]
+            # Use standard ChatML history, injecting the critical system prompt
+            history = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": example["prompt"]},
+            ]
 
             turn = 0
             while turn < self.max_turns:
