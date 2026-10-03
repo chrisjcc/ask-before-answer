@@ -85,11 +85,19 @@ If enabled, the trainer will intercept the standard Hugging Face loading process
 
 ## 4. GRPO Reward Shaping
 
-GRPO relies entirely on its reward functions to shape the model's behavior. We utilize four distinct reward functions to holistically enforce both formatting and factual accuracy:
-1. **`format_reward_func`**: Enforces strict structural adherence. The model receives a positive reward only if it outputs all required syntax headers (`Action:`, `Reasoning:`, `Facets:`, `Response:`).
-2. **`action_reward_func`**: Penalizes the model for choosing the wrong path (e.g. trying to answer an ambiguous question, or clarifying a clear question) by checking the predicted action against the dataset ground-truth.
-3. **`facet_logic_reward_func`**: Enforces logical consistency. If the action is `Clarify`, the facets list *must* be non-empty. If the action is `Answer`, the facets list *must* be empty.
-4. **`accuracy_reward_func`**: The most critical reward for mitigating hallucination. For direct answers, it calculates a Token F1 overlap between the model's generated response and the factual ground-truth answer. It heavily rewards exact factual retrieval while severely penalizing hallucinations, solving the "reward hacking" problem where a model learns perfect formatting but generates factually incorrect text.
+GRPO relies entirely on reward functions to shape the model's behavior. To keep the training loop completely decoupled from evaluation heuristics, AskBeforeAnswer utilizes a native, modular evaluation architecture comprised of a `Rubric`, `Criterion` objects, and a `SingleTurnEnv`.
+
+### `SingleTurnEnv` (The TRL Bridge)
+The `SingleTurnEnv` abstraction acts as the bridge between the raw datasets and Hugging Face TRL (`GRPOTrainer`). It dynamically formats the data and injects the system prompt, ensuring the training script remains clean and declarative.
+
+### The `Rubric` & `Criterion` Data Model
+Rather than injecting inline reward functions, the environment utilizes a declarative `Rubric` which aggregates multiple `Criterion` objects. This allows the model to be graded holistically across multiple metrics:
+
+1. **`FormatCriterion`**: Enforces strict structural adherence. The model receives a positive reward only if it outputs all required syntax headers (`Action:`, `Reasoning:`, `Facets:`, `Response:`).
+2. **`ActionCriterion`**: Penalizes the model for choosing the wrong path (e.g. trying to answer an ambiguous question) by checking the predicted action against the dataset ground-truth.
+3. **`FacetLogicCriterion`**: Enforces logical consistency. If the action is `Clarify`, the facets list *must* be non-empty.
+4. **`AccuracyCriterion`**: Computes Token F1 overlap for direct answers, mitigating hallucination by enforcing factual retrieval.
+5. **`JudgeRubric` (LLM-as-a-Judge)**: For advanced evaluation, this criterion runs a completely local, batched PyTorch forward-pass using a smaller LLM (e.g., `google/gemma-2-2b-it`) to grade semantic usefulness without external network API calls.
 
 > [!TIP]
-> **Configurable Reward Shaping:** All proportionality weights and penalties for these four reward functions are fully decoupled from the source code. You can easily adjust them or run automated W&B Hyperparameter Sweeps by modifying the `reward_weights:` block inside `configs/training/grpo.yaml`.
+> **Configurable Reward Shaping:** The `Rubric` dynamically wraps each `Criterion` into isolated TRL-compliant adapter functions. This automatically forces Weights & Biases (W&B) to log decomposed reward histograms (e.g., `reward/format`, `reward/action`), allowing for highly granular hyperparameter sweeps of the `reward_weights:` block inside `configs/training/grpo.yaml`.
