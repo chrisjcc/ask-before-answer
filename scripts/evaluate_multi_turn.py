@@ -71,9 +71,10 @@ def main(cfg: DictConfig) -> None:
         return
 
     # Initialize the new MultiTurn Environment
+    provider_model = cfg.evaluation.get("judge_model", "google/gemma-2-2b-it")
     env = MultiTurnEnv(
         dataset=ambiguous_samples,
-        provider_model="gemini-2.5-flash",
+        provider_model=provider_model,
         max_turns=max_turns,
     )
 

@@ -75,14 +75,75 @@ class ProviderAgent:
             return f"User provides clarifying info: {ground_truth_facets}"
 
 
+class LocalProviderAgent:
+    """Simulates a human using a local PyTorch model (e.g., Gemma)."""
+
+    def __init__(self, model_name: str = "google/gemma-2-2b-it"):
+        self.model_name = model_name
+        # We reuse the cache and lock from the judge to avoid loading it twice
+        from ask_before_answer.evaluation.judge import (
+            _LOCAL_INFERENCE_LOCK,
+            get_local_judge,
+        )
+
+        self.get_local_judge = get_local_judge
+        self.inference_lock = _LOCAL_INFERENCE_LOCK
+
+    def reply(self, seeker_message: str, ground_truth_facets: Any) -> str:
+        import torch
+
+        system_prompt = (
+            "You are a human user answering a clarifying question from an AI "
+            "assistant. You asked an initial question, and the assistant needs "
+            "more information to answer it. "
+            f"Here is your hidden knowledge (the ground truth facets): "
+            f"{ground_truth_facets}\n\n"
+            "Instructions:\n"
+            "1. Answer the assistant's clarifying question truthfully using "
+            "ONLY the hidden knowledge.\n"
+            "2. Be concise and natural, as a human would be.\n"
+            "3. Do NOT reveal information that the assistant didn't "
+            "specifically ask for."
+        )
+
+        model, tokenizer = self.get_local_judge(self.model_name)
+
+        messages = [
+            {
+                "role": "user",
+                "content": system_prompt + "\n\nAssistant asks:\n" + seeker_message,
+            }
+        ]
+
+        input_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+        with self.inference_lock:
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=150,
+                    do_sample=False,
+                    pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+                )
+
+        gen_tokens = outputs[0][inputs["input_ids"].shape[1] :]
+        return tokenizer.decode(gen_tokens, skip_special_tokens=True)
+
+
 class MultiTurnEnv(Environment):
     """The interactive evaluation environment for AskBeforeAnswer."""
 
     def __init__(
-        self, dataset, provider_model: str = "gemini-2.5-flash", max_turns: int = 3
+        self, dataset, provider_model: str = "google/gemma-2-2b-it", max_turns: int = 3
     ):
         super().__init__(dataset, max_turns)
-        self.provider = ProviderAgent(model_name=provider_model)
+        if "gemini" in provider_model.lower():
+            self.provider = ProviderAgent(model_name=provider_model)
+        else:
+            self.provider = LocalProviderAgent(model_name=provider_model)
 
     def env_response(self, state: Dict[str, Any], seeker_message: str) -> str:
         """
