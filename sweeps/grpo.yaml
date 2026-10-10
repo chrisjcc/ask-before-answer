@@ -7,8 +7,8 @@
 name: grpo-bayes-hyperband
 description: >
   Bayesian hyperparameter sweep for the train-grpo pipeline.
-  Searches GRPO beta and learning rate while maximizing eval/reward/accuracy using
-  Hyperband early stopping
+  Searches GRPO beta and learning rate while maximizing train/rewards/accuracy_reward/mean using
+  Hyperband early stopping.
 project: ask-before-answer
 program: scripts/run_sweep_trial.py
 command:
@@ -26,8 +26,10 @@ metric:
 # Enable Hyperband Early Stopping
 early_terminate:
   type: hyperband
-  min_iter: 50    # Hyperband's first bracket is based on 50 logged
-                  # iterations of the optimized metric (eval/loss).
+  # min_iter counts logged data points. Since GRPO has logging_steps=10,
+  # min_iter: 20 means the first cut happens at 200 global training steps.
+  # We use the train reward metric because eval generations in GRPO are too slow.
+  min_iter: 20
   eta: 3          # Hyperband bracket multiplier.
 
 # --- Parameters ---
@@ -38,5 +40,5 @@ parameters:
     max: 0.2
   learning_rate:
     distribution: log_uniform_values
-    min: 1e-6
-    max: 1e-4
+    min: 1.0e-6
+    max: 1.0e-4
