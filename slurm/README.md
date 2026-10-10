@@ -1,0 +1,35 @@
+# AskBeforeAnswer Slurm Configuration
+
+This directory contains the modernized Slurm scripts designed to seamlessly wrap the project's DVC and Makefile architecture.
+
+## Principles
+1. **Never Bypass DVC:** These scripts do not call python scripts directly. They execute `make` targets (which wrap `dvc repro`), guaranteeing that environments and pipelines execute exactly the same on the cluster as they do locally.
+2. **Universal Preamble:** Each script dynamically injects your Conda environment, the `LD_LIBRARY_PATH` CXXABI fix, and `.env` secrets into the compute nodes.
+
+## Scripts & Usage
+
+### 1. Preprocessing (`01_preprocess.slurm`)
+Generates the Apache Arrow dataset caches without wasting GPU credits.
+```bash
+sbatch slurm/01_preprocess.slurm
+```
+
+### 2. Ablation Suite (`02_ablation_suite.slurm`)
+The heavy lifter. Requests an 80GB GPU node and runs the full A-Z pipeline (SFT, DPO, GRPO, ORPO) along with the LLM-as-a-judge and Multi-Turn evaluations.
+```bash
+sbatch slurm/02_ablation_suite.slurm
+```
+
+### 3. Distributed Sweeps (`03_sweep_agent.slurm`)
+Leverages **Slurm Arrays** to launch multiple concurrent agents across different compute nodes to crush hyperparameter sweeps in parallel.
+1. Run `make sweep FINE_TUNE_METHOD=sft` locally to initialize the sweep and get the ID.
+2. Launch 4 concurrent agents on the cluster:
+```bash
+sbatch --export=ALL,SWEEP_ID="rl4aa/ask-before-answer/xyz123" slurm/03_sweep_agent.slurm
+```
+
+### 4. Interactive Demo Tunnel (`04_demo_tunnel.slurm`)
+Runs the Streamlit app on a GPU compute node and provides instructions for SSH tunneling it to your local Macbook.
+```bash
+sbatch slurm/04_demo_tunnel.slurm
+```
