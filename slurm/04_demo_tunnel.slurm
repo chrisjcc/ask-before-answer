@@ -58,4 +58,4 @@ echo "Then, open your browser and go to:"
 echo "    http://localhost:${PORT}"
 echo "=========================================================================="
 
-streamlit run app/app.py --server.port $PORT
+streamlit run app/app.py --server.port $PORT --server.address=0.0.0.0 --browser.gatherUsageStats=false
