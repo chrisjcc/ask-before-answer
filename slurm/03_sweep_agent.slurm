@@ -9,7 +9,7 @@
 #SBATCH --mem=64G
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
-#SBATCH --array=1-4          # Default: Launch 4 concurrent agents
+#SBATCH --array=1-8%1        # Sequential pipeline: 8 tasks, 1 at a time. Perfect for Bayes search & bypassing 24h limits.
 
 # Change to the directory from which the job was submitted
 cd "${SLURM_SUBMIT_DIR}"

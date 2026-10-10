@@ -20,12 +20,12 @@ The heavy lifter. Requests an 80GB GPU node and runs the full A-Z pipeline (SFT,
 sbatch slurm/02_ablation_suite.slurm
 ```
 
-### 3. Distributed Sweeps (`03_sweep_agent.slurm`)
-Leverages **Slurm Arrays** to launch multiple concurrent agents across different compute nodes to crush hyperparameter sweeps in parallel.
+### 3. Sequential Sweeps (`03_sweep_agent.slurm`)
+Leverages **Slurm Arrays** with sequential throttling (`%1`) to create an infinite continuous pipeline. This perfectly optimizes Bayesian search (by ensuring each trial learns from the last) and seamlessly bypasses strict 24h queue limits.
 1. Run `make sweep FINE_TUNE_METHOD=sft` locally to initialize the sweep and get the ID.
-2. Launch 4 concurrent agents on the cluster:
+2. Launch the sequential array pipeline on the cluster:
 ```bash
-sbatch --export=ALL,SWEEP_ID="rl4aa/ask-before-answer/xyz123" slurm/03_sweep_agent.slurm
+sbatch --export=ALL,SWEEP_ID="rl4aa/ask-before-answer/xyz123",COUNT=5 slurm/03_sweep_agent.slurm
 ```
 3. Generate the final sweep report (requires passing the Slurm Job ID returned from the previous step):
 ```bash
