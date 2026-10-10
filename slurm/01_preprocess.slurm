@@ -9,6 +9,9 @@
 #SBATCH --mem=32G
 #SBATCH --time=04:00:00
 
+# Change to the directory from which the job was submitted
+cd "${SLURM_SUBMIT_DIR}"
+
 echo "Initializing Compute Node Environment..."
 # ---------------------------------------------------------------------------
 # HPC MODULE & CACHE REFERENCE (From legacy scripts)

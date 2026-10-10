@@ -13,6 +13,8 @@
 # ---------------------------------------------------------------------------
 # UNIVERSAL PREAMBLE
 # ---------------------------------------------------------------------------
+# Change to the directory from which the job was submitted
+cd "${SLURM_SUBMIT_DIR}"
 # HPC MODULE & CACHE REFERENCE (From legacy scripts)
 # ---------------------------------------------------------------------------
 # If your cluster requires explicit module loading or custom cache paths,

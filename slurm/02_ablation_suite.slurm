@@ -10,6 +10,9 @@
 #SBATCH --gres=gpu:1           # Request 1 GPU (e.g., gpu:A100:1)
 #SBATCH --time=48:00:00        # Full ablation takes significant time
 
+# Change to the directory from which the job was submitted
+cd "${SLURM_SUBMIT_DIR}"
+
 echo "Initializing Compute Node Environment..."
 # ---------------------------------------------------------------------------
 # HPC MODULE & CACHE REFERENCE (From legacy scripts)

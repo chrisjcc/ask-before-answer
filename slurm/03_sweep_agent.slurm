@@ -11,6 +11,9 @@
 #SBATCH --time=24:00:00
 #SBATCH --array=1-4          # Default: Launch 4 concurrent agents
 
+# Change to the directory from which the job was submitted
+cd "${SLURM_SUBMIT_DIR}"
+
 echo "Initializing Compute Node Environment for Sweep Agent (Array Task: $SLURM_ARRAY_TASK_ID)..."
 # ---------------------------------------------------------------------------
 # HPC MODULE & CACHE REFERENCE (From legacy scripts)
