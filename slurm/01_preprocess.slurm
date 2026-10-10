@@ -36,9 +36,10 @@ echo "Initializing Compute Node Environment..."
 # 1. Activate Conda
 source ~/.conda/etc/profile.d/conda.sh || source ~/miniconda3/etc/profile.d/conda.sh
 conda activate ask-before-answer-311
+export PYTHONNOUSERSITE=1
 
 # 2. Inject Library Fixes for your specific cluster
-export LD_LIBRARY_PATH="/data/dust/user/clseitz/.conda/envs/ask-before-answer-311/lib:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 
 # 3. Load secrets
 if [ -f ".env" ]; then

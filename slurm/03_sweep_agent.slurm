@@ -37,9 +37,10 @@ echo "Initializing Compute Node Environment for Sweep Agent (Array Task: $SLURM_
 # 1. Activate Conda
 source ~/.conda/etc/profile.d/conda.sh || source ~/miniconda3/etc/profile.d/conda.sh
 conda activate ask-before-answer-311
+export PYTHONNOUSERSITE=1
 
 # 2. Inject Library Fixes for your specific cluster
-export LD_LIBRARY_PATH="/data/dust/user/clseitz/.conda/envs/ask-before-answer-311/lib:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 
 # 3. Load secrets
 if [ -f ".env" ]; then
@@ -53,6 +54,9 @@ if [ -z "$SWEEP_ID" ]; then
     exit 1
 fi
 
-echo "Starting W&B Sweep Agent for $SWEEP_ID..."
-wandb agent $SWEEP_ID
+# Set a default count if one wasn't passed via --export=ALL,COUNT=N
+COUNT=${COUNT:-5}
+
+echo "Starting W&B Sweep Agent for $SWEEP_ID with count $COUNT..."
+wandb agent $SWEEP_ID --count $COUNT
 echo "Sweep Agent finished."
