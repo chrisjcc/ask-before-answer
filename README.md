@@ -44,6 +44,15 @@ You can explore the deployed final model, the dataset, and interact with the UI 
 
 ---
 
+## 📰 Read the Article
+
+Check out the full write-up on Medium explaining the philosophy, experiments, and results behind this project:
+
+* **Medium:** [Why Answering Every Question Is Wrong: Teaching LLMs When to Clarify and When to Act](https://medium.com/@chrisjcc/why-answering-every-question-is-wrong-teaching-llms-when-to-clarify-and-when-to-act-5f2d667234f1)
+  * *A practical experiment in training a 7B-parameter language model to distinguish ambiguous questions from answerable ones using SFT, DPO, and GRPO.*
+
+---
+
 ## 💻 System Requirements
 
 **Software:**
