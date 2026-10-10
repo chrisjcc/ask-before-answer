@@ -215,6 +215,28 @@ def generate_ablation_report() -> None:
             with open("docs/ablation_report.md", "a") as f:
                 f.write("\n\n" + leaderboard_content + "\n")
 
+    # Append Multi-Turn Evaluation Leaderboard if available
+    multi_turn_summary_json = "results/multi_turn_eval_summary.json"
+    if os.path.exists(multi_turn_summary_json):
+        logger.info("Found multi_turn_eval_summary.json, generating multi-turn leaderboard table...")
+        with open(multi_turn_summary_json, "r") as f:
+            mt_results = json.load(f)
+
+        df_mt = pd.DataFrame(mt_results)
+
+        mt_leaderboard_md = [
+            "## Multi-Turn Agentic Evaluation Leaderboard",
+            "",
+            "The following scores were computed using the interactive `MultiTurnEnv`",
+            "simulating a conversation with a human user (Provider Agent).",
+            "",
+            df_mt.to_markdown(index=False),
+            "",
+        ]
+
+        with open("docs/ablation_report.md", "a") as f:
+            f.write("\n\n" + "\n".join(mt_leaderboard_md) + "\n")
+
     logger.info("Report successfully generated at docs/ablation_report.md")
 
 
