@@ -7,7 +7,7 @@
 name: dpo-bayes-hyperband
 description: >
   Bayesian hyperparameter sweep for the train-dpo pipeline.
-  Searches DPO beta and learning rate while maximizing eval/action_f1_answer using
+  Searches DPO beta and learning rate while maximizing eval/rewards/accuracies using
   Hyperband early stopping
 project: ask-before-answer
 program: scripts/run_sweep_trial.py
@@ -27,7 +27,7 @@ metric:
 early_terminate:
   type: hyperband
   min_iter: 50    # Hyperband's first bracket is based on 50 logged
-                  # iterations of the optimized metric (eval/loss).
+                  # iterations of the optimized metric (eval/rewards/accuracies).
   eta: 3          # Hyperband bracket multiplier.
 
 # --- Parameters ---

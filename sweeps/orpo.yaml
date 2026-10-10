@@ -32,7 +32,7 @@ metric:
 early_terminate:
   type: hyperband
   min_iter: 50    # Hyperband's first bracket is based on 50 logged
-                  # iterations of the optimized metric (eval/loss).
+                  # iterations of the optimized metric (eval/rewards/accuracies).
   eta: 3          # Hyperband bracket multiplier.
 
 # --- Parameters ---
@@ -44,5 +44,5 @@ parameters:
 
   learning_rate:
     distribution: log_uniform_values
-    min: 1e-6
-    max: 1e-4
+    min: 1.0e-6
+    max: 1.0e-4

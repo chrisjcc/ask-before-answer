@@ -27,6 +27,10 @@ Leverages **Slurm Arrays** to launch multiple concurrent agents across different
 ```bash
 sbatch --export=ALL,SWEEP_ID="rl4aa/ask-before-answer/xyz123" slurm/03_sweep_agent.slurm
 ```
+3. Generate the final sweep report (requires passing the Slurm Job ID returned from the previous step):
+```bash
+sbatch --dependency=afterok:<ARRAY_JOB_ID> --wrap="python scripts/generate_sweep_report.py --fine-tune-method sft --sweep-id rl4aa/ask-before-answer/xyz123"
+```
 
 ### 4. Interactive Demo Tunnel (`04_demo_tunnel.slurm`)
 Runs the Streamlit app on a GPU compute node and provides instructions for SSH tunneling it to your local Macbook.
