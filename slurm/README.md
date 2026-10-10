@@ -22,7 +22,14 @@ sbatch slurm/02_ablation_suite.slurm
 
 ### 3. Sequential Sweeps (`03_sweep_agent.slurm`)
 Leverages **Slurm Arrays** with sequential throttling (`%1`) to create an infinite continuous pipeline. This perfectly optimizes Bayesian search (by ensuring each trial learns from the last) and seamlessly bypasses strict 24h queue limits.
-1. Run `make sweep FINE_TUNE_METHOD=sft` locally to initialize the sweep and get the ID.
+
+**Architecture Note:** We explicitly separate sweep *creation* from sweep *execution*. If the script created the sweep internally, the Slurm Array would spawn 8 completely independent sweeps that wouldn't share Bayesian history. By initializing it once on the login node and passing the ID to the array, all 8 nodes seamlessly contribute to the exact same global Bayesian model.
+
+1. Initialize the sweep on your login node (do NOT use `make sweep`, as that will start training on the login node!):
+```bash
+wandb sweep sweeps/sft.yaml
+```
+*(This will print out a Sweep ID, e.g., `rl4aa/ask-before-answer/xyz123`)*
 2. Launch the sequential array pipeline on the cluster:
 ```bash
 sbatch --export=ALL,SWEEP_ID="rl4aa/ask-before-answer/xyz123",COUNT=5 slurm/03_sweep_agent.slurm
