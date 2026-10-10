@@ -218,7 +218,10 @@ def generate_ablation_report() -> None:
     # Append Multi-Turn Evaluation Leaderboard if available
     multi_turn_summary_json = "results/multi_turn_eval_summary.json"
     if os.path.exists(multi_turn_summary_json):
-        logger.info("Found multi_turn_eval_summary.json, generating multi-turn leaderboard table...")
+        logger.info(
+            "Found multi_turn_eval_summary.json, "
+            "generating multi-turn leaderboard table..."
+        )
         with open(multi_turn_summary_json, "r") as f:
             mt_results = json.load(f)
 
