@@ -2,74 +2,73 @@ name: AskBeforeAnswer CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install black ruff pytest
-        pip install -e .
-        
-    - name: Lint with ruff
-      run: |
-        ruff check src scripts tests app
-        
-    - name: Format check with black
-      run: |
-        black --check src scripts tests app
-        
-    - name: Run tests
-      run: |
-        pytest tests/
 
-  deploy-to-hf:
-    needs: lint-and-test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install CI dependencies
+        run: |
+          pip install -r requirements-ci.txt
+
+      - name: Install package
+        run: |
+          pip install -e .
+
+      - name: Lint with Ruff
+        run: |
+          ruff check src scripts tests app
+
+      - name: Check formatting with Black
+        run: |
+          black --check src scripts tests app
+
+      - name: Check import ordering with isort
+        run: |
+          isort --check-only src scripts tests app
+
+      - name: Lint YAML with yamllint
+        run: |
+          yamllint .
+
+      - name: Run tests
+        env:
+          USE_TF: "0"
+        run: |
+          pytest tests/
+
+  diagram-check:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Deploy to Hugging Face Spaces
-      env:
-        HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      run: |
-        # Setup Git
-        git config --global user.email "actions@github.com"
-        git config --global user.name "GitHub Actions"
-        
-        # Clone the HF Space repository
-        git clone https://chrisjcc:${HF_TOKEN}@huggingface.co/spaces/chrisjcc/ask-before-answer-demo hf_space
-        cd hf_space
-        
-        # Clean existing files (except .git) to allow for deletions
-        find . -maxdepth 1 ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
-        
-        # Copy essential runtime files from the GitHub repo
-        cp ../Dockerfile .
-        cp ../requirements.txt .
-        cp ../pyproject.toml .
-        cp -r ../app .
-        cp -r ../src .
-        
-        # Copy the specific Hugging Face README as the root README.md
-        cp ../.github/hf_space_readme.md README.md
-        
-        # Commit and Push
-        git add .
-        git commit -m "Automated deployment from GitHub Actions: ${GITHUB_SHA}" || echo "No changes to commit"
-        git push origin main
+      - name: Check out repository
+        uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Regenerate diagram
+        run: make diagram
+
+      - name: Fail if SVG is out of date
+        run: git diff --exit-code assets/architecture.svg

@@ -1,0 +1,247 @@
+"""Script to generate an ablation report from W&B."""
+
+import json
+import logging
+import os
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+import wandb
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def generate_ablation_report() -> None:
+    """Generate the ablation report from manual W&B runs."""
+    logger.info("Connecting to Weights & Biases API...")
+    api = wandb.Api()
+
+    # Update with actual entity and project
+    ENTITY = "rl4aa"
+    PROJECT = "ask-before-answer"
+
+    logger.info(f"Fetching runs for {ENTITY}/{PROJECT}...")
+    try:
+        runs = api.runs(f"{ENTITY}/{PROJECT}")
+    except Exception as e:
+        logger.error(f"Error fetching runs: {e}")
+        return
+
+    summary_list = []
+    run_histories = {}
+
+    for run in runs:
+        # Ignore sweep runs to keep the ablation report clean
+        if run.sweep:
+            continue
+
+        # Only process completed runs that logged eval/loss
+        if run.state != "finished" or "eval/loss" not in run.summary:
+            continue
+
+        summary_list.append(
+            {
+                "Run ID": run.id,
+                "Name": run.name,
+                "Group": run.group or "N/A",
+                "Hypothesis": run.notes or "N/A",
+                "Sweep ID": run.sweep.id if run.sweep else "N/A",
+                "Learning Rate": run.config.get("learning_rate", "N/A"),
+                "Batch Size": run.config.get("per_device_train_batch_size", "N/A"),
+                "Eval Loss": run.summary.get("eval/loss", float("inf")),
+                "URL": run.url,
+            }
+        )
+
+        # Download history for plotting
+        history = run.history(samples=10000)
+        if not history.empty:
+            run_histories[run.name] = history
+
+    if not summary_list:
+        logger.info("No completed runs with eval_loss found.")
+        return
+
+    # Convert to DataFrame and sort by Eval Loss
+    df_summary = pd.DataFrame(summary_list).sort_values("Eval Loss")
+
+    # Setup directories
+    os.makedirs("docs/plots", exist_ok=True)
+
+    logger.info("Generating plots...")
+    sns.set_theme(style="whitegrid")
+
+    # Plot 1: Training Loss Comparison
+    plt.figure(figsize=(10, 6))
+    for name, hist in run_histories.items():
+        if "train/loss" in hist.columns:
+            # Drop NaN values for train/loss
+            valid_hist = hist.dropna(subset=["train/loss"])
+            if not valid_hist.empty:
+                # Use a rolling average to smooth the training loss curve
+                valid_hist = valid_hist.sort_values("_step")
+                sns.lineplot(
+                    x=valid_hist["_step"],
+                    y=valid_hist["train/loss"].rolling(10, min_periods=1).mean(),
+                    label=name,
+                )
+
+    plt.title("Training Loss vs Steps (Smoothed)")
+    plt.xlabel("Training Steps")
+    plt.ylabel("Train Loss")
+    if plt.gca().get_legend_handles_labels()[0]:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.tight_layout()
+    plot_path = "docs/plots/train_loss_comparison.png"
+    plt.savefig(plot_path)
+    plt.close()
+
+    # Plot 1.5: Eval Loss Comparison
+    plt.figure(figsize=(10, 6))
+    for name, hist in run_histories.items():
+        if "eval/loss" in hist.columns:
+            # Drop NaN values for eval/loss
+            valid_hist = hist.dropna(subset=["eval/loss"])
+            if not valid_hist.empty:
+                # Use a rolling average to smooth the eval loss curve
+                valid_hist = valid_hist.sort_values("_step")
+                sns.lineplot(
+                    x=valid_hist["_step"],
+                    y=valid_hist["eval/loss"].rolling(10, min_periods=1).mean(),
+                    label=name,
+                )
+
+    plt.title("Eval Loss vs Steps (Smoothed)")
+    plt.xlabel("Training Steps")
+    plt.ylabel("Eval Loss")
+    if plt.gca().get_legend_handles_labels()[0]:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.tight_layout()
+    eval_plot_path = "docs/plots/eval_loss_comparison.png"
+    plt.savefig(eval_plot_path)
+    plt.close()
+
+    # Plot 2: Validation Curve (Learning Rate vs Eval Loss)
+    valid_runs = df_summary[df_summary["Learning Rate"] != "N/A"].copy()
+    if not valid_runs.empty:
+        valid_runs["Learning Rate"] = pd.to_numeric(valid_runs["Learning Rate"])
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(
+            data=valid_runs, x="Learning Rate", y="Eval Loss", hue="Group", s=100
+        )
+        plt.xscale("log")
+        plt.title("Validation Curve: Eval Loss vs Learning Rate")
+        plt.xlabel("Learning Rate (log scale)")
+        plt.ylabel("Final Eval Loss")
+
+        if plt.gca().get_legend_handles_labels()[0]:
+            plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+
+        plt.tight_layout()
+        val_plot_path = "docs/plots/val_curve_lr.png"
+        plt.savefig(val_plot_path)
+        plt.close()
+
+    logger.info("Generating Markdown Report...")
+    report_content = [
+        "# Ablation Experiment Report",
+        "",
+        "This report was automatically generated from Weights & Biases metrics.",
+        "",
+        "## Top Performing Configurations",
+        "",
+    ]
+
+    # Format table
+    report_content.append(df_summary.to_markdown(index=False))
+
+    report_content.extend(
+        [
+            "",
+            "## Learning Curves",
+            "",
+            "![Training Loss](plots/train_loss_comparison.png)",
+            "",
+            "![Eval Loss](plots/eval_loss_comparison.png)",
+            "",
+        ]
+    )
+
+    if not valid_runs.empty:
+        report_content.extend(
+            [
+                "## Validation Curves",
+                "",
+                "![Validation Curve](plots/val_curve_lr.png)",
+                "",
+            ]
+        )
+
+    with open("docs/ablation_report.md", "w") as f:
+        f.write("\n".join(report_content))
+
+    # Append Weave Evaluation Leaderboard if available
+    eval_summary_json = "results/weave_eval_summary.json"
+    if os.path.exists(eval_summary_json):
+        logger.info("Found weave_eval_summary.json, generating leaderboard table...")
+        with open(eval_summary_json, "r") as f:
+            all_results = json.load(f)
+
+        df_eval = (
+            pd.DataFrame(all_results).reset_index().rename(columns={"index": "Metric"})
+        )
+
+        leaderboard_md = [
+            "## LLM-as-a-Judge Evaluation Leaderboard",
+            "",
+            "The following scores were computed using W&B Weave ",
+            "with a Gemini-based judge scorer.",
+            "",
+            df_eval.to_markdown(index=False),
+            "",
+        ]
+
+        with open("docs/ablation_report.md", "a") as f:
+            f.write("\n\n" + "\n".join(leaderboard_md) + "\n")
+    else:
+        # Fallback to the old markdown file if JSON doesn't exist
+        eval_summary_path = "results/leaderboard.md"
+        if os.path.exists(eval_summary_path):
+            with open(eval_summary_path, "r") as f:
+                leaderboard_content = f.read()
+
+            with open("docs/ablation_report.md", "a") as f:
+                f.write("\n\n" + leaderboard_content + "\n")
+
+    # Append Multi-Turn Evaluation Leaderboard if available
+    multi_turn_summary_json = "results/multi_turn_eval_summary.json"
+    if os.path.exists(multi_turn_summary_json):
+        logger.info(
+            "Found multi_turn_eval_summary.json, "
+            "generating multi-turn leaderboard table..."
+        )
+        with open(multi_turn_summary_json, "r") as f:
+            mt_results = json.load(f)
+
+        df_mt = pd.DataFrame(mt_results)
+
+        mt_leaderboard_md = [
+            "## Multi-Turn Agentic Evaluation Leaderboard",
+            "",
+            "The following scores were computed using the interactive `MultiTurnEnv`",
+            "simulating a conversation with a human user (Provider Agent).",
+            "",
+            df_mt.to_markdown(index=False),
+            "",
+        ]
+
+        with open("docs/ablation_report.md", "a") as f:
+            f.write("\n\n" + "\n".join(mt_leaderboard_md) + "\n")
+
+    logger.info("Report successfully generated at docs/ablation_report.md")
+
+
+if __name__ == "__main__":
+    generate_ablation_report()
