@@ -1,8 +1,32 @@
+"""Streamlit web application for AskBeforeAnswer."""
+
+import glob
 import os
 
 import streamlit as st
+import weave
+import yaml
 
-from src.inference.pipeline import ClarificationPipeline
+from ask_before_answer import ClarifyOrActPipeline
+
+# Load environment variables for W&B authentication (useful for local testing)
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+# Initialize Weave to log all LLM traces to the project
+if os.environ.get("WANDB_API_KEY"):
+    try:
+        wandb_entity = os.environ.get("WANDB_ENTITY", "rl4aa")
+        wandb_project = os.environ.get("WANDB_PROJECT", "ask-before-answer")
+        weave.init(f"{wandb_entity}/{wandb_project}")
+    except Exception as e:
+        print(f"Failed to initialize Weave: {e}")
+else:
+    print("WANDB_API_KEY not found. Weave tracing disabled.")
 
 # Set page config
 st.set_page_config(
@@ -16,11 +40,35 @@ if "pipeline" not in st.session_state:
     st.session_state.pipeline = None
 
 
-def load_model():
-    model_path = os.environ.get("MODEL_PATH", "Qwen/Qwen2.5-7B-Instruct")
-    is_peft = os.environ.get("IS_PEFT", "false").lower() == "true"
-    with st.spinner(f"Loading model from {model_path}..."):
-        st.session_state.pipeline = ClarificationPipeline(model_path, is_peft=is_peft)
+def get_available_models() -> dict:
+    """Return a dictionary of available models for the application."""
+    models = {
+        "AskBeforeAnswer (GRPO Qwen2.5-7B)": {
+            "path": "chrisjcc/ask-before-answer",
+            "is_peft": True,
+        }
+    }
+
+    # Dynamically scan model configs for baselines
+    for config_file in glob.glob("configs/model/*.yaml"):
+        try:
+            with open(config_file, "r") as f:
+                cfg = yaml.safe_load(f)
+                if cfg and "name" in cfg:
+                    models[f"Base: {cfg['name']}"] = {
+                        "path": cfg["name"],
+                        "is_peft": False,
+                    }
+        except Exception as e:
+            print(f"Skipping config {config_file}: {e}")
+
+    return models
+
+
+@st.cache_resource(show_spinner=False)
+def load_pipeline(model_path: str, is_peft: bool) -> ClarifyOrActPipeline:
+    """Load and cache the inference pipeline."""
+    return ClarifyOrActPipeline(model_path, is_peft=is_peft)
 
 
 st.title("AskBeforeAnswer 🤖")
@@ -34,8 +82,27 @@ st.markdown(
 
 with st.sidebar:
     st.header("Settings")
+    available_models = get_available_models()
+    selected_model_name = st.selectbox("Select Model", list(available_models.keys()))
+
     if st.button("Load Model"):
-        load_model()
+        import gc
+
+        import torch
+
+        # Aggressively clean up old model memory before loading the new one
+        if st.session_state.pipeline is not None:
+            del st.session_state.pipeline
+            st.session_state.pipeline = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
+
+        model_info = available_models[selected_model_name]
+        with st.spinner(f"Loading {selected_model_name}..."):
+            st.session_state.pipeline = load_pipeline(
+                model_info["path"], model_info["is_peft"]
+            )
 
     st.markdown("### Example Queries")
     st.markdown("- When did The Simpsons first air?")
@@ -45,22 +112,87 @@ with st.sidebar:
 if st.session_state.pipeline is None:
     st.warning("Please load the model from the sidebar to begin.")
 else:
-    user_query = st.text_input("Enter a potentially ambiguous question:")
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        system_prompt = (
+            "You are a helpful assistant. "
+            "Given a question, you must decide whether it is ambiguous or not. "
+            "Output MUST follow this format:\n"
+            "Action: Clarify|Answer\n"
+            "Reasoning: <your reasoning>\n"
+            "Facets: <list of facets if ambiguous, else empty>\n"
+            "Response: <clarifying question or direct answer>"
+        )
+        st.session_state.messages = [{"role": "system", "content": system_prompt}]
 
-    if st.button("Generate Response") and user_query:
-        with st.spinner("Analyzing..."):
-            response = st.session_state.pipeline.generate(user_query)
+    def render_assistant_message(raw_response: str):
+        raw_response = raw_response.replace("\\n", "\n")
+        import ast
+        import re
 
-            st.markdown("### Model Response")
-            st.info(response)
+        action_match = re.search(r"Action:\s*(.*?)\n", raw_response + "\n")
+        reasoning_match = re.search(r"Reasoning:\s*(.*?)\n", raw_response + "\n")
+        facets_match = re.search(r"Facets:\s*(.*?)\n", raw_response + "\n")
+        response_match = re.search(r"Response:\s*(.*)", raw_response + "\n", re.DOTALL)
 
-            # Simple visualization of structured output
-            if "Action: Clarify" in response:
-                st.success(
-                    "Model successfully detected ambiguity and requested clarification!"
+        action = action_match.group(1).strip() if action_match else "Unknown"
+        reasoning = (
+            reasoning_match.group(1).strip() if reasoning_match else "None provided."
+        )
+        facets_str = facets_match.group(1).strip() if facets_match else "[]"
+        final_response = (
+            response_match.group(1).strip() if response_match else raw_response
+        )
+
+        try:
+            facets = ast.literal_eval(facets_str) if facets_str.startswith("[") else []
+        except (ValueError, SyntaxError, TypeError):
+            facets = [facets_str] if facets_str else []
+
+        if "Clarify" in action:
+            st.warning("🤔 **Ambiguity Detected! Requesting Clarification:**")
+        elif "Answer" in action:
+            st.success("✅ **Clear Question! Answering Directly:**")
+        else:
+            st.info("🤖 **Response:**")
+
+        st.markdown(f"**{final_response}**")
+
+        with st.expander("View Agent Internal Reasoning"):
+            st.markdown(f"**Action:** `{action}`")
+            st.markdown(f"**Reasoning:** {reasoning}")
+            if facets:
+                st.markdown("**Identified Missing Facets:**")
+                for f in facets:
+                    st.markdown(f"- {f}")
+
+    # Display chat messages (skip the hidden system prompt)
+    for msg in st.session_state.messages[1:]:
+        with st.chat_message(msg["role"]):
+            if msg["role"] == "assistant":
+                render_assistant_message(msg["content"])
+            else:
+                st.markdown(msg["content"])
+
+    if user_query := st.chat_input(
+        "Enter a potentially ambiguous question (or answer a clarification):"
+    ):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": user_query})
+
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(user_query)
+
+        # Generate response
+        with st.chat_message("assistant"):
+            with st.spinner("Analyzing..."):
+                raw_response = st.session_state.pipeline.generate_from_messages(
+                    st.session_state.messages
                 )
-            elif "Action: Answer" in response:
-                st.success(
-                    "Model determined the question was unambiguous "
-                    "and answered directly."
+                render_assistant_message(raw_response)
+
+                # Append assistant response to chat history
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": raw_response}
                 )

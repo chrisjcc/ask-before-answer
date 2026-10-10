@@ -1,0 +1,38 @@
+# -----------------------------------------------------------------------------
+# DPO Sweep Configuration
+# -----------------------------------------------------------------------------
+# Weights & Biases Bayesian sweep configuration for DPO hyperparameter search.
+
+# --- Sweep Settings ---
+name: dpo-bayes-hyperband
+description: >
+  Bayesian hyperparameter sweep for the train-dpo pipeline.
+  Searches DPO beta and learning rate while maximizing eval/action_f1_answer using
+  Hyperband early stopping
+project: ask-before-answer
+program: scripts/run_sweep_trial.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--stage"
+  - "train-dpo"
+  - ${args}
+method: bayes
+metric:
+  name: eval/rewards/accuracies
+  goal: maximize
+
+# Enable Hyperband Early Stopping
+early_terminate:
+  type: hyperband
+  min_iter: 50    # Hyperband's first bracket is based on 50 logged
+                  # iterations of the optimized metric (eval/loss).
+  eta: 3          # Hyperband bracket multiplier.
+
+# --- Parameters ---
+parameters:
+  beta:
+    distribution: uniform
+    min: 0.01
+    max: 0.5

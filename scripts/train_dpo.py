@@ -1,3 +1,8 @@
+"""DVC Stage: DPO Training.
+
+This script executes the Direct Preference Optimization stage of the DVC pipeline.
+"""
+
 import logging
 import os
 
@@ -5,7 +10,7 @@ import hydra
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from src.training.trainer import run_dpo_training
+from ask_before_answer.training.trainer import run_dpo_training
 
 load_dotenv()
 
@@ -14,11 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
-def main(cfg: DictConfig):
-    # Override training config to DPO
-    cfg.training = hydra.compose(config_name="training/dpo").training
-
+def main(cfg: DictConfig) -> None:
+    """Execute the DPO training pipeline based on Hydra configuration."""
     logger.info("Starting DPO training pipeline...")
+
+    # Explicitly group experiments for W&B
+    if os.environ.get("WANDB_SWEEP_ID"):
+        os.environ["WANDB_RUN_GROUP"] = "dpo_sweeps"
+    else:
+        os.environ["WANDB_RUN_GROUP"] = "dpo_baseline"
+
     os.makedirs(cfg.training.output_dir, exist_ok=True)
     run_dpo_training(cfg)
     logger.info("DPO training pipeline complete.")

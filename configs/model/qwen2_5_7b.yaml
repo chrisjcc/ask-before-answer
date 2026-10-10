@@ -1,21 +1,31 @@
-name: "Qwen/Qwen2.5-7B-Instruct"
-use_flash_attention: false
+# -----------------------------------------------------------------------------
+# Qwen 2.5 7B Configuration
+# -----------------------------------------------------------------------------
+# Configuration for loading and patching the Qwen model.
+
+# --- Base Model ---
+name: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit"
+use_unsloth: true
+max_seq_length: 2048
+use_flash_attention: false  # Routes to attn_implementation="sdpa"
 load_in_8bit: false
 load_in_4bit: true
 trust_remote_code: true
 device_map: "auto"
 torch_dtype: "bfloat16"
 
-# QLoRA / bitsandbytes
+# --- Quantization (bitsandbytes) ---
+# Parameters for QLoRA 4-bit quantization to fit in VRAM.
 bnb_4bit_quant_type: "nf4"
 bnb_4bit_compute_dtype: "bfloat16"
 bnb_4bit_use_double_quant: true
 
 
-# LoRA configuration
+# --- LoRA Adapters ---
+# Configuration for the Low-Rank Adaptation (LoRA) layers.
 lora:
-  r: 32
-  lora_alpha: 16
+  r: 16
+  lora_alpha: 32
   lora_dropout: 0.05
   bias: "none"
   task_type: "CAUSAL_LM"

@@ -1,3 +1,41 @@
-dataset_name: "sewon/ambig_qa"
-split: "validation"
-max_samples: 20
+# -----------------------------------------------------------------------------
+# Evaluation Configuration
+# -----------------------------------------------------------------------------
+# Configuration for evaluating trained models against baseline datasets.
+
+# --- Dataset & Scoring ---
+dataset_name: "sewon/ambig_qa"                    # Dataset to evaluate against
+split: "validation"                               # Split to evaluate
+config_name: "light"                              # Config or subset of the dataset
+max_samples: 50                                   # Number of samples to evaluate (for speed/testing)
+judge_model: "google/gemma-2-2b-it"               # Local LLM as a Judge model identifier
+multi_turn_provider: "google/gemma-2-2b-it"       # Provider Agent model for multi-turn simulation
+multi_turn_max_turns: 3                           # Maximum number of clarification loops before task failure
+
+# --- Base Model Definition ---
+base_model_id: "unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit" # Underlying base architecture
+
+# --- Models to Evaluate ---
+# List of all models/adapters to run evaluation sweeps against.
+models_to_evaluate:
+  - name: "base"
+    path: "${evaluation.base_model_id}"
+    is_peft: false
+  - name: "dpo_only"
+    path: "models/dpo_only/final"
+    is_peft: true
+  - name: "sft"
+    path: "models/sft/final"
+    is_peft: true
+  - name: "sft_dpo"
+    path: "models/dpo/final"
+    is_peft: true
+  - name: "clarifier_lora"
+    path: "itsbhoomika/clarifier-dpo-lora"
+    is_peft: true
+  - name: "orpo"
+    path: "models/orpo/final"
+    is_peft: true
+  - name: "grpo"
+    path: "models/grpo/final"
+    is_peft: true
