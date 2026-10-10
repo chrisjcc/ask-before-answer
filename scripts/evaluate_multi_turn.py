@@ -128,11 +128,13 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"Task Success Rate: {sr:.2f}%")
         logger.info(f"Average Turns: {avg_turns:.2f}\n")
 
-        all_multi_turn_results.append({
-            "Model": model_name,
-            "Task Success Rate (%)": round(sr, 2),
-            "Average Turns": round(avg_turns, 2)
-        })
+        all_multi_turn_results.append(
+            {
+                "Model": model_name,
+                "Task Success Rate (%)": round(sr, 2),
+                "Average Turns": round(avg_turns, 2),
+            }
+        )
 
         # Explicit memory clean up to avoid OOM when iterating across models
         import gc
@@ -149,6 +151,7 @@ def main(cfg: DictConfig) -> None:
     os.makedirs("results", exist_ok=True)
     summary_path = "results/multi_turn_eval_summary.json"
     import json
+
     with open(summary_path, "w") as f:
         json.dump(all_multi_turn_results, f, indent=4)
     logger.info(f"Saved multi-turn evaluation summary to {summary_path}")
