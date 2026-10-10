@@ -239,7 +239,7 @@ train-grpo:
 
 ablation-suite:
 	@echo "Running all experimental baselines..."
-	dvc repro train-sft train-dpo train-dpo-only train-sft-only train-orpo train-grpo
+	dvc repro train-sft train-dpo train-dpo-only train-orpo train-grpo
 	@echo "Evaluating all models with LLM-as-a-Judge (Single-Turn)..."
 	python scripts/evaluate_single_turn.py
 	@echo "Evaluating all models in Interactive Environment (Multi-Turn)..."
