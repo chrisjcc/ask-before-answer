@@ -101,3 +101,18 @@ Rather than injecting inline reward functions, the environment utilizes a declar
 
 > [!TIP]
 > **Configurable Reward Shaping:** The `Rubric` dynamically wraps each `Criterion` into isolated TRL-compliant adapter functions. This automatically forces Weights & Biases (W&B) to log decomposed reward histograms (e.g., `reward/format`, `reward/action`), allowing for highly granular hyperparameter sweeps of the `reward_weights:` block inside `configs/training/grpo.yaml`.
+
+## 5. How `Reasoning:` Traces Are Used Across All Four Training Algorithms
+
+The `Reasoning:` Chain-of-Thought (CoT) tag is used across **all four training algorithms (SFT, DPO, ORPO, and GRPO)**, as well as during data preprocessing ([`docs/02_data_preprocessing.md`](02_data_preprocessing.md)) and inference. However, *how* the `Reasoning:` trace is optimized differs at each juncture of the pipeline:
+
+| Algorithm | How `Reasoning:` is Used in Training | Implementation Reference |
+| :--- | :--- | :--- |
+| **SFT** | **Token-Level Cross-Entropy Loss:** `format_chat` packs `Reasoning: {example['output']['reasoning']}` directly into the assistant target. The model is trained with standard next-token prediction over the entire 4-line block (`Action`, `Reasoning`, `Facets`, `Response`). | `src/ask_before_answer/training/trainer.py` (`run_sft_training`) |
+| **DPO** | **Contrastive Preference Optimization:** Both `chosen` and `rejected` strings in `dpo_train.jsonl` contain a `Reasoning:` line (`prepare_dpo_dataset`). `chosen` uses the valid CoT (`reasoning`), while `rejected` uses the adversarial flawed CoT (`neg_reasoning`). DPO shifts log-probabilities toward the valid reasoning chain and away from the flawed one. | `src/ask_before_answer/training/trainer.py` (`run_dpo_training`) |
+| **ORPO** | **Reference-Free Odds Ratio Optimization:** Uses the exact same `dpo_train.jsonl` dataset and `format_dpo` wrapper as DPO, jointly applying an SFT cross-entropy loss on the `chosen` `Reasoning:` trace and an odds-ratio penalty against the `rejected` `neg_reasoning` trace. | `src/ask_before_answer/training/trainer.py` (`run_orpo_training`) |
+| **GRPO** | **On-Policy Rollout + Structural Reward:** During GRPO rollouts, the model generates its own `Reasoning:` tokens on-policy (`run_grpo_training`). `FormatCriterion` explicitly checks `has_reasoning = "Reasoning:" in completion` and applies a $-2.0$ penalty if missing, allowing the on-policy CoT tokens to condition downstream `Facets:` and `Response:` generation. | `src/ask_before_answer/rewards/criteria.py` (`FormatCriterion`) |
+
+### Inference & Multi-Turn Evaluation
+At inference time in `ClarifyOrActPipeline.generate()` (`src/ask_before_answer/inference/pipeline.py`) and during interactive simulation in `MultiTurnEnv` (`src/ask_before_answer/evaluation/multi_turn.py`), the system prompt enforces the same 4-field format (`Action`, `Reasoning`, `Facets`, `Response`), ensuring full structural parity between training and deployment.
+

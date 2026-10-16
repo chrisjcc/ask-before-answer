@@ -9,6 +9,11 @@ export
 #    ensuring strict isolation for Conda environments.
 export PYTHONNOUSERSITE := 1
 
+# 2. Prioritize Conda's dynamic libraries over outdated host system libraries (e.g., CXXABI_1.3.15).
+ifneq ($(CONDA_PREFIX),)
+export LD_LIBRARY_PATH := $(CONDA_PREFIX)/lib:$(LD_LIBRARY_PATH)
+endif
+
 # Default sweep agent trial count
 COUNT ?= 10
 
