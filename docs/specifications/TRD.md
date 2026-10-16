@@ -8,13 +8,14 @@ Open-domain Large Language Models (LLMs) often hallucinate or guess user intent 
 
 ## 2. Scope Boundaries
 **In-Scope:**
-- Single-turn analysis (query routing to either Clarify or Answer).
-- Training an open-weight foundation model (Qwen 2.5 7B) using post-training alignment techniques.
+- Single-turn and multi-turn query analysis (routing to either Clarify or Answer across conversational turns).
+- Multi-turn dialogue management in the web UI and interactive agentic evaluation (`MultiTurnEnv` with simulated user feedback).
+- Training an open-weight foundation model (Qwen 2.5 7B) using post-training alignment techniques (SFT, DPO, ORPO, GRPO).
 - Synthetic data generation for contrastive preference pairs.
-- Real-time user inference via a web UI.
+- Real-time user inference via a Streamlit web UI.
 
 **Out-of-Scope:**
-- Multi-turn dialogue management (caching context across multiple subsequent interactions).
+- Multi-turn post-training datasets and multi-turn online RL training rollouts (models are trained on single-turn data and evaluated zero-shot in multi-turn dialogues).
 - Web search or external RAG retrieval integration.
 - Foundational pre-training (training from scratch).
 

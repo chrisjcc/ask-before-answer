@@ -230,7 +230,7 @@ ask-before-answer/
 
 Future iterations of AskBeforeAnswer can easily extend the current pipeline to support:
 
-* Multi-turn clarification datasets
+* Multi-turn post-training datasets and multi-turn RL rollouts (extending beyond current multi-turn inference and evaluation)
 * Constitutional AI and Reward Modeling
 
 To contribute, ensure code passes the CI pipeline (`make lint` and `make test`).

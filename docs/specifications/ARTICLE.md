@@ -517,7 +517,7 @@ The core takeaway of the AskBeforeAnswer project can be summarized in a single p
 While this research demonstrates that SFT $\rightarrow$ GRPO with programmatic rewards successfully aligns models to a hallucination-resistant clarify-or-act behavior, several important open questions remain for the AI community:
 
 1.  **Semantic Facet Reward Models:** Current GRPO reward functions validate structural formatting (`Facets` as a non-empty JSON list) but do not evaluate whether the generated facets are semantically optimal. Integrating lightweight local reward models to score facet quality is a key next step.
-2.  **Multi-Turn Clarification Dynamics:** The current benchmark evaluates single-turn clarification. Extending post-training to multi-turn dialogues—where the agent dynamically incorporates user responses to iteratively refine its intent model—remains an active area of research.
+2.  **Multi-Turn Post-Training Rollouts:** While our evaluation suite benchmarks both single-turn routing and multi-turn interactive clarification (`MultiTurnEnv`), our training stages optimize over single-turn datasets. Extending post-training itself to multi-turn RL rollouts—where the policy is rewarded across multi-step dialogue trajectories—remains an active area of research.
 3.  **Reinforcement Learning with Tool Use:** Combining ambiguity resolution with tool-calling frameworks (e.g., checking database schema availability before deciding whether to clarify) represents a promising frontier for building safe autonomous agents.
 4.  **Calibration and Uncertainty Estimation:** Investigating whether logit-based entropy or conformal prediction bounds can be directly integrated into the GRPO reward function to improve intent uncertainty estimation.
 

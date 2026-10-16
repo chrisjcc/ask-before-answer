@@ -36,8 +36,11 @@ To prevent Out-Of-Memory (OOM) faults during memory-intensive algorithms like GR
 2. **Unsloth:** Implements custom Triton kernels for Cross-Entropy loss and RoPE embeddings, bypassing standard PyTorch overhead. *(Note: Requires `module load cuda/12.6` on HPC clusters).*
 3. **bitsandbytes:** Executes standard 4-bit and 8-bit QLoRA weight quantization.
 
-## 5. Evaluation Framework (Dual-Scoring)
-The systematic evaluation pipeline (`scripts/evaluate.py`) evaluates model artifacts using two concurrent methodologies:
-1. **LLM-as-a-Judge:** Uses `Gemini 2.5 Flash` to assess subjective NLP nuances such as Clarification Quality, Usefulness, and Ambiguity Detection.
-2. **Rule-Based `ActionScorer`:** Deterministically evaluates the raw policy accuracy of the chosen action against the ground truth, computing exact precision, recall, and Macro F1 scores. 
-All evaluations generate dynamic leaderboards directly within the W&B Weave dashboard.
+## 5. Evaluation Framework (Single-Turn Dual-Scoring & Multi-Turn Simulation)
+The systematic evaluation pipeline (`scripts/evaluate_single_turn.py` and `scripts/evaluate_multi_turn.py`) evaluates model artifacts across two complementary regimes:
+1. **Single-Turn Dual-Scoring (`scripts/evaluate_single_turn.py`):**
+   - **LLM-as-a-Judge:** Uses a local judge model (`google/gemma-2-2b-it`, or `Gemini 2.5 Flash`) to assess subjective NLP nuances such as Clarification Quality, Usefulness, and Ambiguity Detection.
+   - **Rule-Based `ActionScorer`:** Deterministically evaluates the raw policy accuracy of the chosen action against the ground truth, computing exact precision, recall, and Macro F1 scores.
+2. **Multi-Turn Agentic Simulation (`scripts/evaluate_multi_turn.py`):**
+   - Uses `MultiTurnEnv` (`SeekerAgent` + simulated `ProviderAgent`) to evaluate whether the model can ask a clarifying question, incorporate the user's disambiguating response across up to 3 conversational turns, and arrive at the correct final answer.
+All evaluations generate dynamic leaderboards directly within the W&B Weave dashboard and `docs/ablation_report.md`.
