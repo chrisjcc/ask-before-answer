@@ -1,0 +1,373 @@
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=0.85in, top=0.95in, bottom=0.85in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+
+% Color Palette (matching AskBeforeAnswer TRD/TDD visual language)
+\definecolor{Navy}{HTML}{1F3864}
+\definecolor{NavyDark}{HTML}{16294A}
+\definecolor{BlueAccent}{HTML}{2E74B5}
+\definecolor{BlueLight}{HTML}{DCE6F1}
+\definecolor{GrayBand}{HTML}{F4F6F9}
+\definecolor{GrayBorder}{HTML}{BFBFBF}
+\definecolor{GrayText}{HTML}{595959}
+\definecolor{TanBg}{HTML}{FCE9C8}
+\definecolor{TanBorder}{HTML}{E8B96E}
+\definecolor{OrangeText}{HTML}{B15C00}
+\definecolor{CodeBg}{HTML}{F5F7FA}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=BlueAccent,
+    urlcolor=BlueAccent,
+    citecolor=Navy,
+    pdftitle={AskBeforeAnswer: Mechanics of Chain-of-Thought Reasoning Traces Across SFT, DPO, ORPO, and GRPO},
+    pdfauthor={AskBeforeAnswer Engineering & Research}
+}
+
+% Header & Footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\fontsize{8.5}{10}\selectfont\color{GrayText}AskBeforeAnswer Technical Reference --- Chain-of-Thought (\texttt{Reasoning:}) Training Mechanics}
+\fancyhead[R]{\fontsize{8.5}{10}\selectfont\color{GrayText}v1.0}
+\fancyfoot[L]{\fontsize{8}{10}\selectfont\color{GrayText}AskBeforeAnswer Engineering Documentation (\texttt{src/ask\_before\_answer/})}
+\fancyfoot[R]{\fontsize{8}{10}\selectfont\color{GrayText}Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% Section Headings
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{Navy}}{\thesection.}{0.6em}{}[\vspace{2pt}{\color{BlueAccent}\titlerule[0.9pt]}]
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{BlueAccent}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries\color{NavyDark}}{\thesubsubsection}{0.5em}{}
+
+\titlespacing*{\section}{0pt}{14pt}{8pt}
+\titlespacing*{\subsection}{0pt}{10pt}{5pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{4pt}
+
+% Listings Configuration
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    backgroundcolor=\color{CodeBg},
+    frame=single,
+    rulecolor=\color{GrayBorder},
+    framesep=6pt,
+    xleftmargin=6pt,
+    xrightmargin=6pt,
+    breaklines=true,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false
+}
+
+% Callout Box
+\newtcolorbox{techcallout}[1]{
+    colback=TanBg,
+    colframe=TanBorder,
+    coltitle=OrangeText,
+    fonttitle=\bfseries\small,
+    title=#1,
+    boxrule=0.8pt,
+    arc=2pt,
+    left=8pt,
+    right=8pt,
+    top=6pt,
+    bottom=6pt
+}
+
+\newtcolorbox{mathbox}[1]{
+    colback=GrayBand,
+    colframe=BlueAccent,
+    coltitle=white,
+    colbacktitle=Navy,
+    fonttitle=\bfseries\small,
+    title=#1,
+    boxrule=0.7pt,
+    arc=2pt,
+    left=8pt,
+    right=8pt,
+    top=6pt,
+    bottom=6pt
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\begin{document}
+
+% -----------------------------------------------------------------------------
+% TITLE BLOCK
+% -----------------------------------------------------------------------------
+{\fontsize{21}{25}\selectfont\bfseries\color{Navy}
+Chain-of-Thought (\texttt{Reasoning:}) Mechanics Across Post-Training Algorithms\par}
+\vspace{4pt}
+{\fontsize{12.5}{16}\selectfont\bfseries\color{BlueAccent}
+How the \texttt{Reasoning:} Trace Is Distilled, Formatted, Optimized, and Reinforced in SFT, DPO, ORPO, and GRPO\par}
+\vspace{8pt}
+
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|>{\columncolor{Navy}\color{white}\bfseries}p{1.5in}|X|}
+\hline
+Project & \textbf{AskBeforeAnswer} (Clarification-Seeking Qwen 2.5 7B Post-Training Pipeline) \\
+\hline
+\rowcolor{GrayBand}
+Scope & Data Preprocessing (\texttt{preprocess.py}), Model Training (\texttt{trainer.py}), Rewards (\texttt{criteria.py}) \\
+\hline
+Algorithms Covered & Supervised Fine-Tuning (SFT), Direct Preference Optimization (DPO), Odds Ratio Preference Optimization (ORPO), Group Relative Policy Optimization (GRPO) \\
+\hline
+\rowcolor{GrayBand}
+Audience & Machine Learning Engineers, Applied Researchers, and Codebase Contributors \\
+\hline
+\end{tabularx}
+\vspace{10pt}
+
+% -----------------------------------------------------------------------------
+% SECTION 1: MOTIVATION & ARCHITECTURAL ROLE
+% -----------------------------------------------------------------------------
+\section{Motivation: Why Explicit Reasoning Traces Matter for Clarification}
+
+When an open-domain Large Language Model (LLM) is presented with an underspecified user prompt (e.g., \textit{``Who won the US Open?''} or \textit{``How do I make pasta?''}), standard instruction-tuned models default to guessing a single arbitrary interpretation and answering immediately. Teaching a 7B-parameter language model to reliably distinguish between \textbf{unambiguous queries} (which should be answered directly) and \textbf{ambiguous queries} (which require targeted clarification) demands more than binary classification.
+
+In the \textbf{AskBeforeAnswer} architecture, every model completion is constrained at the token level to emit a structured four-field schema:
+
+\begin{lstlisting}
+Action: Clarify | Answer
+Reasoning: <Chain-of-Thought rationale explaining why the query is ambiguous or clear>
+Facets: [<JSON list of missing informational attributes if Clarify, else empty list []>]
+Response: <Targeted clarifying question grounded in the facets OR direct factual answer>
+\end{lstlisting}
+
+\subsection{The Three Architectural Functions of the \texttt{Reasoning:} Field}
+
+Rather than treating the \texttt{Reasoning:} line as decorative text, the pipeline relies on it to serve three concrete machine learning functions across the lifecycle of the model:
+
+\begin{enumerate}[leftmargin=18pt, itemsep=3pt]
+    \item \textbf{Autoregressive Conditioning Bridge:} In causal (left-to-right) transformer decoding, each generated token conditions all subsequent tokens via causal self-attention. Because \texttt{Reasoning:} sits on Line~2 (immediately after \texttt{Action:} and prior to \texttt{Facets:} and \texttt{Response:}), generating the Chain-of-Thought (CoT) rationale decomposes the specific dimensions of ambiguity (e.g., missing temporal, entity, or geographic qualifiers) \textit{before} the model populates the \texttt{Facets:} list and synthesizes the final \texttt{Response:}.
+    \item \textbf{Symmetric Contrastive Signal Against Formatting Shortcuts:} In preference optimization algorithms (DPO and ORPO), if rejected responses are merely malformed or truncated strings, the policy learns a superficial formatting shortcut rather than genuine ambiguity reasoning. By pairing every gold completion with an adversarial hard-negative completion that shares the exact same four-field structure---but contains a \textit{logically flawed} \texttt{Reasoning:} trace---preference optimization is forced to assign credit and blame to the semantic validity of the reasoning chain itself.
+    \item \textbf{On-Policy Test-Time Compute Buffer in Reinforcement Learning:} During online reinforcement learning (GRPO), the model is no longer given pre-written rationales; it samples its own \texttt{Reasoning:} tokens on-policy prior to generating \texttt{Facets:} and \texttt{Response:}. Rollouts that articulate clearer on-policy reasoning chains produce higher-quality downstream facets and answers, earning higher trajectory rewards that reinforce those reasoning tokens via policy gradients.
+\end{enumerate}
+
+\begin{techcallout}{Autoregressive Ordering Note: \texttt{Action} $\rightarrow$ \texttt{Reasoning} $\rightarrow$ \texttt{Facets} $\rightarrow$ \texttt{Response}}
+Because \texttt{Action:} appears on Line~1 and \texttt{Reasoning:} appears on Line~2, causal self-attention during inference means the binary routing token (\texttt{Clarify} vs.\ \texttt{Answer}) is predicted directly from the prompt $x$, while the \texttt{Reasoning:} trace conditions the extraction of \texttt{Facets:} (Line~3) and the phrasing of \texttt{Response:} (Line~4). During backpropagation in training, however, gradients from \texttt{Reasoning:}, \texttt{Facets:}, and \texttt{Response:} flow backward through the entire network's shared parameters $\theta$.
+\end{techcallout}
+
+% -----------------------------------------------------------------------------
+% SECTION 2: DATA PREPROCESSING & SYNTHETIC COT DISTILLATION
+% -----------------------------------------------------------------------------
+\section{Origins of the \texttt{Reasoning:} Trace in Data Preprocessing}
+
+The raw source benchmark (\texttt{sewon/ambig\_qa}) provides only natural language questions and ground-truth question-answer pairs; it contains no native Chain-of-Thought rationales. During the DVC \texttt{preprocess} stage (\path{src/ask_before_answer/data/preprocess.py}), the \texttt{SyntheticGenerator} class uses \path{unsloth/qwen2.5-7b-instruct-unsloth-bnb-4bit} to synthesize two distinct categories of reasoning traces:
+
+\begin{enumerate}[leftmargin=18pt, itemsep=4pt]
+    \item \textbf{Positive Gold CoT (\texttt{reasoning}):} Generated via \texttt{generate\_batch()} using \texttt{SYSTEM\_PROMPT}. For ambiguous queries, it explains why multiple interpretations exist; for unambiguous queries, it explains why the intent is fully specified. This field populates both the SFT target (\texttt{sft\_train.jsonl}) and the \texttt{chosen} ($y_w$) completion in the preference dataset (\texttt{dpo\_train.jsonl}).
+    \item \textbf{Adversarial Hard-Negative CoT (\texttt{neg\_reasoning}):} Generated via \texttt{generate\_negative\_batch()} using \texttt{NEGATIVE\_SYSTEM\_PROMPT}. The instructor model is explicitly prompted to write a \textit{plausible-sounding but logically incorrect} reasoning chain that rationalizes the opposite, wrong action (e.g., arguing that a genuinely ambiguous question is crystal clear to justify a premature \texttt{Action: Answer}, or inventing spurious ambiguity on a clear question to justify an unnecessary \texttt{Action: Clarify}). This field populates the \texttt{rejected} ($y_l$) completion in \texttt{dpo\_train.jsonl}.
+\end{enumerate}
+
+% -----------------------------------------------------------------------------
+% SECTION 3: EXACT TRAINING MECHANICS BY ALGORITHM
+% -----------------------------------------------------------------------------
+\section{Training Mechanics Across the Four Supported Algorithms}
+
+To understand how the \texttt{Reasoning:} tag participates in model optimization, it is essential to distinguish between the \textbf{input prompt ($x$)}, the \textbf{target completion ($y$)}, the \textbf{loss function ($\mathcal{L}(\theta)$)}, and the resulting \textbf{parameter gradients ($\nabla_\theta \mathcal{L}$)} in \path{src/ask_before_answer/training/trainer.py}.
+
+\vspace{4pt}
+\subsection{1. Supervised Fine-Tuning (SFT) --- \texttt{run\_sft\_training()}}
+
+\subsubsection*{Input ($x$) vs.\ Target ($y$) Boundary}
+In \texttt{run\_sft\_training()} (\texttt{trainer.py}, lines 220--237), each record from \texttt{sft\_train.jsonl} is formatted into a three-message ChatML conversation:
+\begin{itemize}[leftmargin=18pt, itemsep=2pt]
+    \item \textbf{Conditioning Input Prompt ($x$):} The \texttt{system} message (which contains only the format specification template \texttt{"Reasoning: <your reasoning>\textbackslash n"}) and the \texttt{user} message (\texttt{example["input"]}, i.e., the raw question).
+    \item \textbf{Target Output Sequence ($y$):} The \texttt{assistant} message, which concatenates the four ground-truth fields into a single target completion string:
+\end{itemize}
+\begin{lstlisting}
+Action: {example['output']['action']}
+Reasoning: {example['output']['reasoning']}
+Facets: {example['output']['facets']}
+Response: {example['output']['response']}
+\end{lstlisting}
+
+\subsubsection*{Loss Function \& Dual Role Under Autoregressive Teacher Forcing}
+SFT minimizes the standard token-level negative log-likelihood (Cross-Entropy loss) over the target completion tokens $y = (y_1, y_2, \dots, y_{|y|})$ conditioned on the prompt $x$:
+
+\begin{mathbox}{SFT Cross-Entropy Objective Decomposed by Schema Field}
+\begin{equation}
+\mathcal{L}_{\text{SFT}}(\theta) = -\sum_{t=1}^{|y|} \log \pi_\theta(y_t \mid x, y_{<t}) = -\Bigg( \sum_{t \in \mathcal{T}_{\text{Action}}} + \underbrace{\sum_{t \in \mathcal{T}_{\text{Reasoning}}}}_{\text{Direct CE on CoT}} + \sum_{t \in \mathcal{T}_{\text{Facets}}} + \sum_{t \in \mathcal{T}_{\text{Response}}} \Bigg) \log \pi_\theta(y_t \mid x, y_{<t})
+\end{equation}
+\end{mathbox}
+
+Because causal language modeling uses \textbf{teacher forcing} during the forward pass (where the ground-truth sequence is shifted by one token position to serve simultaneously as input context and target labels), every token inside \texttt{Reasoning: \{reasoning\}} performs two distinct operations during each training step:
+\begin{enumerate}[leftmargin=18pt, itemsep=2pt]
+    \item \textbf{As a Supervised Target Label ($y_t$):} For every token index $t \in \mathcal{T}_{\text{Reasoning}}$, the token is the ground-truth label in the Cross-Entropy loss $\log \pi_\theta(y_t \mid x, y_{<t})$. Backpropagation computes direct gradients $\nabla_\theta \log \pi_\theta(y_t \mid x, y_{<t})$ that train the model's weights to generate both the literal header \texttt{"Reasoning:"} and the substantive Chain-of-Thought rationale.
+    \item \textbf{As Teacher-Forced Input Context ($y_{<t}$) for Downstream Fields:} When the transformer predicts tokens at positions $t \in \mathcal{T}_{\text{Facets}} \cup \mathcal{T}_{\text{Response}}$, the ground-truth \texttt{Reasoning:} tokens lie inside the conditioning prefix $y_{<t}$. The attention heads attend directly to the teacher-forced \texttt{Reasoning:} tokens to predict the facets and final response.
+\end{enumerate}
+
+\vspace{6pt}
+\subsection{2. Direct Preference Optimization (DPO) --- \texttt{run\_dpo\_training()}}
+
+\subsubsection*{Input ($x$) vs.\ Contrastive Targets ($y_w, y_l$)}
+In \texttt{run\_dpo\_training()} (\texttt{trainer.py}, lines 293--392), the trainer loads paired preference records from \texttt{dpo\_train.jsonl} constructed by \texttt{prepare\_dpo\_dataset()} (\texttt{preprocess.py}, lines 452--520):
+\begin{itemize}[leftmargin=18pt, itemsep=2pt]
+    \item \textbf{Input Prompt ($x$):} The ChatML-formatted \texttt{system} instruction and \texttt{user} question, ending with the assistant generation prompt header. It contains \textit{no} reasoning trace.
+    \item \textbf{Chosen Target Completion ($y_w$):} The 4-line completion containing the gold action, the \textbf{valid CoT trace} (\texttt{Reasoning: \{reasoning\}}), the valid facets, and the gold response.
+    \item \textbf{Rejected Target Completion ($y_l$):} The 4-line completion containing the opposite action, the \textbf{adversarial hard-negative CoT trace} (\texttt{Reasoning: \{neg\_reasoning\}}), and the wrong response.
+\end{itemize}
+
+\subsubsection*{How DPO Shifts Log-Probabilities \& Computes Gradients Over \texttt{Reasoning:}}
+In DPO, both $y_w$ and $y_l$ are evaluated as \textbf{target output sequences} ($y$-values). During a training step, \texttt{DPOTrainer} runs teacher-forced forward passes on $(x, y_w)$ and $(x, y_l)$ through both the trainable policy $\pi_\theta$ and the frozen SFT reference policy $\pi_{\text{ref}}$. Crucially, prompt tokens $x$ are masked out; the sequence log-probability $\log \pi_\theta(y \mid x)$ is computed by summing the next-token log-probabilities across all target completion tokens:
+
+\begin{align}
+\log \pi_\theta(y \mid x) &= \sum_{t=1}^{|y|} \log \pi_\theta(y_t \mid x, y_{<t}) \nonumber \\
+&= \sum_{t \in \mathcal{T}_{\text{Action}}} \log \pi_\theta(y_t \mid \dots) + \underbrace{\sum_{t \in \mathcal{T}_{\text{Reasoning}}} \log \pi_\theta(y_t \mid x, y_{<t})}_{\text{typically 50--70\% of all tokens in } y} + \sum_{t \in \mathcal{T}_{\text{Facets}} \cup \mathcal{T}_{\text{Response}}} \log \pi_\theta(y_t \mid \dots)
+\end{align}
+
+These summed target log-probabilities are substituted into the Bradley-Terry DPO loss:
+
+\begin{mathbox}{DPO Objective \& Gradient Flow Over Chosen ($y_w$) and Rejected ($y_l$) Targets}
+\begin{equation}
+\mathcal{L}_{\text{DPO}}(\theta; \pi_{\text{ref}}) = -\mathbb{E}_{(x, y_w, y_l)} \left[ \log \sigma \left( \beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)} \right) \right]
+\end{equation}
+Taking the gradient with respect to $\theta$ yields:
+\begin{equation}
+\nabla_\theta \mathcal{L}_{\text{DPO}}(\theta) = -\beta \, \mathbb{E}_{(x, y_w, y_l)} \Bigg[ w(x, y_w, y_l) \Bigg( \underbrace{\sum_{t=1}^{|y_w|} \nabla_\theta \log \pi_\theta(y_{w,t} \mid x, y_{w,<t})}_{\text{Pulls UP valid \texttt{Reasoning:} tokens}} - \underbrace{\sum_{t=1}^{|y_l|} \nabla_\theta \log \pi_\theta(y_{l,t} \mid x, y_{l,<t})}_{\text{Pushes DOWN \texttt{neg\_reasoning} tokens}} \Bigg) \Bigg]
+\end{equation}
+where $w(x, y_w, y_l) = \sigma\!\left(\beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)} - \beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)}\right)$ weights examples where the policy still assigns high probability to the rejected reasoning chain.
+\end{mathbox}
+
+Because the \texttt{Reasoning:} line comprises the majority of tokens in $y_w$ and $y_l$, the sum $\sum_{t=1}^{|y|} \log \pi_\theta(y_t \mid x, y_{<t})$ is heavily dominated by the \texttt{Reasoning:} tokens. By the chain rule:
+\begin{itemize}[leftmargin=18pt, itemsep=2pt]
+    \item Every next-token prediction $y_{w,t}$ inside the valid \texttt{Reasoning:} trace receives a \textbf{positive gradient step}, increasing the probability that the model generates valid ambiguity analysis.
+    \item Every next-token prediction $y_{l,t}$ inside the adversarial \texttt{neg\_reasoning} trace receives a \textbf{negative gradient step}, actively suppressing the probability of generating flawed rationalizations.
+\end{itemize}
+
+\newpage
+\subsection{3. Odds Ratio Preference Optimization (ORPO) --- \texttt{run\_orpo\_training()}}
+
+\subsubsection*{Input ($x$) vs.\ Contrastive Targets ($y_w, y_l$)}
+In \texttt{run\_orpo\_training()} (\texttt{trainer.py}, lines 394--488), ORPO consumes the exact same \texttt{dpo\_train.jsonl} dataset and applies the identical \texttt{format\_dpo()} transformation as DPO. Consequently, in an ML sense, the \texttt{Reasoning:} trace is used strictly as \textbf{part of the target output sequences $y_w$ (\texttt{chosen}) and $y_l$ (\texttt{rejected})}.
+
+\subsubsection*{Monolithic Reference-Free Loss \& Dual Gradient Update}
+Unlike DPO, ORPO is a single-stage, reference-free algorithm trained directly from the base model without an SFT warm-up or frozen $\pi_{\text{ref}}$. It achieves this by combining the supervised next-token Cross-Entropy loss on the chosen target $y_w$ with a log-odds ratio penalty between $y_w$ and $y_l$:
+
+\begin{mathbox}{ORPO Joint Objective Over Target Sequences $y_w$ and $y_l$}
+\begin{equation}
+\mathcal{L}_{\text{ORPO}}(\theta) = \mathbb{E}_{(x, y_w, y_l)} \Big[ \underbrace{\mathcal{L}_{\text{SFT}}(x, y_w; \theta)}_{\text{Next-Token CE on } y_w} - \lambda \log \sigma \left( \log \frac{\text{odds}_\theta(y_w \mid x)}{\text{odds}_\theta(y_l \mid x)} \right) \Big]
+\end{equation}
+where the length-normalized sequence probability $\bar{\pi}_\theta(y \mid x)$ and odds $\text{odds}_\theta(y \mid x)$ over the target tokens are defined as:
+\begin{equation}
+\bar{\pi}_\theta(y \mid x) = \exp\left( \frac{1}{|y|} \sum_{t=1}^{|y|} \log \pi_\theta(y_t \mid x, y_{<t}) \right), \qquad \text{odds}_\theta(y \mid x) = \frac{\bar{\pi}_\theta(y \mid x)}{1 - \bar{\pi}_\theta(y \mid x)}
+\end{equation}
+\end{mathbox}
+
+Thus, during every ORPO backward pass:
+\begin{enumerate}[leftmargin=18pt, itemsep=2pt]
+    \item The valid \texttt{Reasoning:} tokens in $y_w$ receive \textbf{two simultaneous positive gradient signals}: one from $\mathcal{L}_{\text{SFT}}(x, y_w; \theta)$ (teaching the model the 4-field syntax and CoT rationale via next-token prediction) and a second from the odds-ratio term $\text{odds}_\theta(y_w \mid x)$.
+    \item The flawed \texttt{neg\_reasoning} tokens in $y_l$ receive a \textbf{negative gradient signal} through $\text{odds}_\theta(y_l \mid x)$ in the denominator, penalizing the next-token probabilities of the incorrect reasoning chain.
+\end{enumerate}
+
+\vspace{6pt}
+\subsection{4. Group Relative Policy Optimization (GRPO) --- \texttt{run\_grpo\_training()}}
+
+GRPO (\texttt{trainer.py}, lines 490--621) operates under an online reinforcement learning paradigm that differs fundamentally from SFT, DPO, and ORPO. Understanding how \texttt{Reasoning:} works in GRPO requires separating \textbf{what happens to the dataset and reward calculation} from \textbf{what happens during on-policy rollout generation and policy gradient backpropagation}.
+
+\subsubsection*{Part A: Dataset Preparation \& Programmatic Reward Calculation}
+\begin{enumerate}[leftmargin=18pt, itemsep=3pt]
+    \item \textbf{Pre-Generated Dataset \texttt{Reasoning:} Traces Are Discarded:} When \texttt{SingleTurnEnv.\_format\_dataset()} (\path{src/ask_before_answer/rewards/base.py}, lines 67--98) loads \texttt{dpo\_train.jsonl} for GRPO, it extracts only three fields: \texttt{prompt} ($x$), \texttt{target\_action} (\texttt{"Clarify"} or \texttt{"Answer"}), and \texttt{target\_response}. \textbf{The pre-generated \texttt{Reasoning:} text from the dataset is completely discarded and is never shown to the model or the reward functions.}
+    \item \textbf{Explicit Reward Evaluation Checks Only the \texttt{"Reasoning:"} Header:} When the policy generates a rollout completion $y_i$, the completion is graded by four programmatic criteria in \path{src/ask_before_answer/rewards/criteria.py}:
+    \begin{itemize}[leftmargin=16pt, itemsep=1pt]
+        \item \texttt{FormatCriterion}: Checks boolean substring presence:
+        \texttt{has\_reasoning = "Reasoning:" in completion}. It awards $+1.0$ if all four headers (\texttt{Action:}, \texttt{Reasoning:}, \texttt{Facets:}, \texttt{Response:}) are present, or applies a $-2.0$ penalty if any header is missing.
+        \item \texttt{ActionCriterion}: Regex-matches \texttt{Action: (Clarify|Answer)} against \texttt{target\_action}.
+        \item \texttt{FacetLogicCriterion}: Parses \texttt{Facets: [...]} and verifies non-empty lists when \texttt{Action == Clarify} and empty lists when \texttt{Action == Answer}.
+        \item \texttt{AccuracyCriterion}: Computes token-level F1 overlap between \texttt{Response:} and \texttt{target\_response}.
+    \end{itemize}
+\end{enumerate}
+Therefore, within the reward function code itself, \textbf{nothing evaluates the semantic prose written after \texttt{Reasoning:}}---only the presence of the \texttt{"Reasoning:"} tag is explicitly verified by \texttt{FormatCriterion}.
+
+\subsubsection*{Part B: Why the On-Policy \texttt{Reasoning:} Tokens Still Receive Gradients \& Drive Learning}
+Even though the reward function only checks \texttt{"Reasoning:" in completion}, the tokens generated inside the \texttt{Reasoning:} line actively participate in learning through two core RL mechanisms:
+
+\begin{enumerate}[leftmargin=18pt, itemsep=3pt]
+    \item \textbf{On-Policy Autoregressive Conditioning (Test-Time Compute):} For each prompt $x$, \texttt{GRPOTrainer} samples a group of $G=8$ full completions $\{y_1, y_2, \dots, y_8\} \sim \pi_{\theta_{\text{old}}}(\cdot \mid x)$. In each rollout $y_i$, the model generates its own \texttt{Reasoning:} tokens on Line~2 \textit{before} generating \texttt{Facets:} (Line~3) and \texttt{Response:} (Line~4). Through causal self-attention, a rollout $y_i$ that generates a coherent on-policy \texttt{Reasoning:} trace conditions the model to extract valid facets and produce a higher-accuracy response, thereby earning a higher total scalar reward $\mathcal{R}(x, y_i)$.
+    \item \textbf{Sequence-Level Advantage Broadcasting in the Policy Gradient:} GRPO normalizes the scalar rewards across the $G=8$ rollouts to compute a scalar group advantage $A_i$ for each rollout $y_i$:
+    \begin{equation}
+    A_i = \frac{\mathcal{R}(x, y_i) - \text{mean}\big(\mathcal{R}(x, y_1), \dots, \mathcal{R}(x, y_G)\big)}{\text{std}\big(\mathcal{R}(x, y_1), \dots, \mathcal{R}(x, y_G)\big)}
+    \end{equation}
+    Crucially, in token-level policy gradient optimization, \textbf{this single scalar advantage $A_i$ multiplies the log-probability ratio of every generated token $t \in \{1, \dots, |y_i|\}$ in rollout $y_i$}---including every token in $\mathcal{T}_{\text{Reasoning}}$:
+\end{enumerate}
+
+\begin{mathbox}{GRPO Token-Level Policy Objective Showing Broadcast of Advantage $A_i$ to \texttt{Reasoning:} Tokens}
+\begin{equation}
+\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{G} \sum_{i=1}^{G} \frac{1}{|y_i|} \sum_{t=1}^{|y_i|} \left[ \min\!\Big( r_{i,t}(\theta) A_i, \, \text{clip}\big(r_{i,t}(\theta), 1-\epsilon, 1+\epsilon\big) A_i \Big) - \beta \, \mathbb{D}_{\text{KL}}\big(\pi_\theta \parallel \pi_{\text{ref}}\big) \right]
+\end{equation}
+where $r_{i,t}(\theta) = \frac{\pi_\theta(y_{i,t} \mid x, y_{i,<t})}{\pi_{\theta_{\text{old}}}(y_{i,t} \mid x, y_{i,<t})}$ is evaluated at every token position $t \in \mathcal{T}_{\text{Action}} \cup \mathcal{T}_{\text{Reasoning}} \cup \mathcal{T}_{\text{Facets}} \cup \mathcal{T}_{\text{Response}}$.
+\end{mathbox}
+
+Because the sum over $t=1 \dots |y_i|$ spans the entire generated completion:
+\begin{itemize}[leftmargin=18pt, itemsep=2pt]
+    \item When a rollout $y_i$ achieves above-average total reward ($A_i > 0$), backpropagation \textbf{increases the next-token probabilities of all \texttt{Reasoning:} tokens that rollout $y_i$ generated}.
+    \item When a rollout $y_i$ achieves below-average total reward ($A_i < 0$), backpropagation \textbf{decreases the next-token probabilities of all \texttt{Reasoning:} tokens in rollout $y_i$}.
+\end{itemize}
+In short, GRPO treats the \texttt{Reasoning:} tokens as latent action steps in a trajectory: reasoning chains that lead to high-reward downstream facets and answers are reinforced, while reasoning chains that lead to errors are suppressed.
+
+% -----------------------------------------------------------------------------
+% SECTION 4: SUMMARY COMPARISON MATRIX
+% -----------------------------------------------------------------------------
+\section{Comprehensive Summary Comparison Matrix}
+
+{\small
+\renewcommand{\arraystretch}{1.45}
+\begin{tabularx}{\textwidth}{|>{\bfseries\color{Navy}\raggedright\arraybackslash}p{0.68in}|>{\raggedright\arraybackslash}p{1.15in}|>{\raggedright\arraybackslash}p{1.22in}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{1.28in}|}
+\hline
+\rowcolor{Navy}
+\textcolor{white}{Algorithm} &
+\textcolor{white}{\textbf{Dataset \texttt{Reasoning:} Used?}} &
+\textcolor{white}{\textbf{ML Role in Forward Pass}} &
+\textcolor{white}{\textbf{How Loss \& Gradients Act on \texttt{Reasoning:} Tokens}} &
+\textcolor{white}{\textbf{Codebase Reference}} \\
+\hline
+SFT &
+\textbf{Yes}\newline ({\footnotesize\texttt{output.reasoning}} in {\footnotesize\texttt{sft\_train.jsonl}}) &
+\textbf{Target $y_t$} (for $t \in \mathcal{T}_{\text{Reasoning}}$) AND \textbf{Teacher-Forced Prefix $y_{<t}$} (for downstream fields) &
+Direct token-level Cross-Entropy loss $-\sum_t \log \pi_\theta(y_t \mid x, y_{<t})$. Trains the model to emit the exact gold CoT tokens while conditioning \texttt{Facets:} and \texttt{Response:}. &
+{\footnotesize\texttt{trainer.py}}\newline {\footnotesize\texttt{run\_sft\_training()}}\newline (Lines 220--237) \\
+\hline
+\rowcolor{GrayBand}
+DPO &
+\textbf{Yes}\newline (\texttt{reasoning} in $y_w$; adversarial {\footnotesize\texttt{neg\_reasoning}} in $y_l$) &
+\textbf{Contrastive Target Sequences} $y_w$ (\texttt{chosen}) and $y_l$ (\texttt{rejected}) &
+Sums next-token log-probs $\sum_t \log \pi_\theta(y_t \mid x, y_{<t})$ across all completion tokens. Pushes \textbf{positive gradients} onto valid \texttt{Reasoning:} tokens in $y_w$ and \textbf{negative gradients} onto flawed \texttt{neg\_reasoning} tokens in $y_l$ relative to $\pi_{\text{ref}}$. &
+{\footnotesize\texttt{trainer.py}}\newline {\footnotesize\texttt{run\_dpo\_training()}}\newline (Lines 318--344)\newline {\footnotesize\texttt{preprocess.py}}\newline (Lines 452--520) \\
+\hline
+ORPO &
+\textbf{Yes}\newline (\texttt{reasoning} in $y_w$; adversarial {\footnotesize\texttt{neg\_reasoning}} in $y_l$) &
+\textbf{Contrastive Target Sequences} $y_w$ (\texttt{chosen}) and $y_l$ (\texttt{rejected}) &
+Reference-free joint loss $\mathcal{L}_{\text{SFT}}(y_w) + \lambda \mathcal{L}_{\text{OR}}(y_w, y_l)$. Valid \texttt{Reasoning:} tokens in $y_w$ receive \textbf{both} SFT Cross-Entropy gradients and positive log-odds gradients; flawed \texttt{neg\_reasoning} tokens in $y_l$ receive negative log-odds gradients. &
+{\footnotesize\texttt{trainer.py}}\newline {\footnotesize\texttt{run\_orpo\_training()}}\newline (Lines 415--441) \\
+\hline
+\rowcolor{GrayBand}
+GRPO &
+\textbf{No}\newline (Dataset CoT is discarded in {\footnotesize\texttt{SingleTurnEnv}}; model generates its own CoT on-policy) &
+\textbf{On-Policy Sampled Rollout Tokens} $y_{i,t} \sim \pi_{\theta_{\text{old}}}(\cdot \mid x)$ &
+\textbf{Reward Check:} {\footnotesize\texttt{FormatCriterion}} only checks {\footnotesize\texttt{"Reasoning:" in completion}}.\newline \textbf{Policy Gradient:} The rollout's total advantage $A_i$ multiplies $\nabla_\theta \log \pi_\theta(y_{i,t} \mid x, y_{i,<t})$ for \textit{every} token $t$ in rollout $y_i$, reinforcing on-policy reasoning traces that lead to high-reward facets and answers. &
+{\footnotesize\texttt{trainer.py}}\newline {\footnotesize\texttt{run\_grpo\_training()}}\newline (Lines 490--621)\newline {\footnotesize\texttt{rewards/base.py}}\newline (Lines 67--98)\newline {\footnotesize\texttt{rewards/criteria.py}}\newline (Lines 17--28) \\
+\hline
+\end{tabularx}
+}
+
+\end{document}
