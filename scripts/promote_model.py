@@ -201,7 +201,7 @@ def verify_artifact(
             ) from exc
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(
-                "Model verification command FAILED. " "Artifact will not be promoted."
+                "Model verification command FAILED. Artifact will not be promoted."
             ) from exc
 
         logger.info("Model verification command: PASSED")
@@ -271,8 +271,7 @@ def promote_artifact(
 
     if not VERSION_PATTERN.fullmatch(registry_version):
         raise RuntimeError(
-            "W&B returned an unexpected Registry artifact version: "
-            f"{registry_version}"
+            f"W&B returned an unexpected Registry artifact version: {registry_version}"
         )
 
     registry_ref = f"{target_path}:{registry_version}"
